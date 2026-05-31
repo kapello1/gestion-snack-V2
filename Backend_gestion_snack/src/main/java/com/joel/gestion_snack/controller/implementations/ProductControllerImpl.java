@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,9 @@ import java.util.List;
 public class ProductControllerImpl implements IProductController {
     
     private final IProductService productService;
+
+    @Value("${app.base.url:http://localhost:8080}")
+    private String appBaseUrl;
     
     @Override
     @GetMapping
@@ -119,7 +123,7 @@ public class ProductControllerImpl implements IProductController {
             
             java.nio.file.Files.copy(file.getInputStream(), destFile.getAbsoluteFile().toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             
-            String imageUrl = "http://localhost:8080/uploads/" + newFilename;
+            String imageUrl = appBaseUrl + "/uploads/" + newFilename;
             
             ProductRequestDTO requestDTO = new ProductRequestDTO();
             ProductDTO existing = productService.getProductById(id);
