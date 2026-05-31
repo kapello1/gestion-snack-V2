@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: gestion-snack-backend
+    runtime: java
+    plan: free
+    rootDir: Backend_gestion_snack
+    buildCommand: mvn clean package -DskipTests
+    startCommand: java -jar target/gestion_snack-0.0.1-SNAPSHOT.jar
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: JAVA_VERSION
+        value: "17"
+      - key: DATABASE_URL
+        sync: false   # À définir dans le dashboard Render
+      - key: DATABASE_USERNAME
+        sync: false   # À définir dans le dashboard Render
+      - key: DATABASE_PASSWORD
+        sync: false   # À définir dans le dashboard Render
+      - key: ALLOWED_ORIGINS
+        sync: false   # URL Vercel : ex. https://gestion-snack.vercel.app

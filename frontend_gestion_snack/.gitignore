@@ -1,0 +1,4 @@
+# Règles spécifiques au module Frontend
+# (les règles communes sont dans le .gitignore racine)
+
+*.local

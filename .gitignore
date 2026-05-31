@@ -1,0 +1,81 @@
+# =============================================================
+#  .gitignore — Monorepo Gestion Snack
+#  Couvre : Backend (Java/Maven), Frontend (Node/Vite), commun
+# =============================================================
+
+# ─── Secrets & environnement ──────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+*.secret
+application-local.properties
+
+# ─── Java / Maven (Backend) ───────────────────────────────────
+Backend_gestion_snack/target/
+Backend_gestion_snack/.mvn/wrapper/maven-wrapper.jar
+!Backend_gestion_snack/**/src/main/**/target/
+!Backend_gestion_snack/**/src/test/**/target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+
+# ─── Node.js / Vite (Frontend) ────────────────────────────────
+frontend_gestion_snack/node_modules/
+frontend_gestion_snack/dist/
+frontend_gestion_snack/dist-ssr/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# ─── Fichiers uploadés (stockage local runtime) ───────────────
+Backend_gestion_snack/uploads/
+
+# ─── IDEs & éditeurs ──────────────────────────────────────────
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+
+# Eclipse / STS
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# ─── Systèmes d'exploitation ──────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ─── Divers ───────────────────────────────────────────────────
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.local

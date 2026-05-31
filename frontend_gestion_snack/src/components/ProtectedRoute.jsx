@@ -1,0 +1,38 @@
+// Composant de protection des routes selon les rôles
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.roleName)) {
+    // Rediriger vers le dashboard selon le rôle
+    const roleDashboard = {
+      ADMIN: '/admin/dashboard',
+      CUSTOMER: '/customer/menu',
+      CASHIER: '/cashier/payments',
+      WAITER: '/waiter/orders',
+      COOK: '/cook/orders',
+      PROVIDER: '/provider/orders',
+    };
+
+    return <Navigate to={roleDashboard[user.roleName] || '/dashboard'} replace />;
+  }
+
+  return children;
+};
+
+export default ProtectedRoute;
+
