@@ -1,0 +1,37 @@
+# Exclure les fichiers inutiles du contexte Docker (accélère le build)
+
+# Artefacts de compilation
+target/
+*.class
+
+# Maven wrapper (non nécessaire dans le conteneur)
+.mvn/wrapper/maven-wrapper.jar
+
+# Dossier d'uploads local (recréé au démarrage)
+uploads/
+
+# Fichiers de config IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Secrets locaux
+.env
+.env.local
+application-local.properties
+
+# Logs et fichiers temporaires
+*.log
+backend_log.txt
+
+# Scripts SQL et docs
+*.sql
+README.md
+HELP.md
