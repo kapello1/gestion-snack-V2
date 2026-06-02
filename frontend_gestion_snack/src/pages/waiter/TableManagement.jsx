@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { Clock, Users, CheckCircle, XCircle, AlertCircle, RefreshCw, User, Phone, Mail, Hash } from 'lucide-react';
 import api from '../../utils/api';
@@ -6,59 +7,44 @@ import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/layout/Layout';
 
 const TableManagement = () => {
-    const [tables, setTables] = useState([]);
-    const [ordersByTable, setOrdersByTable] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [lastUpdated, setLastUpdated] = useState(new Date());
-    const fetchPending = useRef(false); // empêche les requêtes concurrentes
-
-    // Constants
-    const MAX_OCCUPANCY_TIME_MS = 2.5 * 60 * 60 * 1000; // 2h 30m in ms
-
-    useEffect(() => {
-        fetchTables();
-
-        // Polling silencieux — saute le tick si une requête est déjà en vol
-        const intervalId = setInterval(() => {
-            fetchTables(true);
-        }, 3000);
-
-        return () => { clearInterval(intervalId); fetchPending.current = false; };
-    }, []);
-
-    // Update countdowns every second
+    const queryClient = useQueryClient();
     const [now, setNow] = useState(new Date());
-    useEffect(() => {
+
+    // Compteur de secondes pour le chrono (ne touche pas à la base de données)
+    useState(() => {
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
-    }, []);
+    });
 
-    const fetchTables = async (silent = false) => {
-        if (fetchPending.current) return; // déjà une requête en cours — on saute
-        fetchPending.current = true;
-        if (!silent) setLoading(true);
-        try {
-            const [tablesRes, ordersRes] = await Promise.all([
-                api.get(API_ENDPOINTS.TABLES.BASE),
-                api.get(API_ENDPOINTS.ORDERS.BY_STATUS('ACTIVE')).catch(() => ({ data: [] })),
-            ]);
-            setTables(tablesRes.data || []);
+    const MAX_OCCUPANCY_TIME_MS = 2.5 * 60 * 60 * 1000;
 
-            // Build tableId → order map pour les tables OCCUPÉES uniquement
-            const map = {};
-            (ordersRes.data || []).forEach(order => {
-                if (order.tableId) map[order.tableId] = order;
-            });
-            setOrdersByTable(map);
-            setLastUpdated(new Date());
-        } catch (error) {
-            console.error('Error fetching tables:', error);
-            if (!silent) toast.error('Erreur lors du chargement des tables');
-        } finally {
-            fetchPending.current = false;
-            if (!silent) setLoading(false);
-        }
-    };
+    // React Query remplace le setInterval de polling
+    // WebSocket invalide ['tables'] → refetch automatique sans polling
+    const { data: tables = [], isLoading: tablesLoading } = useQuery({
+        queryKey: ['tables'],
+        queryFn: async () => {
+            const res = await api.get(API_ENDPOINTS.TABLES.BASE);
+            return res.data || [];
+        },
+        staleTime: Infinity,
+    });
+
+    const { data: activeOrders = [] } = useQuery({
+        queryKey: ['orders', 'active'],
+        queryFn: async () => {
+            const res = await api.get(API_ENDPOINTS.ORDERS.BY_STATUS('ACTIVE')).catch(() => ({ data: [] }));
+            return res.data || [];
+        },
+        staleTime: Infinity,
+    });
+
+    // Map tableId → commande active
+    const ordersByTable = activeOrders.reduce((map, order) => {
+        if (order.tableId) map[order.tableId] = order;
+        return map;
+    }, {});
+
+    const lastUpdated = new Date();
 
     const handleStatusChange = async (tableId, newStatus) => {
         try {
@@ -66,11 +52,17 @@ const TableManagement = () => {
                 params: { status: newStatus }
             });
             toast.success(`Statut de la table mis à jour: ${newStatus}`);
-            fetchTables(true);
-        } catch (error) {
-            console.error('Error updating table status:', error);
+            // Le WebSocket publie TABLE_STATUS_UPDATED → invalidation automatique
+            // On invalide aussi manuellement pour une réponse immédiate
+            queryClient.invalidateQueries({ queryKey: ['tables'] });
+        } catch {
             toast.error('Erreur lors de la mise à jour du statut');
         }
+    };
+
+    const handleManualRefresh = () => {
+        queryClient.invalidateQueries({ queryKey: ['tables'] });
+        queryClient.invalidateQueries({ queryKey: ['orders', 'active'] });
     };
 
     const getRemainingTime = (updatedAt) => {
@@ -99,7 +91,7 @@ const TableManagement = () => {
         }
     };
 
-    if (loading) {
+    if (tablesLoading) {
         return (
             <Layout>
                 <div className="flex justify-center items-center h-screen">
@@ -116,11 +108,12 @@ const TableManagement = () => {
                     <h1 className="text-3xl font-bold text-gray-900">Gestion des Tables</h1>
                     <div className="flex items-center space-x-4">
                         <span className="text-sm text-gray-500">
-                            Dernière mise à jour: {lastUpdated.toLocaleTimeString()}
+                            Mis à jour: {lastUpdated.toLocaleTimeString()}
                         </span>
                         <button
-                            onClick={() => fetchTables()}
+                            onClick={handleManualRefresh}
                             className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition-colors"
+                            title="Forcer le rafraîchissement"
                         >
                             <RefreshCw className="h-5 w-5" />
                         </button>
@@ -166,7 +159,6 @@ const TableManagement = () => {
                                     </div>
                                 </div>
 
-                                {/* Customer info for OCCUPIED tables */}
                                 {isOccupied && (custName || custId) && (
                                     <div className="mb-3 p-3 bg-blue-50 rounded-md border border-blue-200 text-sm">
                                         <div className="flex items-center gap-1 font-semibold text-blue-800 mb-1.5">

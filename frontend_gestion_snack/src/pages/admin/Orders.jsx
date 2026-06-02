@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
 import { Search, Filter, Eye, XCircle, Clock, Printer, Package, User, Calendar, CreditCard } from 'lucide-react';
 import { generateOrderPDF } from '../../utils/pdfGenerator';
@@ -7,12 +8,9 @@ import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, ORDER_STATUS } from '../../utils/constants';
 import OrderStatusBar from '../../components/OrderStatusBar';
-import usePolling from '../../utils/usePolling';
 
 const OrdersPage = () => {
-  const [orders, setOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -20,65 +18,35 @@ const OrdersPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterByDate, setFilterByDate] = useState(true);
 
-  // Chargement initial
-  useEffect(() => {
-    loadOrders(true);
-  }, []);
-
-  // Polling ultra-rapide (1 seconde) pour le temps réel "silencieux"
-  usePolling(() => loadOrders(false), 1000);
-
-  useEffect(() => {
-    filterOrders();
-  }, [searchTerm, statusFilter, orders]);
-
-  const loadOrders = async (showLoading = false) => {
-    try {
-      if (showLoading) setLoading(true);
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ['orders', 'admin', statusFilter, filterByDate ? selectedDate : null],
+    queryFn: async () => {
       let response;
       if (filterByDate && selectedDate) {
-        if (statusFilter !== 'ALL') {
-          response = await api.get(API_ENDPOINTS.ORDERS.BY_STATUS_AND_DATE(statusFilter, selectedDate));
-        } else {
-          response = await api.get(API_ENDPOINTS.ORDERS.BY_DATE(selectedDate));
-        }
+        response = statusFilter !== 'ALL'
+          ? await api.get(API_ENDPOINTS.ORDERS.BY_STATUS_AND_DATE(statusFilter, selectedDate))
+          : await api.get(API_ENDPOINTS.ORDERS.BY_DATE(selectedDate));
       } else {
-        if (statusFilter !== 'ALL') {
-          response = await api.get(API_ENDPOINTS.ORDERS.BY_STATUS(statusFilter));
-        } else {
-          response = await api.get(API_ENDPOINTS.ORDERS.BASE);
-        }
+        response = statusFilter !== 'ALL'
+          ? await api.get(API_ENDPOINTS.ORDERS.BY_STATUS(statusFilter))
+          : await api.get(API_ENDPOINTS.ORDERS.BASE);
       }
-      
-      // On ne met à jour le state que si les données ont changé pour éviter des re-renders inutiles
-      // (Simple check sur la longueur et les IDs pour la démo, idéalement hashage)
-      const newOrders = response.data || [];
-      setOrders(newOrders);
-    } catch (error) {
-      if (showLoading) toast.error('Erreur lors du chargement des commandes');
-      else throw error;
-    } finally {
-      if (showLoading) setLoading(false);
-    }
-  };
+      return response.data || [];
+    },
+    staleTime: Infinity,
+  });
 
-  const filterOrders = () => {
-    let filtered = orders;
-
-    if (statusFilter !== 'ALL') {
-      filtered = filtered.filter(order => order.status === statusFilter);
-    }
-
-    if (searchTerm) {
+  const filteredOrders = orders
+    .filter(order => {
+      if (statusFilter !== 'ALL' && order.status !== statusFilter) return false;
+      if (!searchTerm) return true;
       const lowerTerm = searchTerm.toLowerCase();
-      filtered = filtered.filter(order =>
+      return (
         order.orderId.toString().includes(lowerTerm) ||
         (order.customer && `${order.customer.firstName} ${order.customer.lastName}`.toLowerCase().includes(lowerTerm))
       );
-    }
-
-    setFilteredOrders(filtered.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate)));
-  };
+    })
+    .sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
 
   const handleViewDetails = async (order) => {
     setSelectedOrder(order);
@@ -88,7 +56,7 @@ const OrdersPage = () => {
         const res = await api.get(`${API_ENDPOINTS.ORDERS.BASE}/${order.orderId}`);
         setSelectedOrder(res.data);
       } catch (e) {
-        console.error("Could not fetch order details", e);
+        console.error('Could not fetch order details', e);
       }
     }
   };
@@ -97,33 +65,25 @@ const OrdersPage = () => {
     try {
       let endpoint;
       switch (newStatus) {
-        case 'CLOSED':
-          endpoint = API_ENDPOINTS.ORDERS.CLOSE(orderId);
-          break;
-        case 'SERVED':
-          endpoint = API_ENDPOINTS.ORDERS.SERVE(orderId);
-          break;
-        case 'CANCELLED':
-          endpoint = API_ENDPOINTS.ORDERS.CANCEL(orderId);
-          break;
-        default:
-          toast.error('Statut inconnu');
-          return;
+        case 'CLOSED':   endpoint = API_ENDPOINTS.ORDERS.CLOSE(orderId);  break;
+        case 'SERVED':   endpoint = API_ENDPOINTS.ORDERS.SERVE(orderId);  break;
+        case 'CANCELLED': endpoint = API_ENDPOINTS.ORDERS.CANCEL(orderId); break;
+        default: toast.error('Statut inconnu'); return;
       }
       await api.post(endpoint);
-      toast.success(`Statut mis à jour !`);
-      loadOrders(false);
+      toast.success('Statut mis à jour !');
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+
       if (selectedOrder && selectedOrder.orderId === orderId) {
         const res = await api.get(`${API_ENDPOINTS.ORDERS.BASE}/${orderId}`);
         setSelectedOrder(res.data);
       }
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du statut:', error);
+    } catch {
       toast.error('Erreur lors de la mise à jour du statut');
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Layout>
         <div className="flex flex-col justify-center items-center h-96 space-y-4">
@@ -159,7 +119,7 @@ const OrdersPage = () => {
           </div>
         </div>
 
-        {/* Filtres Avancés (Modernes) */}
+        {/* Filtres */}
         <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-8 mb-10">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="md:col-span-2 relative">
@@ -205,7 +165,7 @@ const OrdersPage = () => {
           </div>
         </div>
 
-        {/* Tableau de Bord (Modernisé) */}
+        {/* Table */}
         <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100">
           <table className="min-w-full">
             <thead>
@@ -283,7 +243,7 @@ const OrdersPage = () => {
           </table>
         </div>
 
-        {/* Modal Détails (Refonte Expérientielle) */}
+        {/* Modal Détails */}
         {showModal && selectedOrder && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-[3rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
@@ -301,7 +261,6 @@ const OrdersPage = () => {
               </div>
 
               <div className="p-8 overflow-y-auto space-y-10">
-                {/* Status Bar */}
                 <div className="bg-gray-50 rounded-[2rem] p-8 flex justify-center border border-gray-100">
                   <OrderStatusBar status={selectedOrder.status} />
                 </div>
@@ -332,7 +291,6 @@ const OrdersPage = () => {
                   </div>
                 </div>
 
-                {/* Articles List */}
                 <div className="space-y-4">
                   <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">Articles commandés</h3>
                   <div className="space-y-3">
@@ -353,7 +311,6 @@ const OrdersPage = () => {
                   </div>
                 </div>
 
-                {/* Actions contextuelles */}
                 <div className="flex gap-4 pt-6">
                    {selectedOrder.status === 'ACTIVE' && (
                      <button

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
 import { Search, Utensils, CheckCircle, Clock, Printer, User, Package, CalendarDays, Filter } from 'lucide-react';
 import { generateOrderPDF } from '../../utils/pdfGenerator';
@@ -6,7 +7,6 @@ import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, ORDER_STATUS } from '../../utils/constants';
-import usePolling from '../../utils/usePolling';
 
 const STATUS_TABS = [
   { key: 'ALL',    label: 'Toutes',     active: 'bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105' },
@@ -27,21 +27,15 @@ const groupByDate = (orders) => {
 };
 
 const WaiterOrdersPage = () => {
-  const [orders, setOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterByDate, setFilterByDate] = useState(true);
 
-  useEffect(() => { loadOrders(true); }, [statusFilter, selectedDate, filterByDate]);
-  usePolling(() => loadOrders(false), 1000);
-  useEffect(() => { applySearch(); }, [searchTerm, orders]);
-
-  const loadOrders = async (showLoading = false) => {
-    try {
-      if (showLoading) setLoading(true);
+  const { data: rawOrders = [], isLoading } = useQuery({
+    queryKey: ['orders', 'waiter', statusFilter, filterByDate ? selectedDate : null],
+    queryFn: async () => {
       let response;
       if (statusFilter === 'ALL') {
         response = filterByDate && selectedDate
@@ -52,43 +46,42 @@ const WaiterOrdersPage = () => {
           ? await api.get(API_ENDPOINTS.ORDERS.BY_STATUS_AND_DATE(statusFilter, selectedDate))
           : await api.get(API_ENDPOINTS.ORDERS.BY_STATUS(statusFilter));
       }
-      // Waiter sees CLOSED + SERVED orders
-      const data = (response.data || []).filter(o => o.status === ORDER_STATUS.CLOSED || o.status === ORDER_STATUS.SERVED);
-      setOrders(data);
-    } catch (error) {
-      if (showLoading) toast.error('Erreur lors du chargement des commandes');
-      else throw error;
-    } finally {
-      if (showLoading) setLoading(false);
-    }
-  };
+      return response.data || [];
+    },
+    staleTime: Infinity,
+  });
 
-  const applySearch = () => {
-    let filtered = orders;
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(o =>
-        o.orderId?.toString().includes(lower) ||
-        (o.customer && `${o.customer.firstName ?? ''} ${o.customer.lastName ?? ''}`.toLowerCase().includes(lower))
-      );
-    }
-    setFilteredOrders(filtered.sort((a, b) => new Date(a.orderDate) - new Date(b.orderDate)));
-  };
+  // Vue serveur : CLOSED (à servir) + SERVED (déjà servies)
+  const orders = rawOrders.filter(
+    o => o.status === ORDER_STATUS.CLOSED || o.status === ORDER_STATUS.SERVED
+  );
+
+  const filteredOrders = searchTerm
+    ? orders.filter(o => {
+        const lower = searchTerm.toLowerCase();
+        return (
+          o.orderId?.toString().includes(lower) ||
+          (o.customer && `${o.customer.firstName ?? ''} ${o.customer.lastName ?? ''}`.toLowerCase().includes(lower))
+        );
+      })
+    : orders;
+
+  const sortedOrders = [...filteredOrders].sort((a, b) => new Date(a.orderDate) - new Date(b.orderDate));
 
   const handleServe = async (orderId) => {
     try {
       await api.post(API_ENDPOINTS.ORDERS.SERVE(orderId));
       toast.success(`Commande #${orderId} servie ! ✅`);
-      loadOrders(false);
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch {
       toast.error('Erreur lors du service de la commande');
     }
   };
 
-  const groups = groupByDate(filteredOrders);
+  const groups = groupByDate(sortedOrders);
   const toServeCount = orders.filter(o => o.status === ORDER_STATUS.CLOSED).length;
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Layout>
         <div className="flex flex-col justify-center items-center h-96 space-y-4">
@@ -221,7 +214,6 @@ const WaiterOrdersPage = () => {
                     </div>
 
                     <div className="p-6 space-y-6">
-                      {/* Info Client & Table */}
                       <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
                         <div className="h-12 w-12 bg-white rounded-xl flex items-center justify-center text-blue-600 font-black shadow-sm">
                           <User className="h-6 w-6" />
@@ -240,7 +232,6 @@ const WaiterOrdersPage = () => {
                         </div>
                       </div>
 
-                      {/* Articles */}
                       <div className="space-y-2">
                         {order.orderItems?.map((item, idx) => (
                           <div key={idx} className="flex justify-between items-center text-sm">
@@ -250,7 +241,6 @@ const WaiterOrdersPage = () => {
                         ))}
                       </div>
 
-                      {/* Action */}
                       {order.status === ORDER_STATUS.CLOSED && (
                         <button
                           onClick={() => handleServe(order.orderId)}

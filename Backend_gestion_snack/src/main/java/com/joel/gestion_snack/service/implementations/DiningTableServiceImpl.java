@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.service.implementations;
 
+import com.joel.gestion_snack.config.WebSocketEventPublisher;
 import com.joel.gestion_snack.model.dto.DiningTableDTO;
 import com.joel.gestion_snack.model.dto.DiningTableRequestDTO;
 import com.joel.gestion_snack.model.entity.DiningTable;
@@ -33,6 +34,7 @@ public class DiningTableServiceImpl implements IDiningTableService {
     private final ReservationRepository reservationRepository;
     private final com.joel.gestion_snack.repository.OrderRepository orderRepository;
     private final MapperUtil mapperUtil;
+    private final WebSocketEventPublisher wsPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -86,6 +88,7 @@ public class DiningTableServiceImpl implements IDiningTableService {
         DiningTable table = mapperUtil.toDiningTable(requestDTO);
         table = diningTableRepository.save(table);
         log.info("Table créée avec succès avec l'ID: {}", table.getTableId());
+        wsPublisher.publishTableEvent("TABLE_CREATED", table.getTableId());
         return mapperUtil.toDiningTableDTO(table);
     }
 
@@ -105,6 +108,7 @@ public class DiningTableServiceImpl implements IDiningTableService {
         table.setUpdatedBy(requestDTO.getCreatedBy());
         table = diningTableRepository.save(table);
         log.info("Table mise à jour avec succès avec l'ID: {}", table.getTableId());
+        wsPublisher.publishTableEvent("TABLE_UPDATED", table.getTableId());
         return mapperUtil.toDiningTableDTO(table);
     }
 
@@ -117,6 +121,7 @@ public class DiningTableServiceImpl implements IDiningTableService {
         }
         diningTableRepository.deleteById(id);
         log.info("Table supprimée avec succès avec l'ID: {}", id);
+        wsPublisher.publishTableEvent("TABLE_DELETED", id);
     }
 
     @Override
@@ -140,6 +145,7 @@ public class DiningTableServiceImpl implements IDiningTableService {
         table.setUpdatedBy("SYSTEM");
         table = diningTableRepository.save(table);
         log.info("Statut de la table mis à jour avec succès");
+        wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", table.getTableId());
         return mapperUtil.toDiningTableDTO(table);
     }
 

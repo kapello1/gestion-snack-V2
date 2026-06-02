@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../utils/api';
 import { API_ENDPOINTS } from '../config/api';
 import { toast } from 'react-toastify';
+import { wsManager } from '../lib/wsManager';
 
 const AuthContext = createContext(null);
 
@@ -56,6 +57,8 @@ export const AuthProvider = ({ children }) => {
     if (storedUser && storedToken) {
       try {
         setUser(JSON.parse(storedUser));
+        // Reconnexion WebSocket si la session est toujours active
+        wsManager.connect();
       } catch (error) {
         console.error('Erreur lors du parsing de l\'utilisateur:', error);
         localStorage.removeItem('user');
@@ -90,6 +93,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', 'authenticated');
 
         setUser(userData);
+        wsManager.connect(); // Ouvre la connexion WebSocket temps réel
         toast.success('Connexion réussie !');
         return { success: true, data: userData };
       } else {
@@ -109,7 +113,8 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
-    clearTimeout(window.logoutTimer); // Clear timer on logout
+    clearTimeout(window.logoutTimer);
+    wsManager.disconnect(); // Ferme proprement la connexion WebSocket
     setUser(null);
     toast.info('Déconnexion réussie');
   };

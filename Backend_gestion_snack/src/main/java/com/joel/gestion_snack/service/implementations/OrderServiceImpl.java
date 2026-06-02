@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.service.implementations;
 
+import com.joel.gestion_snack.config.WebSocketEventPublisher;
 import com.joel.gestion_snack.model.dto.OrderDTO;
 import com.joel.gestion_snack.model.dto.OrderItemDTO;
 import com.joel.gestion_snack.model.dto.OrderItemRequestDTO;
@@ -37,6 +38,7 @@ public class OrderServiceImpl implements IOrderService {
     private final RevenueRepository revenueRepository;
     private final TransactionRepository transactionRepository;
     private final MapperUtil mapperUtil;
+    private final WebSocketEventPublisher wsPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -153,6 +155,7 @@ public class OrderServiceImpl implements IOrderService {
         // Le total sera recalculé automatiquement par le trigger de la base de données
         order = orderRepository.findById(order.getOrderId()).orElse(order);
         log.info("Commande créée avec succès avec l'ID: {}", order.getOrderId());
+        wsPublisher.publishOrderEvent("ORDER_CREATED", order.getOrderId());
         return toOrderDTOWithItems(order);
     }
 
@@ -290,6 +293,7 @@ public class OrderServiceImpl implements IOrderService {
 
         // Le trigger de la base de données restaurera automatiquement le stock
         log.info("Commande annulée avec succès avec l'ID: {}", id);
+        wsPublisher.publishOrderEvent("ORDER_CANCELLED", order.getOrderId());
         return toOrderDTOWithItems(order);
     }
 
@@ -313,6 +317,7 @@ public class OrderServiceImpl implements IOrderService {
         order = orderRepository.save(order);
 
         log.info("Commande marquée prête avec succès, ID: {}", id);
+        wsPublisher.publishOrderEvent("ORDER_CLOSED", order.getOrderId());
         return toOrderDTOWithItems(order);
     }
 
@@ -336,6 +341,7 @@ public class OrderServiceImpl implements IOrderService {
         order = orderRepository.save(order);
 
         log.info("Commande marquée comme servie avec succès, ID: {}", id);
+        wsPublisher.publishOrderEvent("ORDER_SERVED", order.getOrderId());
         return toOrderDTOWithItems(order);
     }
 
@@ -370,6 +376,11 @@ public class OrderServiceImpl implements IOrderService {
         updateRevenue(order);
 
         log.info("Paiement enregistré pour la commande {}", id);
+        wsPublisher.publishOrderEvent("ORDER_PAID", order.getOrderId());
+        // Si une table a été libérée, notifier aussi le topic tables
+        if (order.getTable() != null) {
+            wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", order.getTable().getTableId());
+        }
         return toOrderDTOWithItems(order);
     }
 

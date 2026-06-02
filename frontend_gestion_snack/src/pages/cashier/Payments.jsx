@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
 import { Search, CreditCard, DollarSign, CheckCircle, History, Clock, User, CalendarDays, Filter, Receipt, Package } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, ORDER_STATUS, ORDER_TYPE, PAYMENT_METHOD } from '../../utils/constants';
-import usePolling from '../../utils/usePolling';
 
 const groupByDate = (orders) => {
   const map = {};
@@ -27,46 +27,37 @@ const isPayable = (order) => {
 };
 
 const PaymentsPage = () => {
-  const [allOrders, setAllOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('topay'); // 'topay' | 'history'
+  const queryClient = useQueryClient();
+  const [view, setView] = useState('topay');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [filterByDate, setFilterByDate] = useState(false); // history date filter off by default
+  const [filterByDate, setFilterByDate] = useState(false);
 
-  useEffect(() => { loadOrders(true); }, [view, selectedDate, filterByDate]);
-  usePolling(() => loadOrders(false), 3000);
-
-  const loadOrders = async (showLoading = false) => {
-    try {
-      if (showLoading) setLoading(true);
+  const { data: allOrders = [], isLoading } = useQuery({
+    queryKey: ['orders', 'cashier', view, filterByDate && view === 'history' ? selectedDate : null],
+    queryFn: async () => {
       let response;
       if (view === 'history' && filterByDate && selectedDate) {
         response = await api.get(API_ENDPOINTS.ORDERS.BY_DATE(selectedDate));
       } else {
         response = await api.get(API_ENDPOINTS.ORDERS.BASE);
       }
-      setAllOrders(response.data || []);
-    } catch (error) {
-      if (showLoading) toast.error('Erreur lors du chargement des commandes');
-      else throw error;
-    } finally {
-      if (showLoading) setLoading(false);
-    }
-  };
+      return response.data || [];
+    },
+    staleTime: Infinity,
+  });
 
   const handlePayment = async (orderId, paymentMethod) => {
     try {
       await api.post(API_ENDPOINTS.ORDERS.PAY(orderId), { paymentMethod, createdBy: 'CASHIER' });
       toast.success('Paiement enregistré avec succès ✅');
-      loadOrders(false);
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Erreur lors du paiement');
     }
   };
 
   const q = searchTerm.toLowerCase();
-
   const matchesSearch = (order) =>
     !q ||
     order.orderId?.toString().includes(q) ||
@@ -75,7 +66,6 @@ const PaymentsPage = () => {
 
   const payableOrders = allOrders.filter(o => isPayable(o) && matchesSearch(o));
   const historyOrders = allOrders.filter(o => matchesSearch(o));
-
   const payableCount = allOrders.filter(isPayable).length;
   const historyGroups = groupByDate(historyOrders);
 
@@ -94,7 +84,7 @@ const PaymentsPage = () => {
     );
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Layout>
         <div className="flex justify-center items-center h-64">
@@ -144,7 +134,7 @@ const PaymentsPage = () => {
           </div>
         </div>
 
-        {/* Search + date filter (history only) */}
+        {/* Search + date filter */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-8 flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -203,7 +193,6 @@ const PaymentsPage = () => {
                   </div>
 
                   <div className="p-5 space-y-4">
-                    {/* Client & table */}
                     <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
                       <User className="h-5 w-5 text-blue-500 flex-shrink-0" />
                       <div className="min-w-0">
@@ -216,7 +205,6 @@ const PaymentsPage = () => {
                       </div>
                     </div>
 
-                    {/* Articles */}
                     {order.orderItems && order.orderItems.length > 0 && (
                       <div className="space-y-1">
                         {order.orderItems.map((item, idx) => (
@@ -228,13 +216,11 @@ const PaymentsPage = () => {
                       </div>
                     )}
 
-                    {/* Total */}
                     <div className="flex justify-between items-center pt-3 border-t border-gray-100">
                       <span className="font-bold text-gray-700">Total</span>
                       <span className="text-2xl font-black text-blue-600">{order.totalAmount?.toFixed(2)} €</span>
                     </div>
 
-                    {/* Payment buttons */}
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <button
                         onClick={() => handlePayment(order.orderId, PAYMENT_METHOD.CASH)}

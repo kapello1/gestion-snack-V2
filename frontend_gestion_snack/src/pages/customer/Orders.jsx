@@ -1,5 +1,6 @@
 // Page des commandes du client
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
 import { Search, ShoppingCart, X, CheckCircle, Printer, Package, Clock, CreditCard, Sparkles } from 'lucide-react';
 import api from '../../utils/api';
@@ -9,70 +10,42 @@ import { LABELS, ORDER_STATUS, ORDER_TYPE } from '../../utils/constants';
 import { useAuth } from '../../context/AuthContext';
 import { generateOrderPDF } from '../../utils/pdfGenerator';
 import OrderStatusBar from '../../components/OrderStatusBar';
-import usePolling from '../../utils/usePolling';
 
 const OrdersPage = () => {
   const { user } = useAuth();
-  const [orders, setOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'finished' | 'history'
+  const [activeTab, setActiveTab] = useState('active');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterByDate, setFilterByDate] = useState(false);
 
-  // Chargement initial
-  useEffect(() => {
-    loadOrders(true);
-  }, [user, filterByDate, selectedDate]);
-
-  // Polling silencieux 1s pour le suivi temps réel
-  usePolling(() => loadOrders(false), 1000);
-
-  useEffect(() => {
-    filterOrders();
-  }, [searchTerm, orders, activeTab]);
-
-  const loadOrders = async (showLoading = false) => {
-    if (!user?.ownerId) return;
-    try {
-      if (showLoading) setLoading(true);
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ['orders', 'customer', user?.ownerId, filterByDate ? selectedDate : null],
+    queryFn: async () => {
+      if (!user?.ownerId) return [];
       let response;
       if (filterByDate && selectedDate) {
         response = await api.get(API_ENDPOINTS.ORDERS.BY_CUSTOMER_AND_DATE(user.ownerId, selectedDate));
       } else {
         response = await api.get(API_ENDPOINTS.ORDERS.BY_CUSTOMER(user.ownerId));
       }
-      setOrders(response.data || []);
-    } catch (error) {
-      if (showLoading) toast.error('Erreur lors du chargement des commandes');
-      else throw error;
-    } finally {
-      if (showLoading) setLoading(false);
-    }
-  };
+      return response.data || [];
+    },
+    enabled: !!user?.ownerId,
+    staleTime: Infinity,
+  });
 
-  const filterOrders = () => {
-    let filtered = orders;
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(o => o.orderId?.toString().includes(lower));
-    }
-
-    if (activeTab === 'active') {
-      filtered = filtered.filter(
-        (o) =>
-          !o.paymentCompleted &&
-          [ORDER_STATUS.ACTIVE, ORDER_STATUS.CLOSED, ORDER_STATUS.SERVED].includes(o.status)
-      );
-    } else if (activeTab === 'finished') {
-      filtered = filtered.filter(o => o.paymentCompleted === true);
-    } else {
-      filtered = filtered.filter(o => o.status === ORDER_STATUS.CANCELLED);
-    }
-
-    setFilteredOrders(filtered.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate)));
-  };
+  const filteredOrders = orders
+    .filter(o => {
+      if (searchTerm && !o.orderId?.toString().includes(searchTerm.toLowerCase())) return false;
+      if (activeTab === 'active') {
+        return !o.paymentCompleted &&
+          [ORDER_STATUS.ACTIVE, ORDER_STATUS.CLOSED, ORDER_STATUS.SERVED].includes(o.status);
+      }
+      if (activeTab === 'finished') return o.paymentCompleted === true;
+      return o.status === ORDER_STATUS.CANCELLED;
+    })
+    .sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
 
   const handleFinishMeal = async (order) => {
     if (!window.confirm('Avez-vous terminé votre repas ? Le paiement sera enregistré.')) return;
@@ -82,10 +55,9 @@ const OrdersPage = () => {
         createdBy: user?.username || 'CUSTOMER',
       });
       toast.success('Merci de votre visite !');
-      loadOrders(false);
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (error) {
-      const message = error.response?.data?.message || "Erreur lors du paiement";
-      toast.error(message);
+      toast.error(error.response?.data?.message || 'Erreur lors du paiement');
     }
   };
 
@@ -94,13 +66,13 @@ const OrdersPage = () => {
     try {
       await api.post(API_ENDPOINTS.ORDERS.CANCEL(orderId));
       toast.success('Commande annulée');
-      loadOrders(false);
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    } catch {
       toast.error("Erreur lors de l'annulation");
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Layout>
         <div className="flex flex-col justify-center items-center h-96 space-y-4">
@@ -148,7 +120,7 @@ const OrdersPage = () => {
           </div>
         </div>
 
-        {/* Barre de recherche (Minimaliste) */}
+        {/* Barre de recherche */}
         <div className="mb-10 relative">
           <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
             <Search className="h-6 w-6 text-gray-300" />
@@ -162,7 +134,7 @@ const OrdersPage = () => {
           />
         </div>
 
-        {/* Liste des commandes (Style Timeline) */}
+        {/* Liste des commandes */}
         <div className="space-y-8">
           {filteredOrders.length === 0 ? (
             <div className="py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-gray-100 shadow-sm">
@@ -177,13 +149,11 @@ const OrdersPage = () => {
                 className="group bg-white rounded-[3rem] shadow-xl border border-gray-50 overflow-hidden transition-all duration-500 hover:shadow-2xl"
               >
                 <div className="flex flex-col lg:flex-row">
-                   {/* Info de base */}
                    <div className="p-8 lg:w-1/3 bg-gray-50 border-r border-gray-100">
                       <div className="flex items-center justify-between mb-6">
                          <span className="px-4 py-1 bg-gray-900 text-white text-xs font-black rounded-full">#{order.orderId}</span>
                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">{new Date(order.orderDate).toLocaleDateString()}</span>
                       </div>
-                      
                       <div className="mb-8">
                          <p className="text-3xl font-black text-gray-900 leading-none mb-2">{order.totalAmount.toFixed(2)} €</p>
                          <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase">
@@ -191,7 +161,6 @@ const OrdersPage = () => {
                             {LABELS.PAYMENT_METHOD[order.paymentMethod]} • {LABELS.ORDER_TYPE[order.orderType]}
                          </div>
                       </div>
-
                       <div className="space-y-3">
                          {order.orderItems?.map((item, idx) => (
                             <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
@@ -202,7 +171,6 @@ const OrdersPage = () => {
                       </div>
                    </div>
 
-                   {/* Progression & Actions */}
                    <div className="p-8 lg:w-2/3 flex flex-col justify-between">
                       <div>
                          <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-8 text-center lg:text-left">Progression de la préparation</h3>
@@ -220,7 +188,7 @@ const OrdersPage = () => {
                                <X className="h-5 w-5" /> ANNULER
                             </button>
                          )}
-                         
+
                          {!order.paymentCompleted &&
                            ((order.status === ORDER_STATUS.SERVED && order.orderType === ORDER_TYPE.ON_SITE) ||
                              (order.status === ORDER_STATUS.CLOSED && order.orderType === ORDER_TYPE.TAKEAWAY)) && (
@@ -229,9 +197,7 @@ const OrdersPage = () => {
                                className="flex-1 px-8 py-4 bg-green-500 hover:bg-green-600 text-white font-black rounded-2xl shadow-xl shadow-green-100 transition-all flex items-center justify-center gap-2 active:scale-95"
                             >
                                <CheckCircle className="h-5 w-5" />
-                               {order.orderType === ORDER_TYPE.TAKEAWAY
-                                 ? 'PAYER MA COMMANDE'
-                                 : "J'AI TERMINÉ MON REPAS"}
+                               {order.orderType === ORDER_TYPE.TAKEAWAY ? 'PAYER MA COMMANDE' : "J'AI TERMINÉ MON REPAS"}
                             </button>
                          )}
 
@@ -254,4 +220,3 @@ const OrdersPage = () => {
 };
 
 export default OrdersPage;
-

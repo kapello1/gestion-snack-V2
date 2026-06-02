@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
 import { Search, ChefHat, CheckCircle, Clock, AlertCircle, CalendarDays, Filter } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, ORDER_STATUS } from '../../utils/constants';
-import usePolling from '../../utils/usePolling';
 import { useNotifications } from '../../context/NotificationContext';
 
 const STATUS_TABS = [
@@ -28,21 +28,19 @@ const groupByDate = (orders) => {
 
 const CookOrdersPage = () => {
   const { sendToUser } = useNotifications();
-  const [orders, setOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterByDate, setFilterByDate] = useState(true);
 
-  useEffect(() => { loadOrders(true); }, [statusFilter, selectedDate, filterByDate]);
-  usePolling(() => loadOrders(false), 1000);
-  useEffect(() => { applySearch(); }, [searchTerm, orders]);
+  // Clé de requête dépendant des filtres — React Query refetch automatiquement
+  // quand la clé change, et invalide quand le WebSocket reçoit un événement /topic/orders
+  const queryKey = ['orders', 'cook', statusFilter, filterByDate ? selectedDate : null];
 
-  const loadOrders = async (showLoading = false) => {
-    try {
-      if (showLoading) setLoading(true);
+  const { data: rawOrders = [], isLoading } = useQuery({
+    queryKey,
+    queryFn: async () => {
       let response;
       if (statusFilter === 'ALL') {
         response = filterByDate && selectedDate
@@ -53,29 +51,27 @@ const CookOrdersPage = () => {
           ? await api.get(API_ENDPOINTS.ORDERS.BY_STATUS_AND_DATE(statusFilter, selectedDate))
           : await api.get(API_ENDPOINTS.ORDERS.BY_STATUS(statusFilter));
       }
-      // Cook sees ACTIVE + CLOSED orders
-      const data = (response.data || []).filter(o => o.status === ORDER_STATUS.ACTIVE || o.status === ORDER_STATUS.CLOSED);
-      setOrders(data);
-    } catch (error) {
-      if (showLoading) toast.error('Erreur lors du chargement des commandes');
-      else throw error;
-    } finally {
-      if (showLoading) setLoading(false);
-    }
-  };
+      return response.data || [];
+    },
+    staleTime: Infinity, // Jamais périmé automatiquement — WS invalide le cache
+  });
 
-  const applySearch = () => {
-    let filtered = orders;
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(o =>
-        o.orderId?.toString().includes(lower) ||
-        (o.customer && `${o.customer.firstName ?? ''} ${o.customer.lastName ?? ''}`.toLowerCase().includes(lower))
-      );
-    }
-    // Oldest first within each group (kitchen urgency)
-    setFilteredOrders(filtered.sort((a, b) => new Date(a.orderDate) - new Date(b.orderDate)));
-  };
+  // Vue cuisine : ACTIVE (à préparer) + CLOSED (prêtes)
+  const orders = rawOrders.filter(
+    o => o.status === ORDER_STATUS.ACTIVE || o.status === ORDER_STATUS.CLOSED
+  );
+
+  const filteredOrders = searchTerm
+    ? orders.filter(o => {
+        const lower = searchTerm.toLowerCase();
+        return (
+          o.orderId?.toString().includes(lower) ||
+          (o.customer && `${o.customer.firstName ?? ''} ${o.customer.lastName ?? ''}`.toLowerCase().includes(lower))
+        );
+      })
+    : orders;
+
+  const sortedOrders = [...filteredOrders].sort((a, b) => new Date(a.orderDate) - new Date(b.orderDate));
 
   const handlePrepare = async (orderId) => {
     const order = orders.find(o => o.orderId === orderId);
@@ -83,7 +79,7 @@ const CookOrdersPage = () => {
       await api.post(API_ENDPOINTS.ORDERS.CLOSE(orderId));
       toast.success(`Commande #${orderId} prête ! 🍽️`);
 
-      // Auto-notify the customer
+      // Notification client (le WS mettra aussi à jour l'UI automatiquement)
       const customerId = order?.customerId || order?.customer?.customerId || order?.customer?.userId;
       if (customerId) {
         const items = (order?.orderItems || []).map(i => `${i.quantity}× ${i.productName}`).join(', ');
@@ -93,16 +89,18 @@ const CookOrdersPage = () => {
           message: `Commande #${orderId} est prête à être servie${items ? ` : ${items}` : ''}.`,
         });
       }
-      loadOrders(false);
+
+      // Invalide toutes les queries ['orders', ...] → re-fetch immédiat
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch {
       toast.error('Erreur lors de la validation de la préparation');
     }
   };
 
-  const groups = groupByDate(filteredOrders);
+  const groups = groupByDate(sortedOrders);
   const activeCount = orders.filter(o => o.status === ORDER_STATUS.ACTIVE).length;
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Layout>
         <div className="flex flex-col justify-center items-center h-96 space-y-4">
