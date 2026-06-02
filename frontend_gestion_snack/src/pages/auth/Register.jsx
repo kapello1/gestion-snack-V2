@@ -19,6 +19,7 @@ const Register = () => {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [registered, setRegistered] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -81,23 +82,21 @@ const Register = () => {
     setLoading(true);
 
     try {
-      // Créer le client
+      // Créer le client avec le mot de passe
       const response = await api.post(API_ENDPOINTS.CUSTOMERS.BASE, {
         firstName: formData.firstName,
         lastName: formData.lastName,
         username: formData.username,
         email: formData.email,
+        password: formData.password,
         phone: formData.phone || null,
         address: formData.address || null,
         createdBy: 'SELF',
       });
 
       if (response.data) {
-        toast.success('Inscription réussie ! Veuillez vous connecter avec vos identifiants.');
-        // Rediriger vers la page de connexion
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
+        setRegistered(true);
+        toast.success('Inscription réussie ! Vérifiez votre boîte email pour activer votre compte.');
       }
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Erreur lors de l\'inscription';
@@ -106,6 +105,33 @@ const Register = () => {
       setLoading(false);
     }
   };
+
+  if (registered) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4">
+        <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-2xl text-center">
+          <div className="flex justify-center mb-4">
+            <div className="bg-green-100 p-4 rounded-full">
+              <Mail className="h-12 w-12 text-green-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-extrabold text-gray-900 mb-3">Vérifiez votre email</h2>
+          <p className="text-gray-600 mb-2">
+            Un lien de confirmation a été envoyé à <strong>{formData.email}</strong>.
+          </p>
+          <p className="text-gray-500 text-sm mb-6">
+            Cliquez sur le lien dans l'email pour activer votre compte. Le lien expire dans 24 heures.
+          </p>
+          <Link
+            to="/login"
+            className="inline-block px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+          >
+            Retour à la connexion
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">

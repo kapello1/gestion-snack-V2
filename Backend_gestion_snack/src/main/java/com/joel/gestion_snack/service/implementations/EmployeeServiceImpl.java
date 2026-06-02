@@ -34,7 +34,7 @@ public class EmployeeServiceImpl implements IEmployeeService {
     public List<EmployeeDTO> getAllEmployees() {
         log.info("Récupération de tous les employés");
         return employeeRepository.findAll().stream()
-                .map(mapperUtil::toEmployeeDTO)
+                .map(this::toEmployeeDTOWithStatus)
                 .collect(Collectors.toList());
     }
 
@@ -47,7 +47,14 @@ public class EmployeeServiceImpl implements IEmployeeService {
                     log.error("Employé non trouvé avec l'ID: {}", id);
                     return new EntityNotFoundException("Employé non trouvé avec l'ID: " + id);
                 });
-        return mapperUtil.toEmployeeDTO(employee);
+        return toEmployeeDTOWithStatus(employee);
+    }
+
+    private EmployeeDTO toEmployeeDTOWithStatus(Employee employee) {
+        EmployeeDTO dto = mapperUtil.toEmployeeDTO(employee);
+        userRepository.findByEmail(employee.getEmail())
+                .ifPresent(user -> dto.setIsActive(user.getIsActive()));
+        return dto;
     }
 
     @Override
@@ -116,5 +123,22 @@ public class EmployeeServiceImpl implements IEmployeeService {
         }
         employeeRepository.deleteById(id);
         log.info("Employé supprimé avec succès");
+    }
+
+    @Override
+    public EmployeeDTO toggleActiveStatus(Long id, boolean active) {
+        log.info("{} l'employé avec l'ID: {}", active ? "Activation de" : "Désactivation de", id);
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Employé non trouvé avec l'ID: " + id));
+
+        // Mettre à jour le User correspondant (créé par le trigger)
+        userRepository.findByEmail(employee.getEmail()).ifPresent(user -> {
+            user.setIsActive(active);
+            user.setUpdatedBy("ADMIN");
+            userRepository.save(user);
+        });
+
+        log.info("Statut de l'employé {} mis à jour à isActive={}", id, active);
+        return toEmployeeDTOWithStatus(employee);
     }
 }

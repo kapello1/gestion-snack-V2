@@ -31,5 +31,7 @@ public class CustomerRequestDTO {
     private String email;
     
     private String createdBy;
+
+    private String password;
 }
 

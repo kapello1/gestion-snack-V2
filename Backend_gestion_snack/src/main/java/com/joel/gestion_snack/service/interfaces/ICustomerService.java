@@ -56,5 +56,12 @@ public interface ICustomerService {
      * @return DTO du client
      */
     CustomerDTO getCustomerByUsername(String username);
+
+    /**
+     * Vérifie l'email d'un client via son token de vérification
+     * @param token Token de vérification reçu par email
+     * @return DTO du client activé
+     */
+    CustomerDTO verifyEmail(String token);
 }
 

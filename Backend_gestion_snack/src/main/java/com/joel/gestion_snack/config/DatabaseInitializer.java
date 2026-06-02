@@ -73,17 +73,24 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.info("Fonction trg_employee_after_insert_fn corrigée.");
 
             // 4. Correction: trg_customer_after_insert_fn
+            // Le compte est créé inactif (is_active=false) jusqu'à vérification email
             String fixCustomerTrigger = "CREATE OR REPLACE FUNCTION trg_customer_after_insert_fn() " +
                     "RETURNS trigger LANGUAGE plpgsql AS $$ " +
                     "DECLARE " +
                     "    r_id BIGINT; " +
+                    "    user_exists BOOLEAN; " +
                     "BEGIN " +
+                    "    SELECT EXISTS(SELECT 1 FROM users WHERE email = NEW.email OR username = NEW.username) INTO user_exists; " +
+                    "    IF user_exists THEN " +
+                    "        PERFORM fn_audit_insert('customers', 'INSERT', NEW.customer_id::text, NEW.created_by); " +
+                    "        RETURN NEW; " +
+                    "    END IF; " +
                     "    SELECT role_id INTO r_id FROM roles WHERE role_name::text = 'CUSTOMER' LIMIT 1; " +
                     "    IF r_id IS NULL THEN " +
                     "        RAISE EXCEPTION 'Role CUSTOMER not found'; " +
                     "    END IF; " +
-                    "    INSERT INTO users (owner_id, username, password, email, role_id, created_by) " +
-                    "    VALUES (NEW.customer_id, NEW.username, crypt('1234', gen_salt('bf')), NEW.email, r_id, NEW.created_by); "
+                    "    INSERT INTO users (owner_id, username, password, email, role_id, created_by, is_active) " +
+                    "    VALUES (NEW.customer_id, NEW.username, crypt('1234', gen_salt('bf')), NEW.email, r_id, NEW.created_by, false); "
                     +
                     " " +
                     "    PERFORM fn_audit_insert('customers', 'INSERT', NEW.customer_id::text, NEW.created_by); " +

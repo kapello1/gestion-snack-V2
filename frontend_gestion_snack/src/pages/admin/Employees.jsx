@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
-import { Search, Plus, Edit, Trash2, User, Mail, Phone, MapPin, Briefcase, DollarSign, Calendar } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, User, Mail, Phone, MapPin, DollarSign, Calendar, UserX, UserCheck } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
@@ -102,13 +102,29 @@ const EmployeesPage = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) return;
+        if (!window.confirm('Êtes-vous sûr de vouloir supprimer définitivement cet employé ? (Cette action est irréversible)')) return;
         try {
             await api.delete(API_ENDPOINTS.EMPLOYEES.BY_ID(id));
             toast.success('Employé supprimé');
             loadEmployees();
         } catch (error) {
             toast.error('Erreur lors de la suppression');
+        }
+    };
+
+    const handleToggleActive = async (emp) => {
+        const isCurrentlyActive = emp.isActive !== false;
+        const action = isCurrentlyActive ? 'désactiver' : 'réactiver';
+        if (!window.confirm(`Voulez-vous ${action} l'employé ${emp.firstName} ${emp.lastName} ?`)) return;
+        try {
+            const endpoint = isCurrentlyActive
+                ? API_ENDPOINTS.EMPLOYEES.DEACTIVATE(emp.employeeId)
+                : API_ENDPOINTS.EMPLOYEES.ACTIVATE(emp.employeeId);
+            await api.patch(endpoint);
+            toast.success(isCurrentlyActive ? 'Employé désactivé — connexion bloquée' : 'Employé réactivé');
+            loadEmployees();
+        } catch (error) {
+            toast.error(error.response?.data?.message || `Erreur lors de la ${action === 'désactiver' ? 'désactivation' : 'réactivation'}`);
         }
     };
 
@@ -185,20 +201,35 @@ const EmployeesPage = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredEmployees.map((emp) => (
-                        <div key={emp.employeeId} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                        <div key={emp.employeeId} className={`bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border-l-4 ${emp.isActive === false ? 'border-red-400 opacity-75' : 'border-green-400'}`}>
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="bg-blue-100 p-2 rounded-full">
-                                        <User className="h-6 w-6 text-blue-600" />
+                                    <div className={`p-2 rounded-full ${emp.isActive === false ? 'bg-red-100' : 'bg-blue-100'}`}>
+                                        <User className={`h-6 w-6 ${emp.isActive === false ? 'text-red-500' : 'text-blue-600'}`} />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-900">{emp.firstName} {emp.lastName}</h3>
-                                        <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
-                                            {emp.position}
-                                        </span>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <span className="text-xs font-semibold px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
+                                                {emp.position}
+                                            </span>
+                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${emp.isActive === false ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                {emp.isActive === false ? 'Désactivé' : 'Actif'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 items-center">
+                                    <button
+                                        onClick={() => handleToggleActive(emp)}
+                                        title={emp.isActive === false ? 'Réactiver' : 'Désactiver'}
+                                        className={emp.isActive === false ? 'text-green-600 hover:text-green-800' : 'text-orange-500 hover:text-orange-700'}
+                                    >
+                                        {emp.isActive === false
+                                            ? <UserCheck className="h-4 w-4" />
+                                            : <UserX className="h-4 w-4" />
+                                        }
+                                    </button>
                                     <button onClick={() => handleEdit(emp)} className="text-blue-600 hover:text-blue-800"><Edit className="h-4 w-4" /></button>
                                     <button onClick={() => handleDelete(emp.employeeId)} className="text-red-600 hover:text-red-800"><Trash2 className="h-4 w-4" /></button>
                                 </div>

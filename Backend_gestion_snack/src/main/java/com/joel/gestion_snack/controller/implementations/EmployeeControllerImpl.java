@@ -63,5 +63,19 @@ public class EmployeeControllerImpl {
         employeeService.deleteEmployee(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/{id}/deactivate")
+    @Operation(summary = "Désactiver un employé (soft delete — bloque la connexion)")
+    public ResponseEntity<EmployeeDTO> deactivateEmployee(@PathVariable Long id) {
+        log.info("Requête PATCH pour désactiver l'employé avec l'ID: {}", id);
+        return ResponseEntity.ok(employeeService.toggleActiveStatus(id, false));
+    }
+
+    @PatchMapping("/{id}/activate")
+    @Operation(summary = "Réactiver un employé")
+    public ResponseEntity<EmployeeDTO> activateEmployee(@PathVariable Long id) {
+        log.info("Requête PATCH pour activer l'employé avec l'ID: {}", id);
+        return ResponseEntity.ok(employeeService.toggleActiveStatus(id, true));
+    }
 }
 

@@ -13,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 import java.util.List;
 
 /**
@@ -89,6 +91,14 @@ public class CustomerControllerImpl implements ICustomerController {
         log.info("Requête GET pour récupérer le client avec le username: {}", username);
         CustomerDTO customer = customerService.getCustomerByUsername(username);
         return ResponseEntity.ok(customer);
+    }
+
+    @GetMapping("/verify/{token}")
+    @Operation(summary = "Vérifier l'email d'un client via son token")
+    public ResponseEntity<Map<String, String>> verifyEmail(@PathVariable String token) {
+        log.info("Requête GET pour vérifier l'email via token");
+        customerService.verifyEmail(token);
+        return ResponseEntity.ok(Map.of("message", "Email vérifié avec succès ! Vous pouvez maintenant vous connecter."));
     }
 }
 

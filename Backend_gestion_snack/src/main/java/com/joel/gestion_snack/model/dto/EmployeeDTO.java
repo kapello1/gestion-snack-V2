@@ -30,5 +30,6 @@ public class EmployeeDTO {
     private LocalDateTime createdAt;
     private String updatedBy;
     private LocalDateTime updatedAt;
+    private Boolean isActive;
 }
 

@@ -67,6 +67,16 @@ const WaiterTablesPage = () => {
     }
   };
 
+  const releaseTable = async (tableId) => {
+    try {
+      await api.post(API_ENDPOINTS.TABLES.RELEASE(tableId));
+      toast.success('Table libérée avec succès');
+      loadTables();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Impossible de libérer la table');
+    }
+  };
+
   const freeCount = tables.filter(t => t.status === TABLE_STATUS.FREE).length;
 
   if (loading) {
@@ -230,9 +240,9 @@ const WaiterTablesPage = () => {
                           Attribuer
                         </button>
                       )}
-                      {table.status === TABLE_STATUS.OCCUPIED && (
+                      {(table.status === TABLE_STATUS.OCCUPIED || table.status === TABLE_STATUS.RESERVED) && (
                         <button
-                          onClick={() => updateTableStatus(table.tableId, TABLE_STATUS.FREE)}
+                          onClick={() => releaseTable(table.tableId)}
                           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-bold"
                         >
                           <X className="h-4 w-4" />

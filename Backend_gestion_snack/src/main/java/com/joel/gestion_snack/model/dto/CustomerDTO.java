@@ -24,5 +24,6 @@ public class CustomerDTO {
     private LocalDateTime createdAt;
     private String updatedBy;
     private LocalDateTime updatedAt;
+    private Boolean emailVerified;
 }
 

@@ -51,6 +51,7 @@ public class MapperUtil {
         dto.setCreatedAt(customer.getCreatedAt());
         dto.setUpdatedBy(customer.getUpdatedBy());
         dto.setUpdatedAt(customer.getUpdatedAt());
+        dto.setEmailVerified(customer.getEmailVerified());
         return dto;
     }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
-import { Plus, Edit, Trash2, Utensils, Users, User, Phone, Mail, Hash } from 'lucide-react';
+import { Plus, Edit, Trash2, Utensils, Users, User, Phone, Mail, Hash, LogOut } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
@@ -80,6 +80,16 @@ const TablesAdminPage = () => {
         }
     };
 
+    const handleRelease = async (tableId) => {
+        try {
+            await api.post(API_ENDPOINTS.TABLES.RELEASE(tableId));
+            toast.success('Table libérée avec succès');
+            loadTables();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Impossible de libérer la table');
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
@@ -154,8 +164,17 @@ const TablesAdminPage = () => {
                                         </span>
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleEdit(table)} className="text-blue-600 hover:text-blue-800"><Edit className="h-4 w-4" /></button>
+                                <div className="flex gap-2 items-center">
+                                    {(table.status === 'OCCUPIED' || table.status === 'RESERVED') && (
+                                        <button
+                                            onClick={() => handleRelease(table.tableId)}
+                                            title="Libérer la table"
+                                            className="text-blue-600 hover:text-blue-800"
+                                        >
+                                            <LogOut className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                    <button onClick={() => handleEdit(table)} className="text-yellow-600 hover:text-yellow-800"><Edit className="h-4 w-4" /></button>
                                     <button onClick={() => handleDelete(table.tableId)} className="text-red-600 hover:text-red-800"><Trash2 className="h-4 w-4" /></button>
                                 </div>
                             </div>

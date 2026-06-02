@@ -120,33 +120,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   /**
-   * Réinitialisation du mot de passe
+   * Réinitialisation du mot de passe — désormais gérée via la page ForgotPassword (email + token)
+   * Cette méthode reste pour compatibilité mais n'est plus utilisée directement
    */
-  const resetPassword = async (username, email) => {
-    try {
-      // Vérifier que l'utilisateur existe avec ce username et email
-      const userResponse = await api.get(API_ENDPOINTS.USERS.BY_USERNAME(username));
-      const user = userResponse.data;
-
-      if (user && user.email === email) {
-        // Réinitialiser le mot de passe à "1234"
-        const response = await api.post(API_ENDPOINTS.USERS.CHANGE_PASSWORD(user.userId), {
-          newPassword: '1234',
-        });
-
-        if (response.data) {
-          toast.success('Mot de passe réinitialisé à "1234"');
-          return { success: true };
-        }
-      } else {
-        toast.error('Nom d\'utilisateur ou email incorrect');
-        return { success: false, message: 'Nom d\'utilisateur ou email incorrect' };
-      }
-    } catch (error) {
-      const message = error.response?.data?.message || error.message || 'Erreur lors de la réinitialisation';
-      toast.error(message);
-      return { success: false, message };
-    }
+  const resetPassword = async () => {
+    return { success: false, message: 'Utilisez la page Mot de passe oublié.' };
   };
 
   /**

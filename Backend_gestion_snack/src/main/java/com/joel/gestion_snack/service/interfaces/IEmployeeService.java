@@ -42,5 +42,13 @@ public interface IEmployeeService {
      * @param id ID de l'employé à supprimer
      */
     void deleteEmployee(Long id);
+
+    /**
+     * Active ou désactive le compte d'un employé (soft delete via User.isActive)
+     * @param id ID de l'employé
+     * @param active true pour activer, false pour désactiver
+     * @return DTO de l'employé mis à jour
+     */
+    EmployeeDTO toggleActiveStatus(Long id, boolean active);
 }
 

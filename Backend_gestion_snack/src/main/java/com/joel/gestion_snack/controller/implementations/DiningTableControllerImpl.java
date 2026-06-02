@@ -74,10 +74,17 @@ public class DiningTableControllerImpl {
     
     @PutMapping("/{id}/status")
     @Operation(summary = "Changer le statut d'une table")
-    public ResponseEntity<DiningTableDTO> updateTableStatus(@PathVariable Long id, 
+    public ResponseEntity<DiningTableDTO> updateTableStatus(@PathVariable Long id,
                                                              @RequestParam TableStatusType status) {
         log.info("Requête PUT pour changer le statut de la table {} vers {}", id, status);
         return ResponseEntity.ok(diningTableService.updateTableStatus(id, status));
+    }
+
+    @PostMapping("/{id}/release")
+    @Operation(summary = "Libérer une table (vérifie l'état des commandes et clôture les réservations)")
+    public ResponseEntity<DiningTableDTO> releaseTable(@PathVariable Long id) {
+        log.info("Requête POST pour libérer la table avec l'ID: {}", id);
+        return ResponseEntity.ok(diningTableService.releaseTable(id));
     }
 }
 

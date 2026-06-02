@@ -9,6 +9,7 @@ import com.joel.gestion_snack.model.entity.RoleType;
 import com.joel.gestion_snack.model.entity.User;
 import com.joel.gestion_snack.repository.RoleRepository;
 import com.joel.gestion_snack.repository.UserRepository;
+import com.joel.gestion_snack.service.EmailService;
 import com.joel.gestion_snack.service.interfaces.IUserService;
 import com.joel.gestion_snack.utils.MapperUtil;
 import jakarta.persistence.EntityManager;
@@ -21,7 +22,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -38,6 +41,7 @@ public class UserServiceImpl implements IUserService {
     private final RoleRepository roleRepository;
     private final MapperUtil mapperUtil;
     private final EntityManager entityManager;
+    private final EmailService emailService;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Override
@@ -55,6 +59,12 @@ public class UserServiceImpl implements IUserService {
         if (user.getRole().getRoleName() == RoleType.PROVIDER) {
             log.warn("Tentative de connexion d'un fournisseur rejetée: {}", loginRequest.getUsername());
             throw new IllegalArgumentException("L'accès est restreint pour les fournisseurs.");
+        }
+
+        // Vérifier si le compte est actif
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            log.warn("Tentative de connexion sur un compte inactif: {}", loginRequest.getUsername());
+            throw new IllegalArgumentException("Compte inactif. Veuillez vérifier votre email ou contacter l'administrateur.");
         }
 
         // Vérifier le mot de passe
@@ -282,5 +292,65 @@ public class UserServiceImpl implements IUserService {
         return users.stream()
                 .map(mapperUtil::toUserDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public void forgotPassword(String email) {
+        log.info("Demande de réinitialisation de mot de passe pour l'email: {}", email);
+        User user = userRepository.findByEmail(email).orElse(null);
+        // Ne pas révéler si l'email existe ou non (sécurité)
+        if (user == null) {
+            log.warn("Aucun utilisateur trouvé pour l'email: {} (réponse silencieuse)", email);
+            return;
+        }
+        String token = UUID.randomUUID().toString();
+        user.setResetPasswordToken(token);
+        user.setResetPasswordTokenExpiry(LocalDateTime.now().plusHours(1));
+        userRepository.save(user);
+        String firstName = user.getUsername();
+        emailService.sendPasswordResetEmail(user.getEmail(), token, firstName);
+        log.info("Email de réinitialisation envoyé à: {}", email);
+    }
+
+    @Override
+    public void resetPasswordByToken(String token, String newPassword) {
+        log.info("Réinitialisation du mot de passe via token");
+        User user = userRepository.findByResetPasswordToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Token invalide ou expiré"));
+        if (user.getResetPasswordTokenExpiry() == null ||
+                user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Le lien de réinitialisation a expiré. Veuillez en demander un nouveau.");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setResetPasswordToken(null);
+        user.setResetPasswordTokenExpiry(null);
+        user.setPinUpToDate(true);
+        user.setUpdatedBy("SYSTEM");
+        userRepository.save(user);
+        log.info("Mot de passe réinitialisé avec succès via token");
+    }
+
+    @Override
+    public UserDTO deactivateUser(Long id) {
+        log.info("Désactivation de l'utilisateur avec l'ID: {}", id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé avec l'ID: " + id));
+        user.setIsActive(false);
+        user.setUpdatedBy("ADMIN");
+        user = userRepository.save(user);
+        log.info("Utilisateur désactivé avec succès: {}", id);
+        return mapperUtil.toUserDTO(user);
+    }
+
+    @Override
+    public UserDTO activateUser(Long id) {
+        log.info("Activation de l'utilisateur avec l'ID: {}", id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé avec l'ID: " + id));
+        user.setIsActive(true);
+        user.setUpdatedBy("ADMIN");
+        user = userRepository.save(user);
+        log.info("Utilisateur activé avec succès: {}", id);
+        return mapperUtil.toUserDTO(user);
     }
 }

@@ -149,6 +149,64 @@ public class DiningTableServiceImpl implements IDiningTableService {
         return mapperUtil.toDiningTableDTO(table);
     }
 
+    @Override
+    public DiningTableDTO releaseTable(@lombok.NonNull Long id) {
+        log.info("Libération de la table avec l'ID: {}", id);
+        DiningTable table = diningTableRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Table non trouvée avec l'ID: " + id));
+
+        if (table.getStatus() == TableStatusType.FREE) {
+            return mapperUtil.toDiningTableDTO(table);
+        }
+
+        // Cas : table RESERVED — clôturer la réservation et libérer
+        if (table.getStatus() == TableStatusType.RESERVED) {
+            List<Reservation> reservations = reservationRepository.findByTable_TableId(id);
+            reservations.stream()
+                    .filter(r -> r.getStatus() == ReservationStatus.BOOKED)
+                    .forEach(r -> {
+                        r.setStatus(ReservationStatus.COMPLETED);
+                        r.setUpdatedBy("SYSTEM");
+                        reservationRepository.save(r);
+                    });
+            table.setStatus(TableStatusType.FREE);
+            table.setUpdatedBy("SYSTEM");
+            table = diningTableRepository.save(table);
+            wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", table.getTableId());
+            log.info("Table {} libérée — réservation(s) clôturée(s)", id);
+            return mapperUtil.toDiningTableDTO(table);
+        }
+
+        // Cas : table OCCUPIED — vérifier l'état des commandes
+        List<com.joel.gestion_snack.model.entity.Order> orders =
+                orderRepository.findByTable_TableId(id);
+
+        // Chercher une commande non terminée (ACTIVE ou CLOSED = prête mais pas encore servie)
+        boolean hasActiveOrder = orders.stream().anyMatch(
+                o -> o.getStatus() == com.joel.gestion_snack.model.entity.OrderStatus.ACTIVE);
+        boolean hasClosedNotServed = orders.stream().anyMatch(
+                o -> o.getStatus() == com.joel.gestion_snack.model.entity.OrderStatus.CLOSED);
+
+        if (hasActiveOrder) {
+            throw new IllegalStateException(
+                    "Impossible de libérer la table : une commande est en cours de préparation. "
+                    + "Veuillez d'abord terminer la commande.");
+        }
+        if (hasClosedNotServed) {
+            throw new IllegalStateException(
+                    "Impossible de libérer la table : la commande est prête mais n'a pas encore été servie. "
+                    + "Veuillez d'abord servir la commande.");
+        }
+
+        // Toutes les commandes sont SERVED ou CANCELLED — libération autorisée
+        table.setStatus(TableStatusType.FREE);
+        table.setUpdatedBy("SYSTEM");
+        table = diningTableRepository.save(table);
+        wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", table.getTableId());
+        log.info("Table {} libérée avec succès", id);
+        return mapperUtil.toDiningTableDTO(table);
+    }
+
     private void enrichWithReservationInfo(DiningTableDTO dto, Long tableId) {
         List<Reservation> reservations = reservationRepository.findByTable_TableId(tableId);
         Reservation activeRes = reservations.stream()

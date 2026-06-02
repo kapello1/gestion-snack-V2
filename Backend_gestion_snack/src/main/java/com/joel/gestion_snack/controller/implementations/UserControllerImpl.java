@@ -96,5 +96,19 @@ public class UserControllerImpl {
         List<UserDTO> users = userService.getUsersByRole(roleId);
         return ResponseEntity.ok(users);
     }
+
+    @PatchMapping("/{id}/deactivate")
+    @Operation(summary = "Désactiver un utilisateur (soft delete)")
+    public ResponseEntity<UserDTO> deactivateUser(@PathVariable Long id) {
+        log.info("Requête PATCH pour désactiver l'utilisateur avec l'ID: {}", id);
+        return ResponseEntity.ok(userService.deactivateUser(id));
+    }
+
+    @PatchMapping("/{id}/activate")
+    @Operation(summary = "Réactiver un utilisateur")
+    public ResponseEntity<UserDTO> activateUser(@PathVariable Long id) {
+        log.info("Requête PATCH pour activer l'utilisateur avec l'ID: {}", id);
+        return ResponseEntity.ok(userService.activateUser(id));
+    }
 }
 

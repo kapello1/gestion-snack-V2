@@ -17,7 +17,8 @@ export const API_ENDPOINTS = {
   // Authentification
   AUTH: {
     LOGIN: '/auth/login',
-    RESET_PASSWORD: '/users/reset-password', // À implémenter côté backend si nécessaire
+    FORGOT_PASSWORD: '/auth/forgot-password',
+    RESET_PASSWORD: '/auth/reset-password',
   },
   // Utilisateurs
   USERS: {
@@ -33,6 +34,7 @@ export const API_ENDPOINTS = {
     BY_ID: (id) => `/customers/${id}`,
     BY_EMAIL: (email) => `/customers/email/${email}`,
     BY_USERNAME: (username) => `/customers/username/${username}`,
+    VERIFY_EMAIL: (token) => `/customers/verify/${token}`,
   },
   // Produits
   PRODUCTS: {
@@ -62,6 +64,7 @@ export const API_ENDPOINTS = {
     BY_ID: (id) => `/tables/${id}`,
     BY_STATUS: (status) => `/tables/status/${status}`,
     UPDATE_STATUS: (id) => `/tables/${id}/status`,
+    RELEASE: (id) => `/tables/${id}/release`,
     ASSIGN_ORDER: (tableId, orderId) => `/tables/${tableId}/assign-order/${orderId}`,
   },
   // Réservations
@@ -77,6 +80,8 @@ export const API_ENDPOINTS = {
   EMPLOYEES: {
     BASE: '/employees',
     BY_ID: (id) => `/employees/${id}`,
+    DEACTIVATE: (id) => `/employees/${id}/deactivate`,
+    ACTIVATE: (id) => `/employees/${id}/activate`,
   },
   // Fournisseurs
   PROVIDERS: {

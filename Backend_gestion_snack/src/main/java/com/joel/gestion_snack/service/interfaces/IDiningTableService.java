@@ -58,5 +58,15 @@ public interface IDiningTableService {
      * @return DTO de la table mise à jour
      */
     DiningTableDTO updateTableStatus(Long id, TableStatusType status);
+
+    /**
+     * Libère une table en vérifiant l'état des commandes actives.
+     * - Si une commande est ACTIVE (non terminée), lève une exception.
+     * - Si la commande est au dernier état (SERVED), libère la table.
+     * - Si la table est RESERVED, clôture la réservation (COMPLETED) et libère.
+     * @param id ID de la table
+     * @return DTO de la table libérée
+     */
+    DiningTableDTO releaseTable(Long id);
 }
 

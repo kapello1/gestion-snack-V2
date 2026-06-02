@@ -73,5 +73,32 @@ public interface IUserService {
      * @return Liste des utilisateurs avec le rôle spécifié
      */
     List<UserDTO> getUsersByRole(Long roleId);
+
+    /**
+     * Envoie un email de réinitialisation de mot de passe
+     * @param email Email de l'utilisateur
+     */
+    void forgotPassword(String email);
+
+    /**
+     * Réinitialise le mot de passe via un token reçu par email
+     * @param token Token de réinitialisation
+     * @param newPassword Nouveau mot de passe
+     */
+    void resetPasswordByToken(String token, String newPassword);
+
+    /**
+     * Désactive un utilisateur (soft delete)
+     * @param id ID de l'utilisateur
+     * @return DTO mis à jour
+     */
+    UserDTO deactivateUser(Long id);
+
+    /**
+     * Réactive un utilisateur
+     * @param id ID de l'utilisateur
+     * @return DTO mis à jour
+     */
+    UserDTO activateUser(Long id);
 }
 

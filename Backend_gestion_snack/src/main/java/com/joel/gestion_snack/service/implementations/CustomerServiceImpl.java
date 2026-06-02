@@ -4,15 +4,22 @@ import com.joel.gestion_snack.model.dto.CustomerDTO;
 import com.joel.gestion_snack.model.dto.CustomerRequestDTO;
 import com.joel.gestion_snack.model.entity.Customer;
 import com.joel.gestion_snack.repository.CustomerRepository;
+import com.joel.gestion_snack.repository.UserRepository;
+import com.joel.gestion_snack.service.EmailService;
 import com.joel.gestion_snack.service.interfaces.ICustomerService;
 import com.joel.gestion_snack.utils.MapperUtil;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -25,7 +32,11 @@ import java.util.stream.Collectors;
 public class CustomerServiceImpl implements ICustomerService {
     
     private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
+    private final EmailService emailService;
+    private final EntityManager entityManager;
     private final MapperUtil mapperUtil;
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     
     @Override
     @Transactional(readOnly = true)
@@ -67,7 +78,25 @@ public class CustomerServiceImpl implements ICustomerService {
         }
         
         Customer customer = mapperUtil.toCustomer(requestDTO);
+        // Générer le token de vérification
+        String token = UUID.randomUUID().toString();
+        customer.setEmailVerified(false);
+        customer.setVerificationToken(token);
+        customer.setVerificationTokenExpiry(LocalDateTime.now().plusHours(24));
         customer = customerRepository.save(customer);
+
+        // Forcer le flush pour que le trigger crée le User, puis mettre à jour son mot de passe
+        entityManager.flush();
+        if (requestDTO.getPassword() != null && !requestDTO.getPassword().isBlank()) {
+            userRepository.findByEmail(requestDTO.getEmail()).ifPresent(user -> {
+                user.setPassword(passwordEncoder.encode(requestDTO.getPassword()));
+                userRepository.save(user);
+            });
+        }
+
+        // Envoyer l'email de vérification
+        emailService.sendVerificationEmail(customer.getEmail(), token, customer.getFirstName());
+
         log.info("Client créé avec succès avec l'ID: {}", customer.getCustomerId());
         return mapperUtil.toCustomerDTO(customer);
     }
@@ -143,6 +172,33 @@ public class CustomerServiceImpl implements ICustomerService {
                     return new EntityNotFoundException("Client non trouvé avec le username: " + username);
                 });
         return mapperUtil.toCustomerDTO(customer);
+    }
+
+    @Override
+    public CustomerDTO verifyEmail(String token) {
+        log.info("Vérification de l'email via token");
+        Customer customer = customerRepository.findByVerificationToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Token de vérification invalide ou déjà utilisé"));
+
+        if (customer.getVerificationTokenExpiry() == null ||
+                customer.getVerificationTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Le lien de vérification a expiré. Veuillez vous réinscrire.");
+        }
+
+        customer.setEmailVerified(true);
+        customer.setVerificationToken(null);
+        customer.setVerificationTokenExpiry(null);
+        Customer saved = customerRepository.save(customer);
+
+        // Activer le compte User correspondant
+        userRepository.findByEmail(saved.getEmail()).ifPresent(user -> {
+            user.setIsActive(true);
+            userRepository.save(user);
+            log.info("Compte User activé pour le client: {}", saved.getEmail());
+        });
+
+        log.info("Email vérifié avec succès pour le client ID: {}", saved.getCustomerId());
+        return mapperUtil.toCustomerDTO(saved);
     }
 }
 

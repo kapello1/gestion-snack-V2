@@ -46,14 +46,25 @@ const TableManagement = () => {
 
     const lastUpdated = new Date();
 
+    const handleReleaseTable = async (tableId) => {
+        try {
+            await api.post(API_ENDPOINTS.TABLES.RELEASE(tableId));
+            toast.success('Table libérée avec succès');
+            queryClient.invalidateQueries({ queryKey: ['tables'] });
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Impossible de libérer la table');
+        }
+    };
+
     const handleStatusChange = async (tableId, newStatus) => {
+        if (newStatus === 'FREE') {
+            return handleReleaseTable(tableId);
+        }
         try {
             await api.put(API_ENDPOINTS.TABLES.UPDATE_STATUS(tableId), null, {
                 params: { status: newStatus }
             });
             toast.success(`Statut de la table mis à jour: ${newStatus}`);
-            // Le WebSocket publie TABLE_STATUS_UPDATED → invalidation automatique
-            // On invalide aussi manuellement pour une réponse immédiate
             queryClient.invalidateQueries({ queryKey: ['tables'] });
         } catch {
             toast.error('Erreur lors de la mise à jour du statut');
