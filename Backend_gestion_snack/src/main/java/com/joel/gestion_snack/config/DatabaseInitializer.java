@@ -73,7 +73,8 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.info("Fonction trg_employee_after_insert_fn corrigée.");
 
             // 4. Correction: trg_customer_after_insert_fn
-            // Le compte est créé inactif (is_active=false) jusqu'à vérification email
+            // Le compte User est créé actif (is_active=true) — la désactivation éventuelle
+            // est gérée côté Java (CustomerServiceImpl) si l'email est configuré
             String fixCustomerTrigger = "CREATE OR REPLACE FUNCTION trg_customer_after_insert_fn() " +
                     "RETURNS trigger LANGUAGE plpgsql AS $$ " +
                     "DECLARE " +
@@ -90,7 +91,7 @@ public class DatabaseInitializer implements CommandLineRunner {
                     "        RAISE EXCEPTION 'Role CUSTOMER not found'; " +
                     "    END IF; " +
                     "    INSERT INTO users (owner_id, username, password, email, role_id, created_by, is_active) " +
-                    "    VALUES (NEW.customer_id, NEW.username, crypt('1234', gen_salt('bf')), NEW.email, r_id, NEW.created_by, false); "
+                    "    VALUES (NEW.customer_id, NEW.username, crypt('1234', gen_salt('bf')), NEW.email, r_id, NEW.created_by, true); "
                     +
                     " " +
                     "    PERFORM fn_audit_insert('customers', 'INSERT', NEW.customer_id::text, NEW.created_by); " +

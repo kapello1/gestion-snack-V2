@@ -37,6 +37,9 @@ public class CustomerServiceImpl implements ICustomerService {
     private final EntityManager entityManager;
     private final MapperUtil mapperUtil;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    @org.springframework.beans.factory.annotation.Value("${spring.mail.username:}")
+    private String mailUsername;
     
     @Override
     @Transactional(readOnly = true)
@@ -78,24 +81,46 @@ public class CustomerServiceImpl implements ICustomerService {
         }
         
         Customer customer = mapperUtil.toCustomer(requestDTO);
-        // Générer le token de vérification
-        String token = UUID.randomUUID().toString();
-        customer.setEmailVerified(false);
-        customer.setVerificationToken(token);
-        customer.setVerificationTokenExpiry(LocalDateTime.now().plusHours(24));
+        boolean emailEnabled = mailUsername != null && !mailUsername.isBlank();
+
+        String token = null;
+        if (emailEnabled) {
+            // Email configuré → vérification requise
+            token = UUID.randomUUID().toString();
+            customer.setEmailVerified(false);
+            customer.setVerificationToken(token);
+            customer.setVerificationTokenExpiry(LocalDateTime.now().plusHours(24));
+        } else {
+            // Email non configuré → activation immédiate
+            customer.setEmailVerified(true);
+        }
+
         customer = customerRepository.save(customer);
 
-        // Forcer le flush pour que le trigger crée le User, puis mettre à jour son mot de passe
+        // Le trigger crée le User (is_active=true). On force le flush pour pouvoir l'interroger.
         entityManager.flush();
+
+        // Mettre à jour le mot de passe du User si fourni
         if (requestDTO.getPassword() != null && !requestDTO.getPassword().isBlank()) {
+            final String encodedPwd = passwordEncoder.encode(requestDTO.getPassword());
             userRepository.findByEmail(requestDTO.getEmail()).ifPresent(user -> {
-                user.setPassword(passwordEncoder.encode(requestDTO.getPassword()));
+                user.setPassword(encodedPwd);
                 userRepository.save(user);
             });
         }
 
-        // Envoyer l'email de vérification
-        emailService.sendVerificationEmail(customer.getEmail(), token, customer.getFirstName());
+        if (emailEnabled) {
+            // Désactiver le compte jusqu'à vérification email
+            userRepository.findByEmail(customer.getEmail()).ifPresent(user -> {
+                user.setIsActive(false);
+                userRepository.save(user);
+            });
+            // Envoyer l'email de vérification
+            emailService.sendVerificationEmail(customer.getEmail(), token, customer.getFirstName());
+            log.info("Email de vérification envoyé pour le client ID: {}", customer.getCustomerId());
+        } else {
+            log.info("Email non configuré — client activé directement, ID: {}", customer.getCustomerId());
+        }
 
         log.info("Client créé avec succès avec l'ID: {}", customer.getCustomerId());
         return mapperUtil.toCustomerDTO(customer);

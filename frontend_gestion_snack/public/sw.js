@@ -1,4 +1,4 @@
-const CACHE = 'snack-cache-v1';
+const CACHE = 'snack-cache-v2';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

@@ -19,7 +19,7 @@ const Register = () => {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [registered, setRegistered] = useState(false);
+  const [registered, setRegistered] = useState(null); // null | 'immediate' | 'email'
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -95,8 +95,12 @@ const Register = () => {
       });
 
       if (response.data) {
-        setRegistered(true);
-        toast.success('Inscription réussie ! Vérifiez votre boîte email pour activer votre compte.');
+        setRegistered(response.data.emailVerified ? 'immediate' : 'email');
+        if (response.data.emailVerified) {
+          toast.success('Inscription réussie ! Vous pouvez maintenant vous connecter.');
+        } else {
+          toast.success('Inscription réussie ! Vérifiez votre boîte email pour activer votre compte.');
+        }
       }
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Erreur lors de l\'inscription';
@@ -106,7 +110,7 @@ const Register = () => {
     }
   };
 
-  if (registered) {
+  if (registered === 'email') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-2xl text-center">
@@ -127,6 +131,30 @@ const Register = () => {
             className="inline-block px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
           >
             Retour à la connexion
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (registered === 'immediate') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4">
+        <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-2xl text-center">
+          <div className="flex justify-center mb-4">
+            <div className="bg-green-100 p-4 rounded-full">
+              <UserPlus className="h-12 w-12 text-green-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-extrabold text-gray-900 mb-3">Compte créé !</h2>
+          <p className="text-gray-600 mb-6">
+            Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.
+          </p>
+          <Link
+            to="/login"
+            className="inline-block px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+          >
+            Se connecter
           </Link>
         </div>
       </div>
