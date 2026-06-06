@@ -110,14 +110,27 @@ public class CustomerServiceImpl implements ICustomerService {
         }
 
         if (emailEnabled) {
-            // Désactiver le compte jusqu'à vérification email
-            userRepository.findByEmail(customer.getEmail()).ifPresent(user -> {
-                user.setIsActive(false);
-                userRepository.save(user);
-            });
-            // Envoyer l'email de vérification
-            emailService.sendVerificationEmail(customer.getEmail(), token, customer.getFirstName());
-            log.info("Email de vérification envoyé pour le client ID: {}", customer.getCustomerId());
+            // Tenter d'envoyer l'email de vérification avant de désactiver le compte
+            boolean emailSent = emailService.sendVerificationEmail(
+                    customer.getEmail(), token, customer.getFirstName());
+
+            if (emailSent) {
+                // Email envoyé → désactiver le compte jusqu'à vérification
+                userRepository.findByEmail(customer.getEmail()).ifPresent(user -> {
+                    user.setIsActive(false);
+                    userRepository.save(user);
+                });
+                log.info("Email de vérification envoyé — compte en attente de confirmation, ID: {}",
+                        customer.getCustomerId());
+            } else {
+                // Email non envoyé (mauvais mot de passe, réseau...) → activer immédiatement
+                customer.setEmailVerified(true);
+                customer.setVerificationToken(null);
+                customer.setVerificationTokenExpiry(null);
+                customerRepository.save(customer);
+                log.warn("Email non envoyé — client activé directement pour ne pas bloquer l'inscription, ID: {}",
+                        customer.getCustomerId());
+            }
         } else {
             log.info("Email non configuré — client activé directement, ID: {}", customer.getCustomerId());
         }

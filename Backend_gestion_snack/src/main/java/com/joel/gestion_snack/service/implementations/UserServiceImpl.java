@@ -308,8 +308,12 @@ public class UserServiceImpl implements IUserService {
         user.setResetPasswordTokenExpiry(LocalDateTime.now().plusHours(1));
         userRepository.save(user);
         String firstName = user.getUsername();
-        emailService.sendPasswordResetEmail(user.getEmail(), token, firstName);
-        log.info("Email de réinitialisation envoyé à: {}", email);
+        boolean sent = emailService.sendPasswordResetEmail(user.getEmail(), token, firstName);
+        if (sent) {
+            log.info("Email de réinitialisation envoyé à: {}", email);
+        } else {
+            log.warn("Email de réinitialisation non envoyé à: {} — vérifier MAIL_PASSWORD", email);
+        }
     }
 
     @Override

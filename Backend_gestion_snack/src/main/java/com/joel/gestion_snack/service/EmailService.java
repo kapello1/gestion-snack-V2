@@ -7,7 +7,6 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 /**
@@ -26,45 +25,73 @@ public class EmailService {
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
-    public void sendVerificationEmail(String toEmail, String token, String firstName) {
+    /**
+     * Envoie un email de vérification de compte.
+     * @return true si l'email a été envoyé avec succès, false sinon
+     */
+    public boolean sendVerificationEmail(String toEmail, String token, String firstName) {
         if (fromEmail == null || fromEmail.isBlank()) {
             log.warn("MAIL_USERNAME non configuré — email de vérification non envoyé à {}", toEmail);
-            return;
+            return false;
         }
         String link = frontendUrl + "/verify-email?token=" + token;
         String subject = "Confirmez votre compte — Snack";
-        String body = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto'>"
-                + "<h2 style='color:#2563eb'>Bienvenue, " + firstName + " !</h2>"
-                + "<p>Merci de vous être inscrit. Cliquez sur le bouton ci-dessous pour activer votre compte :</p>"
-                + "<a href='" + link + "' style='display:inline-block;padding:12px 24px;background:#2563eb;"
-                + "color:#fff;border-radius:6px;text-decoration:none;font-weight:bold'>Confirmer mon compte</a>"
-                + "<p style='margin-top:16px;color:#6b7280'>Ce lien expire dans 24 heures.</p>"
-                + "<p style='color:#6b7280'>Si vous n'êtes pas à l'origine de cette inscription, ignorez cet email.</p>"
+        String body = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px'>"
+                + "<div style='text-align:center;margin-bottom:24px'>"
+                + "<h1 style='color:#2563eb;margin:0'>Snack</h1>"
+                + "</div>"
+                + "<h2 style='color:#1f2937'>Bienvenue, " + firstName + " !</h2>"
+                + "<p style='color:#4b5563;font-size:16px'>Merci de vous être inscrit. "
+                + "Pour activer votre compte, cliquez sur le bouton ci-dessous :</p>"
+                + "<div style='text-align:center;margin:32px 0'>"
+                + "<a href='" + link + "' style='display:inline-block;padding:14px 32px;background:#2563eb;"
+                + "color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px'>"
+                + "Confirmer mon compte</a>"
+                + "</div>"
+                + "<p style='color:#6b7280;font-size:14px'>Ce lien expire dans <strong>24 heures</strong>.</p>"
+                + "<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0'>"
+                + "<p style='color:#9ca3af;font-size:12px'>Si vous n'êtes pas à l'origine de cette inscription, "
+                + "ignorez cet email.</p>"
                 + "</div>";
-        sendHtml(toEmail, subject, body);
+        return sendHtml(toEmail, subject, body);
     }
 
-    public void sendPasswordResetEmail(String toEmail, String token, String firstName) {
+    /**
+     * Envoie un email de réinitialisation de mot de passe.
+     * @return true si l'email a été envoyé avec succès, false sinon
+     */
+    public boolean sendPasswordResetEmail(String toEmail, String token, String firstName) {
         if (fromEmail == null || fromEmail.isBlank()) {
             log.warn("MAIL_USERNAME non configuré — email de réinitialisation non envoyé à {}", toEmail);
-            return;
+            return false;
         }
         String link = frontendUrl + "/reset-password?token=" + token;
         String subject = "Réinitialisation de votre mot de passe — Snack";
-        String body = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto'>"
-                + "<h2 style='color:#2563eb'>Réinitialisation du mot de passe</h2>"
-                + "<p>Bonjour " + firstName + ",</p>"
-                + "<p>Vous avez demandé la réinitialisation de votre mot de passe. "
-                + "Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe :</p>"
-                + "<a href='" + link + "' style='display:inline-block;padding:12px 24px;background:#2563eb;"
-                + "color:#fff;border-radius:6px;text-decoration:none;font-weight:bold'>Réinitialiser mon mot de passe</a>"
-                + "<p style='margin-top:16px;color:#6b7280'>Ce lien expire dans 1 heure.</p>"
-                + "<p style='color:#6b7280'>Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>"
+        String body = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px'>"
+                + "<div style='text-align:center;margin-bottom:24px'>"
+                + "<h1 style='color:#2563eb;margin:0'>Snack</h1>"
+                + "</div>"
+                + "<h2 style='color:#1f2937'>Réinitialisation du mot de passe</h2>"
+                + "<p style='color:#4b5563;font-size:16px'>Bonjour " + firstName + ",</p>"
+                + "<p style='color:#4b5563;font-size:16px'>Vous avez demandé la réinitialisation de votre mot de passe.</p>"
+                + "<div style='text-align:center;margin:32px 0'>"
+                + "<a href='" + link + "' style='display:inline-block;padding:14px 32px;background:#2563eb;"
+                + "color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px'>"
+                + "Réinitialiser mon mot de passe</a>"
+                + "</div>"
+                + "<p style='color:#6b7280;font-size:14px'>Ce lien expire dans <strong>1 heure</strong>.</p>"
+                + "<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0'>"
+                + "<p style='color:#9ca3af;font-size:12px'>Si vous n'avez pas demandé cette réinitialisation, "
+                + "ignorez cet email.</p>"
                 + "</div>";
-        sendHtml(toEmail, subject, body);
+        return sendHtml(toEmail, subject, body);
     }
 
-    private void sendHtml(String to, String subject, String htmlBody) {
+    /**
+     * Envoie un email HTML. Capture TOUTES les exceptions pour ne jamais bloquer une transaction.
+     * @return true si envoyé avec succès, false si erreur
+     */
+    private boolean sendHtml(String to, String subject, String htmlBody) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -73,9 +100,12 @@ public class EmailService {
             helper.setSubject(subject);
             helper.setText(htmlBody, true);
             mailSender.send(message);
-            log.info("Email envoyé à {}", to);
-        } catch (MessagingException e) {
-            log.error("Erreur lors de l'envoi de l'email à {} : {}", to, e.getMessage());
+            log.info("Email envoyé avec succès à {}", to);
+            return true;
+        } catch (Exception e) {
+            log.error("Échec de l'envoi de l'email à {} : {}. Vérifiez MAIL_PASSWORD (App Password Gmail requis).",
+                    to, e.getMessage());
+            return false;
         }
     }
 }
