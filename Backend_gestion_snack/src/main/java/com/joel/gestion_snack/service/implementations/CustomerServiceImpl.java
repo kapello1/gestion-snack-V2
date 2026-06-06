@@ -3,7 +3,14 @@ package com.joel.gestion_snack.service.implementations;
 import com.joel.gestion_snack.model.dto.CustomerDTO;
 import com.joel.gestion_snack.model.dto.CustomerRequestDTO;
 import com.joel.gestion_snack.model.entity.Customer;
+import com.joel.gestion_snack.model.entity.Role;
+import com.joel.gestion_snack.model.entity.RoleType;
+import com.joel.gestion_snack.model.entity.User;
 import com.joel.gestion_snack.repository.CustomerRepository;
+import com.joel.gestion_snack.repository.OrderRepository;
+import com.joel.gestion_snack.repository.ReservationRepository;
+import com.joel.gestion_snack.repository.ReviewRepository;
+import com.joel.gestion_snack.repository.RoleRepository;
 import com.joel.gestion_snack.repository.UserRepository;
 import com.joel.gestion_snack.service.EmailService;
 import com.joel.gestion_snack.service.interfaces.ICustomerService;
@@ -33,6 +40,10 @@ public class CustomerServiceImpl implements ICustomerService {
     
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
+    private final OrderRepository orderRepository;
+    private final ReservationRepository reservationRepository;
+    private final ReviewRepository reviewRepository;
+    private final RoleRepository roleRepository;
     private final EmailService emailService;
     private final EntityManager entityManager;
     private final MapperUtil mapperUtil;
@@ -96,40 +107,60 @@ public class CustomerServiceImpl implements ICustomerService {
         }
 
         customer = customerRepository.save(customer);
+        final Customer finalCustomer = customer;
 
-        // Le trigger crée le User (is_active=true). On force le flush pour pouvoir l'interroger.
+        // Flush pour déclencher le trigger et pouvoir interroger la table users
         entityManager.flush();
 
-        // Mettre à jour le mot de passe du User si fourni
-        if (requestDTO.getPassword() != null && !requestDTO.getPassword().isBlank()) {
-            final String encodedPwd = passwordEncoder.encode(requestDTO.getPassword());
-            userRepository.findByEmail(requestDTO.getEmail()).ifPresent(user -> {
-                user.setPassword(encodedPwd);
-                userRepository.save(user);
-            });
+        // Assurer qu'un User existe pour ce client
+        // Le trigger crée normalement le User ; si ce n'est pas le cas, on le crée manuellement
+        User customerUser = userRepository.findByEmail(requestDTO.getEmail()).orElseGet(() -> {
+            log.warn("Trigger n'a pas créé de User pour {} — création manuelle", requestDTO.getEmail());
+            Role customerRole = roleRepository.findAll().stream()
+                    .filter(r -> r.getRoleName() == RoleType.CUSTOMER).findFirst().orElse(null);
+            if (customerRole == null) return null;
+            User newUser = new User();
+            newUser.setOwnerId(finalCustomer.getCustomerId());
+            newUser.setUsername(requestDTO.getUsername());
+            newUser.setPassword(passwordEncoder.encode(
+                    requestDTO.getPassword() != null && !requestDTO.getPassword().isBlank()
+                            ? requestDTO.getPassword() : "1234"));
+            newUser.setEmail(requestDTO.getEmail());
+            newUser.setRole(customerRole);
+            newUser.setIsActive(true);
+            newUser.setCreatedBy("SYSTEM");
+            return userRepository.save(newUser);
+        });
+
+        // Mettre à jour le mot de passe si l'utilisateur en a fourni un
+        if (customerUser != null && requestDTO.getPassword() != null && !requestDTO.getPassword().isBlank()) {
+            customerUser.setPassword(passwordEncoder.encode(requestDTO.getPassword()));
+            userRepository.save(customerUser);
         }
 
         if (emailEnabled) {
-            // Tenter d'envoyer l'email de vérification avant de désactiver le compte
             boolean emailSent = emailService.sendVerificationEmail(
                     customer.getEmail(), token, customer.getFirstName());
 
             if (emailSent) {
                 // Email envoyé → désactiver le compte jusqu'à vérification
-                userRepository.findByEmail(customer.getEmail()).ifPresent(user -> {
-                    user.setIsActive(false);
-                    userRepository.save(user);
-                });
+                if (customerUser != null) {
+                    customerUser.setIsActive(false);
+                    userRepository.save(customerUser);
+                }
                 log.info("Email de vérification envoyé — compte en attente de confirmation, ID: {}",
                         customer.getCustomerId());
             } else {
-                // Email non envoyé (mauvais mot de passe, réseau...) → activer immédiatement
+                // Email non envoyé → activer immédiatement (ne pas bloquer l'utilisateur)
                 customer.setEmailVerified(true);
                 customer.setVerificationToken(null);
                 customer.setVerificationTokenExpiry(null);
                 customerRepository.save(customer);
-                log.warn("Email non envoyé — client activé directement pour ne pas bloquer l'inscription, ID: {}",
-                        customer.getCustomerId());
+                if (customerUser != null) {
+                    customerUser.setIsActive(true);
+                    userRepository.save(customerUser);
+                }
+                log.warn("Email non envoyé — client activé directement, ID: {}", customer.getCustomerId());
             }
         } else {
             log.info("Email non configuré — client activé directement, ID: {}", customer.getCustomerId());
@@ -179,11 +210,29 @@ public class CustomerServiceImpl implements ICustomerService {
     
     @Override
     public void deleteCustomer(Long id) {
-        log.info("Suppression du client avec l'ID: {}", id);
-        if (!customerRepository.existsById(id)) {
-            log.error("Client non trouvé avec l'ID: {}", id);
-            throw new EntityNotFoundException("Client non trouvé avec l'ID: " + id);
-        }
+        log.info("Suppression en cascade du client avec l'ID: {}", id);
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Client non trouvé avec l'ID: " + id));
+
+        // 1. Détacher les commandes (ne pas supprimer l'historique)
+        orderRepository.findByCustomer_CustomerId(id).forEach(order -> {
+            order.setCustomer(null);
+            orderRepository.save(order);
+        });
+
+        // 2. Supprimer les réservations
+        reservationRepository.findByCustomer_CustomerId(id).forEach(reservationRepository::delete);
+
+        // 3. Supprimer les avis
+        reviewRepository.findByCustomer_CustomerId(id).forEach(reviewRepository::delete);
+
+        // 4. Supprimer le compte User associé
+        userRepository.findByEmail(customer.getEmail()).ifPresent(user -> {
+            userRepository.delete(user);
+            log.info("Compte User supprimé pour le client ID: {}", id);
+        });
+
+        // 5. Supprimer le client
         customerRepository.deleteById(id);
         log.info("Client supprimé avec succès avec l'ID: {}", id);
     }

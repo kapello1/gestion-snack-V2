@@ -7,6 +7,11 @@ import com.joel.gestion_snack.model.dto.UserRequestDTO;
 import com.joel.gestion_snack.model.entity.Role;
 import com.joel.gestion_snack.model.entity.RoleType;
 import com.joel.gestion_snack.model.entity.User;
+import com.joel.gestion_snack.repository.CustomerRepository;
+import com.joel.gestion_snack.repository.EmployeeRepository;
+import com.joel.gestion_snack.repository.OrderRepository;
+import com.joel.gestion_snack.repository.ReservationRepository;
+import com.joel.gestion_snack.repository.ReviewRepository;
 import com.joel.gestion_snack.repository.RoleRepository;
 import com.joel.gestion_snack.repository.UserRepository;
 import com.joel.gestion_snack.service.EmailService;
@@ -39,6 +44,11 @@ public class UserServiceImpl implements IUserService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final CustomerRepository customerRepository;
+    private final EmployeeRepository employeeRepository;
+    private final OrderRepository orderRepository;
+    private final ReservationRepository reservationRepository;
+    private final ReviewRepository reviewRepository;
     private final MapperUtil mapperUtil;
     private final EntityManager entityManager;
     private final EmailService emailService;
@@ -242,12 +252,40 @@ public class UserServiceImpl implements IUserService {
 
     @Override
     public void deleteUser(Long id) {
-        log.info("Suppression de l'utilisateur avec l'ID: {}", id);
-        if (!userRepository.existsById(id)) {
-            log.error("Utilisateur non trouvé avec l'ID: {}", id);
-            throw new EntityNotFoundException("Utilisateur non trouvé avec l'ID: " + id);
+        log.info("Suppression en cascade de l'utilisateur avec l'ID: {}", id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé avec l'ID: " + id));
+
+        RoleType role = user.getRole() != null ? user.getRole().getRoleName() : null;
+
+        if (role == RoleType.CUSTOMER) {
+            // Cascade : supprimer le client et toutes ses données liées
+            customerRepository.findById(user.getOwnerId()).ifPresent(customer -> {
+                Long customerId = customer.getCustomerId();
+                // Détacher les commandes (garder l'historique)
+                orderRepository.findByCustomer_CustomerId(customerId).forEach(order -> {
+                    order.setCustomer(null);
+                    orderRepository.save(order);
+                });
+                // Supprimer les réservations
+                reservationRepository.findByCustomer_CustomerId(customerId)
+                        .forEach(reservationRepository::delete);
+                // Supprimer les avis
+                reviewRepository.findByCustomer_CustomerId(customerId)
+                        .forEach(reviewRepository::delete);
+                customerRepository.delete(customer);
+                log.info("Client ID {} supprimé en cascade", customerId);
+            });
+
+        } else if (role != null && role != RoleType.ADMIN && role != RoleType.PROVIDER) {
+            // Cascade : supprimer l'employé
+            employeeRepository.findById(user.getOwnerId()).ifPresent(emp -> {
+                employeeRepository.delete(emp);
+                log.info("Employé ID {} supprimé en cascade", emp.getEmployeeId());
+            });
         }
-        userRepository.deleteById(id);
+
+        userRepository.delete(user);
         log.info("Utilisateur supprimé avec succès avec l'ID: {}", id);
     }
 
