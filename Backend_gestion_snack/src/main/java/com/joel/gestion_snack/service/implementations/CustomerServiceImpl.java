@@ -80,11 +80,28 @@ public class CustomerServiceImpl implements ICustomerService {
         log.info("Création d'un nouveau client: {}", requestDTO.getEmail());
         
         // Vérifier si l'email existe déjà
-        if (customerRepository.findByEmail(requestDTO.getEmail()).isPresent()) {
-            log.error("Un client avec l'email {} existe déjà", requestDTO.getEmail());
-            throw new IllegalArgumentException("Un client avec cet email existe déjà");
-        }
-        
+        customerRepository.findByEmail(requestDTO.getEmail()).ifPresent(existingCustomer -> {
+            boolean hasActiveUser = userRepository.findByEmail(requestDTO.getEmail()).isPresent();
+            if (hasActiveUser) {
+                // Le client a un compte utilisateur actif → refuser l'inscription
+                throw new IllegalArgumentException("Un client avec cet email existe déjà");
+            }
+            // Client orphelin (User supprimé sans supprimer le Client) → nettoyage automatique
+            log.warn("Client orphelin détecté pour {} — nettoyage avant ré-inscription",
+                    requestDTO.getEmail());
+            Long cid = existingCustomer.getCustomerId();
+            orderRepository.findByCustomer_CustomerId(cid).forEach(o -> {
+                o.setCustomer(null);
+                orderRepository.save(o);
+            });
+            reservationRepository.findByCustomer_CustomerId(cid)
+                    .forEach(reservationRepository::delete);
+            reviewRepository.findByCustomer_CustomerId(cid)
+                    .forEach(reviewRepository::delete);
+            customerRepository.delete(existingCustomer);
+            log.info("Client orphelin ID {} supprimé — ré-inscription possible", cid);
+        });
+
         // Vérifier si le username existe déjà
         if (customerRepository.findByUsername(requestDTO.getUsername()).isPresent()) {
             log.error("Un client avec le username {} existe déjà", requestDTO.getUsername());
