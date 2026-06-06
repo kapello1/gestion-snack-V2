@@ -53,7 +53,9 @@ public class EmployeeServiceImpl implements IEmployeeService {
     private EmployeeDTO toEmployeeDTOWithStatus(Employee employee) {
         EmployeeDTO dto = mapperUtil.toEmployeeDTO(employee);
         userRepository.findByEmail(employee.getEmail())
-                .ifPresent(user -> dto.setIsActive(user.getIsActive()));
+                .ifPresentOrElse(
+                        user -> dto.setIsActive(Boolean.TRUE.equals(user.getIsActive())),
+                        () -> dto.setIsActive(true)); // pas de User trouvé → actif par défaut
         return dto;
     }
 

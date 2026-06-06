@@ -27,6 +27,8 @@ export const API_ENDPOINTS = {
     BY_USERNAME: (username) => `/users/username/${username}`,
     BY_ROLE: (roleId) => `/users/role/${roleId}`,
     CHANGE_PASSWORD: (id) => `/users/${id}/change-password`,
+    DEACTIVATE: (id) => `/users/${id}/deactivate`,
+    ACTIVATE: (id) => `/users/${id}/activate`,
   },
   // Clients
   CUSTOMERS: {

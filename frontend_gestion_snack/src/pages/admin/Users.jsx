@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
-import { Search, Trash2, Edit, UserPlus, Shield, Mail, User, UserCheck, Truck } from 'lucide-react';
+import { Search, Trash2, Edit, UserPlus, Mail, User, UserCheck, Truck, UserX } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
@@ -95,6 +95,22 @@ const UsersPage = () => {
     }
   };
 
+  const handleToggleActive = async (user) => {
+    const isCurrentlyActive = user.isActive !== false;
+    const action = isCurrentlyActive ? 'désactiver' : 'réactiver';
+    if (!window.confirm(`Voulez-vous ${action} l'utilisateur "${user.username}" ?`)) return;
+    try {
+      const endpoint = isCurrentlyActive
+        ? API_ENDPOINTS.USERS.DEACTIVATE(user.userId)
+        : API_ENDPOINTS.USERS.ACTIVATE(user.userId);
+      await api.patch(endpoint);
+      toast.success(isCurrentlyActive ? 'Compte désactivé — connexion bloquée' : 'Compte réactivé');
+      loadUsers();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Erreur lors du changement de statut');
+    }
+  };
+
   const handleCreateRedirect = (type) => {
     setShowCreateModal(false);
     if (type === 'EMPLOYEE') navigate('/admin/employees');
@@ -172,13 +188,21 @@ const UsersPage = () => {
                       {user.roleName}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      Actif
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                      ${user.isActive === false ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                      {user.isActive === false ? 'Désactivé' : 'Actif'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button onClick={() => handleEditClick(user)} className="text-indigo-600 hover:text-indigo-900 mr-4">
+                    <button
+                      onClick={() => handleToggleActive(user)}
+                      title={user.isActive === false ? 'Réactiver' : 'Désactiver'}
+                      className={`mr-3 ${user.isActive === false ? 'text-green-600 hover:text-green-800' : 'text-orange-500 hover:text-orange-700'}`}
+                    >
+                      {user.isActive === false ? <UserCheck className="h-5 w-5" /> : <UserX className="h-5 w-5" />}
+                    </button>
+                    <button onClick={() => handleEditClick(user)} className="text-indigo-600 hover:text-indigo-900 mr-3">
                       <Edit className="h-5 w-5" />
                     </button>
                     <button onClick={() => handleDelete(user.userId)} className="text-red-600 hover:text-red-900">
