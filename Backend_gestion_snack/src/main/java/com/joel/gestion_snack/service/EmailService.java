@@ -25,6 +25,18 @@ public class EmailService {
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
+    @jakarta.annotation.PostConstruct
+    private void logMailConfigStatus() {
+        if (fromEmail == null || fromEmail.isBlank()) {
+            log.warn("=== Configuration email : MAIL_USERNAME est VIDE — aucun email ne sera envoyé "
+                    + "(ni vérification d'inscription, ni réinitialisation de mot de passe). "
+                    + "Définissez MAIL_USERNAME et MAIL_PASSWORD dans les variables d'environnement. ===");
+        } else {
+            log.info("=== Configuration email : MAIL_USERNAME='{}' détecté — envoi des emails activé. "
+                    + "URL frontend utilisée dans les liens : '{}' ===", fromEmail, frontendUrl);
+        }
+    }
+
     /**
      * Envoie un email de vérification de compte.
      * @return true si l'email a été envoyé avec succès, false sinon
@@ -103,8 +115,14 @@ public class EmailService {
             log.info("Email envoyé avec succès à {}", to);
             return true;
         } catch (Exception e) {
-            log.error("Échec de l'envoi de l'email à {} : {}. Vérifiez MAIL_PASSWORD (App Password Gmail requis).",
-                    to, e.getMessage());
+            Throwable root = e;
+            while (root.getCause() != null && root.getCause() != root) {
+                root = root.getCause();
+            }
+            log.error("Échec de l'envoi de l'email à {} : [{}] {} (cause racine: [{}] {}). "
+                            + "Vérifiez MAIL_USERNAME / MAIL_PASSWORD (App Password Gmail à 16 caractères, sans espaces requis pour Spring Mail).",
+                    to, e.getClass().getSimpleName(), e.getMessage(),
+                    root.getClass().getSimpleName(), root.getMessage());
             return false;
         }
     }

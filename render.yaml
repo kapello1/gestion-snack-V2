@@ -17,3 +17,9 @@ services:
         sync: false   # https://gestion-snack-backend.onrender.com
       - key: ALLOWED_ORIGINS
         sync: false   # https://votre-app.vercel.app
+      - key: MAIL_USERNAME
+        sync: false   # adresse Gmail d'envoi, ex: gestionsnack.contact@gmail.com
+      - key: MAIL_PASSWORD
+        sync: false   # App Password Gmail à 16 caractères, SANS les espaces
+      - key: FRONTEND_URL
+        sync: false   # URL du frontend utilisée dans les liens des emails (vérification / réinitialisation)
