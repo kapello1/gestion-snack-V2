@@ -207,24 +207,26 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    @Transactional
     public UserDTO updateUser(Long id, UserUpdateRequestDTO requestDTO) {
-        log.info("Mise à jour de l'utilisateur avec l'ID: {}", id);
+        log.info("[UPDATE_USER] Début — userId={} username={} email={} roleId={} ownerId={}",
+                id, requestDTO.getUsername(), requestDTO.getEmail(),
+                requestDTO.getRoleId(), requestDTO.getOwnerId());
+
         User user = userRepository.findById(id)
                 .orElseThrow(() -> {
-                    log.error("Utilisateur non trouvé avec l'ID: {}", id);
+                    log.error("[UPDATE_USER] Utilisateur non trouvé ID={}", id);
                     return new EntityNotFoundException("Utilisateur non trouvé avec l'ID: " + id);
                 });
 
         if (!user.getUsername().equals(requestDTO.getUsername())) {
             if (userRepository.findByUsername(requestDTO.getUsername()).isPresent()) {
-                log.error("Un utilisateur avec le username {} existe déjà", requestDTO.getUsername());
                 throw new IllegalArgumentException("Un utilisateur avec ce nom d'utilisateur existe déjà");
             }
         }
 
         if (!user.getEmail().equals(requestDTO.getEmail())) {
             if (userRepository.findByEmail(requestDTO.getEmail()).isPresent()) {
-                log.error("Un utilisateur avec l'email {} existe déjà", requestDTO.getEmail());
                 throw new IllegalArgumentException("Un utilisateur avec cet email existe déjà");
             }
         }
@@ -239,7 +241,7 @@ public class UserServiceImpl implements IUserService {
         user.setEmail(requestDTO.getEmail());
         if (requestDTO.getRoleId() != null) {
             Role role = roleRepository.findById(requestDTO.getRoleId())
-                    .orElseThrow(() -> new EntityNotFoundException("Rôle non trouvé"));
+                    .orElseThrow(() -> new EntityNotFoundException("Rôle non trouvé ID=" + requestDTO.getRoleId()));
             user.setRole(role);
         }
         if (requestDTO.getPinUpToDate() != null) {
@@ -248,7 +250,7 @@ public class UserServiceImpl implements IUserService {
         user.setUpdatedBy(requestDTO.getCreatedBy());
 
         user = userRepository.save(user);
-        log.info("Utilisateur mis à jour avec succès avec l'ID: {}", user.getUserId());
+        log.info("[UPDATE_USER] Succès — userId={}", user.getUserId());
         return mapperUtil.toUserDTO(user);
     }
 

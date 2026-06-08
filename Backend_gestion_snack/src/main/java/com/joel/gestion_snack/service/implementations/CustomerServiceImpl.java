@@ -77,67 +77,113 @@ public class CustomerServiceImpl implements ICustomerService {
     
     @Override
     public CustomerDTO createCustomer(CustomerRequestDTO requestDTO) {
-        log.info("Création d'un nouveau client: {}", requestDTO.getEmail());
-        
-        // Vérifier si l'email existe déjà
+        log.info("[INSCRIPTION] Début — email={} username={}", requestDTO.getEmail(), requestDTO.getUsername());
+
+        // 1. Nettoyage client orphelin OU refus si compte actif existe
         customerRepository.findByEmail(requestDTO.getEmail()).ifPresent(existingCustomer -> {
-            boolean hasActiveUser = userRepository.findByEmail(requestDTO.getEmail()).isPresent();
-            if (hasActiveUser) {
-                // Le client a un compte utilisateur actif → refuser l'inscription
+            boolean hasUser = userRepository.findByEmail(requestDTO.getEmail()).isPresent();
+            if (hasUser) {
                 throw new IllegalArgumentException("Un client avec cet email existe déjà");
             }
-            // Client orphelin (User supprimé sans supprimer le Client) → nettoyage automatique
-            log.warn("Client orphelin détecté pour {} — nettoyage avant ré-inscription",
-                    requestDTO.getEmail());
+            log.warn("[INSCRIPTION] Client orphelin détecté pour {} — nettoyage", requestDTO.getEmail());
             Long cid = existingCustomer.getCustomerId();
             orderRepository.findByCustomer_CustomerId(cid).forEach(o -> {
                 o.setCustomer(null);
                 orderRepository.save(o);
             });
-            reservationRepository.findByCustomer_CustomerId(cid)
-                    .forEach(reservationRepository::delete);
-            reviewRepository.findByCustomer_CustomerId(cid)
-                    .forEach(reviewRepository::delete);
+            reservationRepository.findByCustomer_CustomerId(cid).forEach(reservationRepository::delete);
+            reviewRepository.findByCustomer_CustomerId(cid).forEach(reviewRepository::delete);
             customerRepository.delete(existingCustomer);
-            log.info("Client orphelin ID {} supprimé — ré-inscription possible", cid);
+            customerRepository.flush();
+            log.info("[INSCRIPTION] Client orphelin {} supprimé", cid);
         });
 
-        // Vérifier si le username existe déjà
+        // 2. Vérification unicité username
         if (customerRepository.findByUsername(requestDTO.getUsername()).isPresent()) {
-            log.error("Un client avec le username {} existe déjà", requestDTO.getUsername());
             throw new IllegalArgumentException("Un client avec ce nom d'utilisateur existe déjà");
         }
-        
-        Customer customer = mapperUtil.toCustomer(requestDTO);
-        boolean emailEnabled = mailUsername != null && !mailUsername.isBlank();
+        if (userRepository.findByUsername(requestDTO.getUsername()).isPresent()) {
+            throw new IllegalArgumentException("Ce nom d'utilisateur est déjà utilisé");
+        }
 
+        // 3. Préparer le Customer
+        boolean emailEnabled = mailUsername != null && !mailUsername.isBlank();
+        log.info("[INSCRIPTION] emailEnabled={}", emailEnabled);
         String token = null;
+        Customer customer = mapperUtil.toCustomer(requestDTO);
         if (emailEnabled) {
-            // Email configuré → vérification requise
             token = UUID.randomUUID().toString();
             customer.setEmailVerified(false);
             customer.setVerificationToken(token);
             customer.setVerificationTokenExpiry(LocalDateTime.now().plusHours(24));
         } else {
-            // Email non configuré → activation immédiate
             customer.setEmailVerified(true);
         }
 
+        // 4. Sauvegarder le Customer (GenerationType.IDENTITY → INSERT immédiat → trigger DB s'exécute)
         customer = customerRepository.save(customer);
-        final Customer finalCustomer = customer;
+        final Long customerId = customer.getCustomerId();
+        log.info("[INSCRIPTION] Customer sauvegardé ID={}", customerId);
 
-        // Flush pour déclencher le trigger et pouvoir interroger la table users
+        // 5. Vider le cache L1 Hibernate pour voir les entités créées par le trigger
         entityManager.flush();
+        entityManager.clear();
 
-        // Assurer qu'un User existe pour ce client
-        // Le trigger crée normalement le User ; si ce n'est pas le cas, on le crée manuellement
-        User customerUser = userRepository.findByEmail(requestDTO.getEmail()).orElseGet(() -> {
-            log.warn("Trigger n'a pas créé de User pour {} — création manuelle", requestDTO.getEmail());
+        // Re-charger le customer (détaché par clear)
+        customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new EntityNotFoundException("Customer introuvable après save ID=" + customerId));
+
+        // 6. Trouver le User créé par le trigger, ou le créer si absent
+        User customerUser = findOrCreateUserForCustomer(requestDTO, customerId);
+
+        // 7. Toujours encoder le mot de passe en BCrypt (le trigger peut avoir mis 'PENDING_BCRYPT')
+        if (customerUser != null && requestDTO.getPassword() != null && !requestDTO.getPassword().isBlank()) {
+            customerUser.setPassword(passwordEncoder.encode(requestDTO.getPassword()));
+            customerUser = userRepository.save(customerUser);
+            log.info("[INSCRIPTION] Mot de passe BCrypt défini userId={}", customerUser.getUserId());
+        }
+
+        // 8. Gestion email de vérification
+        if (emailEnabled) {
+            final String finalToken = token;
+            boolean emailSent = emailService.sendVerificationEmail(
+                    customer.getEmail(), finalToken, customer.getFirstName());
+            if (emailSent) {
+                if (customerUser != null) {
+                    customerUser.setIsActive(false);
+                    userRepository.save(customerUser);
+                }
+                log.info("[INSCRIPTION] Email envoyé — compte désactivé en attente de vérification ID={}", customerId);
+            } else {
+                customer.setEmailVerified(true);
+                customer.setVerificationToken(null);
+                customer.setVerificationTokenExpiry(null);
+                customer = customerRepository.save(customer);
+                if (customerUser != null) {
+                    customerUser.setIsActive(true);
+                    userRepository.save(customerUser);
+                }
+                log.warn("[INSCRIPTION] Email non envoyé — client activé directement ID={}", customerId);
+            }
+        } else {
+            log.info("[INSCRIPTION] Email non configuré — client activé directement ID={}", customerId);
+        }
+
+        log.info("[INSCRIPTION] Succès — customerId={}", customer.getCustomerId());
+        return mapperUtil.toCustomerDTO(customer);
+    }
+
+    private User findOrCreateUserForCustomer(CustomerRequestDTO requestDTO, Long customerId) {
+        return userRepository.findByEmail(requestDTO.getEmail()).orElseGet(() -> {
+            log.warn("[INSCRIPTION] Trigger n'a pas créé de User pour {} — création manuelle", requestDTO.getEmail());
             Role customerRole = roleRepository.findAll().stream()
                     .filter(r -> r.getRoleName() == RoleType.CUSTOMER).findFirst().orElse(null);
-            if (customerRole == null) return null;
+            if (customerRole == null) {
+                log.error("[INSCRIPTION] Rôle CUSTOMER introuvable — User non créé !");
+                return null;
+            }
             User newUser = new User();
-            newUser.setOwnerId(finalCustomer.getCustomerId());
+            newUser.setOwnerId(customerId);
             newUser.setUsername(requestDTO.getUsername());
             newUser.setPassword(passwordEncoder.encode(
                     requestDTO.getPassword() != null && !requestDTO.getPassword().isBlank()
@@ -146,45 +192,10 @@ public class CustomerServiceImpl implements ICustomerService {
             newUser.setRole(customerRole);
             newUser.setIsActive(true);
             newUser.setCreatedBy("SYSTEM");
-            return userRepository.save(newUser);
+            User saved = userRepository.save(newUser);
+            log.info("[INSCRIPTION] User créé manuellement userId={}", saved.getUserId());
+            return saved;
         });
-
-        // Mettre à jour le mot de passe si l'utilisateur en a fourni un
-        if (customerUser != null && requestDTO.getPassword() != null && !requestDTO.getPassword().isBlank()) {
-            customerUser.setPassword(passwordEncoder.encode(requestDTO.getPassword()));
-            userRepository.save(customerUser);
-        }
-
-        if (emailEnabled) {
-            boolean emailSent = emailService.sendVerificationEmail(
-                    customer.getEmail(), token, customer.getFirstName());
-
-            if (emailSent) {
-                // Email envoyé → désactiver le compte jusqu'à vérification
-                if (customerUser != null) {
-                    customerUser.setIsActive(false);
-                    userRepository.save(customerUser);
-                }
-                log.info("Email de vérification envoyé — compte en attente de confirmation, ID: {}",
-                        customer.getCustomerId());
-            } else {
-                // Email non envoyé → activer immédiatement (ne pas bloquer l'utilisateur)
-                customer.setEmailVerified(true);
-                customer.setVerificationToken(null);
-                customer.setVerificationTokenExpiry(null);
-                customerRepository.save(customer);
-                if (customerUser != null) {
-                    customerUser.setIsActive(true);
-                    userRepository.save(customerUser);
-                }
-                log.warn("Email non envoyé — client activé directement, ID: {}", customer.getCustomerId());
-            }
-        } else {
-            log.info("Email non configuré — client activé directement, ID: {}", customer.getCustomerId());
-        }
-
-        log.info("Client créé avec succès avec l'ID: {}", customer.getCustomerId());
-        return mapperUtil.toCustomerDTO(customer);
     }
     
     @Override

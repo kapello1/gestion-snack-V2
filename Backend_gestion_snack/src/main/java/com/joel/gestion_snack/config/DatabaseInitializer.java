@@ -47,39 +47,44 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.info("Trigger dupliqué trg_employees_ai supprimé.");
 
             // 3. Correction: trg_employee_after_insert_fn
-            // Utilisation de ::text pour la comparaison safe et gestion des cas où le rôle
-            // n'existe pas
+            // - Gestion sécurisée pgcrypto (fallback si absent)
             String fixEmployeeTrigger = "CREATE OR REPLACE FUNCTION trg_employee_after_insert_fn() " +
                     "RETURNS trigger LANGUAGE plpgsql AS $$ " +
                     "DECLARE " +
                     "    user_exists BOOLEAN; " +
+                    "    pwd TEXT; " +
                     "BEGIN " +
                     "    SELECT EXISTS(SELECT 1 FROM users WHERE email = NEW.email OR username = NEW.username) INTO user_exists; " +
                     "    IF user_exists THEN " +
                     "        PERFORM fn_audit_insert('employees', 'INSERT', NEW.employee_id::text, NEW.created_by); " +
                     "        RETURN NEW; " +
                     "    END IF; " +
-                    " " +
                     "    IF NEW.role_id IS NOT NULL THEN " +
+                    "        BEGIN " +
+                    "            pwd := crypt('1234', gen_salt('bf')); " +
+                    "        EXCEPTION WHEN others THEN " +
+                    "            pwd := 'PENDING_BCRYPT'; " +
+                    "        END; " +
                     "        INSERT INTO users (owner_id, username, password, email, role_id, created_by) " +
-                    "        VALUES (NEW.employee_id, NEW.username, crypt('1234', gen_salt('bf')), NEW.email, NEW.role_id, NEW.created_by); " +
+                    "        VALUES (NEW.employee_id, NEW.username, pwd, NEW.email, NEW.role_id, NEW.created_by); " +
                     "    END IF; " +
-                    " " +
                     "    PERFORM fn_audit_insert('employees', 'INSERT', NEW.employee_id::text, NEW.created_by); " +
                     "    RETURN NEW; " +
                     "END; " +
                     "$$;";
             jdbcTemplate.execute(fixEmployeeTrigger);
-            log.info("Fonction trg_employee_after_insert_fn corrigée.");
+            log.info("Fonction trg_employee_after_insert_fn corrigée (sans RAISE EXCEPTION).");
 
             // 4. Correction: trg_customer_after_insert_fn
-            // Le compte User est créé actif (is_active=true) — la désactivation éventuelle
-            // est gérée côté Java (CustomerServiceImpl) si l'email est configuré
+            // - Pas de RAISE EXCEPTION (évite rollback total si rôle absent)
+            // - Gestion sécurisée de pgcrypto (fallback si extension absente)
+            // - Le mot de passe sera toujours mis à jour en BCrypt côté Java
             String fixCustomerTrigger = "CREATE OR REPLACE FUNCTION trg_customer_after_insert_fn() " +
                     "RETURNS trigger LANGUAGE plpgsql AS $$ " +
                     "DECLARE " +
                     "    r_id BIGINT; " +
                     "    user_exists BOOLEAN; " +
+                    "    pwd TEXT; " +
                     "BEGIN " +
                     "    SELECT EXISTS(SELECT 1 FROM users WHERE email = NEW.email OR username = NEW.username) INTO user_exists; " +
                     "    IF user_exists THEN " +
@@ -88,18 +93,22 @@ public class DatabaseInitializer implements CommandLineRunner {
                     "    END IF; " +
                     "    SELECT role_id INTO r_id FROM roles WHERE role_name::text = 'CUSTOMER' LIMIT 1; " +
                     "    IF r_id IS NULL THEN " +
-                    "        RAISE EXCEPTION 'Role CUSTOMER not found'; " +
+                    "        PERFORM fn_audit_insert('customers', 'INSERT', NEW.customer_id::text, NEW.created_by); " +
+                    "        RETURN NEW; " +
                     "    END IF; " +
+                    "    BEGIN " +
+                    "        pwd := crypt('1234', gen_salt('bf')); " +
+                    "    EXCEPTION WHEN others THEN " +
+                    "        pwd := 'PENDING_BCRYPT'; " +
+                    "    END; " +
                     "    INSERT INTO users (owner_id, username, password, email, role_id, created_by, is_active) " +
-                    "    VALUES (NEW.customer_id, NEW.username, crypt('1234', gen_salt('bf')), NEW.email, r_id, NEW.created_by, true); "
-                    +
-                    " " +
+                    "    VALUES (NEW.customer_id, NEW.username, pwd, NEW.email, r_id, NEW.created_by, true); " +
                     "    PERFORM fn_audit_insert('customers', 'INSERT', NEW.customer_id::text, NEW.created_by); " +
                     "    RETURN NEW; " +
                     "END; " +
                     "$$;";
             jdbcTemplate.execute(fixCustomerTrigger);
-            log.info("Fonction trg_customer_after_insert_fn corrigée.");
+            log.info("Fonction trg_customer_after_insert_fn corrigée (sans RAISE EXCEPTION).");
 
             // 5. Correction: trg_provider_after_insert_fn
             String fixProviderTrigger = "CREATE OR REPLACE FUNCTION trg_provider_after_insert_fn() " +
