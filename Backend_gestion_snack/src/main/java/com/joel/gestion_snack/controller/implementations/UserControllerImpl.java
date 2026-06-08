@@ -2,6 +2,7 @@ package com.joel.gestion_snack.controller.implementations;
 
 import com.joel.gestion_snack.model.dto.UserDTO;
 import com.joel.gestion_snack.model.dto.UserRequestDTO;
+import com.joel.gestion_snack.model.dto.UserUpdateRequestDTO;
 import com.joel.gestion_snack.service.interfaces.IUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -53,8 +54,8 @@ public class UserControllerImpl {
     
     @PutMapping("/{id}")
     @Operation(summary = "Mettre à jour un utilisateur", description = "Met à jour les informations d'un utilisateur existant")
-    public ResponseEntity<UserDTO> updateUser(@PathVariable Long id, 
-                                              @Valid @RequestBody UserRequestDTO requestDTO) {
+    public ResponseEntity<UserDTO> updateUser(@PathVariable Long id,
+                                              @Valid @RequestBody UserUpdateRequestDTO requestDTO) {
         log.info("Requête PUT pour mettre à jour l'utilisateur avec l'ID: {}", id);
         UserDTO user = userService.updateUser(id, requestDTO);
         return ResponseEntity.ok(user);

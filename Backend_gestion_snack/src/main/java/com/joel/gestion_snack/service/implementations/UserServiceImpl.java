@@ -4,6 +4,7 @@ import com.joel.gestion_snack.model.dto.LoginRequestDTO;
 import com.joel.gestion_snack.model.dto.LoginResponseDTO;
 import com.joel.gestion_snack.model.dto.UserDTO;
 import com.joel.gestion_snack.model.dto.UserRequestDTO;
+import com.joel.gestion_snack.model.dto.UserUpdateRequestDTO;
 import com.joel.gestion_snack.model.entity.Role;
 import com.joel.gestion_snack.model.entity.RoleType;
 import com.joel.gestion_snack.model.entity.User;
@@ -206,7 +207,7 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
-    public UserDTO updateUser(Long id, UserRequestDTO requestDTO) {
+    public UserDTO updateUser(Long id, UserUpdateRequestDTO requestDTO) {
         log.info("Mise à jour de l'utilisateur avec l'ID: {}", id);
         User user = userRepository.findById(id)
                 .orElseThrow(() -> {
@@ -214,7 +215,6 @@ public class UserServiceImpl implements IUserService {
                     return new EntityNotFoundException("Utilisateur non trouvé avec l'ID: " + id);
                 });
 
-        // Vérifier si le username change et s'il existe déjà
         if (!user.getUsername().equals(requestDTO.getUsername())) {
             if (userRepository.findByUsername(requestDTO.getUsername()).isPresent()) {
                 log.error("Un utilisateur avec le username {} existe déjà", requestDTO.getUsername());
@@ -222,7 +222,6 @@ public class UserServiceImpl implements IUserService {
             }
         }
 
-        // Vérifier si l'email change et s'il existe déjà
         if (!user.getEmail().equals(requestDTO.getEmail())) {
             if (userRepository.findByEmail(requestDTO.getEmail()).isPresent()) {
                 log.error("Un utilisateur avec l'email {} existe déjà", requestDTO.getEmail());
@@ -230,19 +229,22 @@ public class UserServiceImpl implements IUserService {
             }
         }
 
-        // Récupérer le rôle
-        Role role = roleRepository.findById(requestDTO.getRoleId())
-                .orElseThrow(() -> new EntityNotFoundException("Rôle non trouvé"));
-
-        user.setOwnerId(requestDTO.getOwnerId());
+        if (requestDTO.getOwnerId() != null) {
+            user.setOwnerId(requestDTO.getOwnerId());
+        }
         user.setUsername(requestDTO.getUsername());
-        // Mettre à jour le mot de passe seulement s'il est fourni
         if (requestDTO.getPassword() != null && !requestDTO.getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(requestDTO.getPassword()));
         }
         user.setEmail(requestDTO.getEmail());
-        user.setRole(role);
-        user.setPinUpToDate(requestDTO.getPinUpToDate() != null ? requestDTO.getPinUpToDate() : user.getPinUpToDate());
+        if (requestDTO.getRoleId() != null) {
+            Role role = roleRepository.findById(requestDTO.getRoleId())
+                    .orElseThrow(() -> new EntityNotFoundException("Rôle non trouvé"));
+            user.setRole(role);
+        }
+        if (requestDTO.getPinUpToDate() != null) {
+            user.setPinUpToDate(requestDTO.getPinUpToDate());
+        }
         user.setUpdatedBy(requestDTO.getCreatedBy());
 
         user = userRepository.save(user);

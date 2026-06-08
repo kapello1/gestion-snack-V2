@@ -4,6 +4,7 @@ import com.joel.gestion_snack.model.dto.LoginRequestDTO;
 import com.joel.gestion_snack.model.dto.LoginResponseDTO;
 import com.joel.gestion_snack.model.dto.UserDTO;
 import com.joel.gestion_snack.model.dto.UserRequestDTO;
+import com.joel.gestion_snack.model.dto.UserUpdateRequestDTO;
 
 import java.util.List;
 
@@ -44,7 +45,7 @@ public interface IUserService {
      * @param requestDTO DTO de requête pour mettre à jour un utilisateur
      * @return DTO de l'utilisateur mis à jour
      */
-    UserDTO updateUser(Long id, UserRequestDTO requestDTO);
+    UserDTO updateUser(Long id, UserUpdateRequestDTO requestDTO);
     
     /**
      * Supprime un utilisateur par son ID

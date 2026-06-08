@@ -10,7 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/messages")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class MessageController {
 
     @Autowired
