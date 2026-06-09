@@ -51,7 +51,7 @@ const Profile = () => {
         setProfileData(response.data);
         setFormData({
           username: response.data.username || user.username,
-          email: response.data.email || user.email,
+          email: user.email,
           phone: response.data.phone || '',
           firstName: response.data.firstName || '',
           lastName: response.data.lastName || '',
@@ -377,7 +377,7 @@ const Profile = () => {
                   <Mail className="h-5 w-5 text-gray-400" />
                   <div>
                     <span className="text-sm text-gray-600">Email:</span>
-                    <span className="ml-2 font-medium">{profileData.email || user.email}</span>
+                    <span className="ml-2 font-medium">{user.email}</span>
                   </div>
                 </div>
                 {profileData.firstName && (
