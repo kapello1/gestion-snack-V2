@@ -115,6 +115,56 @@ public class EmailService {
         }
     }
 
+    public boolean sendReservationConfirmationEmail(
+            String toEmail,
+            String customerName,
+            String phoneNumber,
+            int tableCapacity,
+            int numberOfPersons,
+            String reservationDate,
+            String reservationTime,
+            String tableNumber) {
+        if (!isConfigured()) {
+            log.warn("Brevo non configuré — confirmation de réservation non envoyée à {}", toEmail);
+            return false;
+        }
+        String body = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px'>"
+                + "<h1 style='color:#2563eb'>Snack</h1>"
+                + "<h2 style='color:#1f2937'>Confirmation de réservation</h2>"
+                + "<p style='color:#4b5563'>Bonjour <strong>" + customerName + "</strong>,</p>"
+                + "<p style='color:#4b5563'>Votre réservation a bien été enregistrée. Voici le récapitulatif :</p>"
+                + "<table style='width:100%;border-collapse:collapse;margin:24px 0'>"
+                + "<tr style='background:#f3f4f6'>"
+                + "<td style='padding:10px 14px;font-weight:bold;color:#374151;width:45%'>Client</td>"
+                + "<td style='padding:10px 14px;color:#1f2937'>" + customerName + "</td></tr>"
+                + "<tr>"
+                + "<td style='padding:10px 14px;font-weight:bold;color:#374151'>Téléphone</td>"
+                + "<td style='padding:10px 14px;color:#1f2937'>" + phoneNumber + "</td></tr>"
+                + "<tr style='background:#f3f4f6'>"
+                + "<td style='padding:10px 14px;font-weight:bold;color:#374151'>Table n°</td>"
+                + "<td style='padding:10px 14px;color:#1f2937'>" + tableNumber + " (capacité : " + tableCapacity + " places)</td></tr>"
+                + "<tr>"
+                + "<td style='padding:10px 14px;font-weight:bold;color:#374151'>Nombre de personnes</td>"
+                + "<td style='padding:10px 14px;color:#1f2937'>" + numberOfPersons + "</td></tr>"
+                + "<tr style='background:#f3f4f6'>"
+                + "<td style='padding:10px 14px;font-weight:bold;color:#374151'>Date</td>"
+                + "<td style='padding:10px 14px;color:#1f2937'>" + reservationDate + "</td></tr>"
+                + "<tr>"
+                + "<td style='padding:10px 14px;font-weight:bold;color:#374151'>Heure</td>"
+                + "<td style='padding:10px 14px;color:#1f2937'>" + reservationTime + "</td></tr>"
+                + "</table>"
+                + "<p style='color:#4b5563'>Nous vous attendons avec plaisir. "
+                + "En cas d'empêchement, pensez à annuler votre réservation.</p>"
+                + "<div style='text-align:center;margin:32px 0'>"
+                + "<a href='" + frontendUrl + "' style='display:inline-block;padding:12px 28px;background:#2563eb;"
+                + "color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px'>"
+                + "Voir le site</a></div>"
+                + "<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0'>"
+                + "<p style='color:#9ca3af;font-size:12px'>Snack — cet email est automatique, merci de ne pas y répondre.</p>"
+                + "</div>";
+        return sendHtml(toEmail, "Confirmation de votre réservation — Snack", body);
+    }
+
     private String buildVerificationBody(String firstName, String link) {
         return "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px'>"
                 + "<h1 style='color:#2563eb'>Snack</h1>"

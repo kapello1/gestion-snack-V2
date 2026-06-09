@@ -6,6 +6,7 @@ import com.joel.gestion_snack.model.entity.*;
 import com.joel.gestion_snack.repository.CustomerRepository;
 import com.joel.gestion_snack.repository.DiningTableRepository;
 import com.joel.gestion_snack.repository.ReservationRepository;
+import com.joel.gestion_snack.service.EmailService;
 import com.joel.gestion_snack.service.interfaces.IReservationService;
 import com.joel.gestion_snack.utils.MapperUtil;
 import jakarta.persistence.EntityNotFoundException;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,6 +33,7 @@ public class ReservationServiceImpl implements IReservationService {
     private final CustomerRepository customerRepository;
     private final DiningTableRepository diningTableRepository;
     private final MapperUtil mapperUtil;
+    private final EmailService emailService;
     
     @Override
     @Transactional(readOnly = true)
@@ -81,11 +84,34 @@ public class ReservationServiceImpl implements IReservationService {
         reservation.setCustomer(customer);
         reservation.setTable(table);
         reservation = reservationRepository.save(reservation);
-        
+
         // Mettre à jour le statut de la table
         table.setStatus(TableStatusType.RESERVED);
         diningTableRepository.save(table);
-        
+
+        // Email de confirmation (non bloquant)
+        if (emailService.isConfigured() && customer.getEmail() != null) {
+            try {
+                String customerName = customer.getFirstName() + " " + customer.getLastName();
+                DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
+                emailService.sendReservationConfirmationEmail(
+                        customer.getEmail(),
+                        customerName,
+                        customer.getPhone() != null ? customer.getPhone() : "N/A",
+                        table.getCapacity(),
+                        reservation.getPlaces(),
+                        reservation.getDatetimeFrom().format(dateFmt),
+                        reservation.getDatetimeFrom().format(timeFmt),
+                        String.valueOf(table.getTableNumber())
+                );
+            } catch (Exception e) {
+                log.warn("Échec envoi email confirmation réservation ID={} : {}", reservation.getReservationId(), e.getMessage());
+            }
+        } else {
+            log.info("Email non configuré ou absent — confirmation non envoyée pour réservation ID={}", reservation.getReservationId());
+        }
+
         log.info("Réservation créée avec succès avec l'ID: {}", reservation.getReservationId());
         return mapperUtil.toReservationDTO(reservation);
     }
