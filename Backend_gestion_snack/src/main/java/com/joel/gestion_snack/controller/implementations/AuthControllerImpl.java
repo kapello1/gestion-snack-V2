@@ -75,7 +75,7 @@ public class AuthControllerImpl {
             return ResponseEntity.ok(Map.of(
                 "sent", "false",
                 "fromEmail", "(non configuré)",
-                "message", "Email non configuré — définissez RESEND_API_KEY (recommandé) ou MAIL_USERNAME+MAIL_PASSWORD dans Render"
+                "message", "Email non configuré — définissez BREVO_API_KEY dans les variables d'environnement Render"
             ));
         }
         boolean sent = emailService.sendTestEmail(to);

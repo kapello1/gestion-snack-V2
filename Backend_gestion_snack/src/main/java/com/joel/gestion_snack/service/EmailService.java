@@ -2,70 +2,53 @@ package com.joel.gestion_snack.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import jakarta.annotation.PostConstruct;
-import jakarta.mail.internet.MimeMessage;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Service d'envoi d'email.
- * Priorité : Resend API (RESEND_API_KEY) → Gmail SMTP (MAIL_USERNAME + MAIL_PASSWORD).
- * Resend utilise HTTPS/443, jamais bloqué par les hébergeurs cloud.
- */
 @Service
 @Slf4j
 public class EmailService {
 
-    private final JavaMailSender mailSender;
-    private final WebClient resendClient;
+    private final WebClient brevoClient;
 
-    @Value("${resend.api-key:}")
-    private String resendApiKey;
+    @Value("${brevo.api-key:}")
+    private String brevoApiKey;
 
-    @Value("${resend.from:Snack <onboarding@resend.dev>}")
-    private String resendFrom;
-
-    @Value("${spring.mail.username:}")
-    private String smtpFrom;
+    @Value("${brevo.from-email:gestionsnack.contact@gmail.com}")
+    private String brevoFromEmail;
 
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
-    public EmailService(JavaMailSender mailSender, WebClient.Builder webClientBuilder) {
-        this.mailSender = mailSender;
-        this.resendClient = webClientBuilder.baseUrl("https://api.resend.com").build();
+    public EmailService(WebClient.Builder webClientBuilder) {
+        this.brevoClient = webClientBuilder.baseUrl("https://api.brevo.com").build();
     }
 
     @PostConstruct
     private void logMailConfigStatus() {
-        if (resendApiKey != null && !resendApiKey.isBlank()) {
-            log.info("=== Email via Resend API — from='{}' | frontend='{}' ===", resendFrom, frontendUrl);
-        } else if (smtpFrom != null && !smtpFrom.isBlank()) {
-            log.info("=== Email via Gmail SMTP — from='{}' | frontend='{}' ===", smtpFrom, frontendUrl);
+        if (brevoApiKey != null && !brevoApiKey.isBlank()) {
+            log.info("=== Email via Brevo API — from='{}' | frontend='{}' ===", brevoFromEmail, frontendUrl);
         } else {
-            log.warn("=== EMAIL NON CONFIGURÉ — définissez RESEND_API_KEY (recommandé) ou MAIL_USERNAME+MAIL_PASSWORD ===");
+            log.warn("=== EMAIL NON CONFIGURÉ — définissez BREVO_API_KEY dans les variables d'environnement ===");
         }
     }
 
     public boolean isConfigured() {
-        return (resendApiKey != null && !resendApiKey.isBlank())
-                || (smtpFrom != null && !smtpFrom.isBlank());
+        return brevoApiKey != null && !brevoApiKey.isBlank();
     }
 
     public String getFromEmail() {
-        if (resendApiKey != null && !resendApiKey.isBlank()) return resendFrom;
-        return smtpFrom != null ? smtpFrom : "";
+        return brevoFromEmail;
     }
 
     public boolean sendVerificationEmail(String toEmail, String token, String firstName) {
         if (!isConfigured()) {
-            log.warn("Email non configuré — vérification non envoyée à {}", toEmail);
+            log.warn("Brevo non configuré — vérification non envoyée à {}", toEmail);
             return false;
         }
         String link = frontendUrl + "/verify-email?token=" + token;
@@ -74,7 +57,7 @@ public class EmailService {
 
     public boolean sendPasswordResetEmail(String toEmail, String token, String firstName) {
         if (!isConfigured()) {
-            log.warn("Email non configuré — réinitialisation non envoyée à {}", toEmail);
+            log.warn("Brevo non configuré — réinitialisation non envoyée à {}", toEmail);
             return false;
         }
         String link = frontendUrl + "/reset-password?token=" + token;
@@ -83,84 +66,54 @@ public class EmailService {
 
     public boolean sendTestEmail(String toEmail) {
         if (!isConfigured()) {
-            log.warn("Email non configuré — test impossible");
+            log.warn("Brevo non configuré — test impossible");
             return false;
         }
-        String provider = (resendApiKey != null && !resendApiKey.isBlank()) ? "Resend API" : "Gmail SMTP";
         String body = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px'>"
                 + "<h1 style='color:#2563eb'>Snack</h1>"
                 + "<h2>Test de configuration email</h2>"
-                + "<p>Si vous recevez cet email, la configuration fonctionne correctement.</p>"
-                + "<p><strong>Provider :</strong> " + provider + "</p>"
-                + "<p style='color:#6b7280;font-size:12px'>Envoyé depuis : " + getFromEmail() + "</p>"
+                + "<p>Si vous recevez cet email, la configuration Brevo fonctionne correctement.</p>"
+                + "<p><strong>Provider :</strong> Brevo API</p>"
+                + "<p style='color:#6b7280;font-size:12px'>Envoyé depuis : " + brevoFromEmail + "</p>"
                 + "</div>";
         return sendHtml(toEmail, "Test de configuration email — Snack", body);
     }
 
-    // -----------------------------------------------------------------------
-    // Routage : Resend en priorité, SMTP en fallback
-    // -----------------------------------------------------------------------
-
     private boolean sendHtml(String to, String subject, String htmlBody) {
-        if (resendApiKey != null && !resendApiKey.isBlank()) {
-            return sendViaResend(to, subject, htmlBody);
-        }
-        return sendViaSmtp(to, subject, htmlBody);
-    }
-
-    private boolean sendViaResend(String to, String subject, String htmlBody) {
         try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("from", resendFrom);
-            payload.put("to", List.of(to));
-            payload.put("subject", subject);
-            payload.put("html", htmlBody);
+            Map<String, Object> sender = new HashMap<>();
+            sender.put("name", "Snack");
+            sender.put("email", brevoFromEmail);
 
-            String response = resendClient.post()
-                    .uri("/emails")
-                    .header("Authorization", "Bearer " + resendApiKey)
+            Map<String, Object> recipient = new HashMap<>();
+            recipient.put("email", to);
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("sender", sender);
+            payload.put("to", List.of(recipient));
+            payload.put("subject", subject);
+            payload.put("htmlContent", htmlBody);
+
+            String response = brevoClient.post()
+                    .uri("/v3/smtp/email")
+                    .header("api-key", brevoApiKey)
                     .header("Content-Type", "application/json")
                     .bodyValue(payload)
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
 
-            log.info("Email envoyé via Resend à {} — réponse: {}", to, response);
+            log.info("Email envoyé via Brevo à {} — réponse: {}", to, response);
             return true;
         } catch (Exception e) {
             Throwable root = e;
             while (root.getCause() != null && root.getCause() != root) root = root.getCause();
-            log.error("Échec envoi Resend à {} — [{}] {} | cause: [{}] {}",
+            log.error("Échec envoi Brevo à {} — [{}] {} | cause: [{}] {}",
                     to, e.getClass().getSimpleName(), e.getMessage(),
                     root.getClass().getSimpleName(), root.getMessage());
             return false;
         }
     }
-
-    private boolean sendViaSmtp(String to, String subject, String htmlBody) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(smtpFrom);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(htmlBody, true);
-            mailSender.send(message);
-            log.info("Email envoyé via Gmail SMTP à {}", to);
-            return true;
-        } catch (Exception e) {
-            Throwable root = e;
-            while (root.getCause() != null && root.getCause() != root) root = root.getCause();
-            log.error("Échec envoi SMTP à {} — [{}] {} | cause: [{}] {}",
-                    to, e.getClass().getSimpleName(), e.getMessage(),
-                    root.getClass().getSimpleName(), root.getMessage());
-            return false;
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Corps des emails
-    // -----------------------------------------------------------------------
 
     private String buildVerificationBody(String firstName, String link) {
         return "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px'>"
