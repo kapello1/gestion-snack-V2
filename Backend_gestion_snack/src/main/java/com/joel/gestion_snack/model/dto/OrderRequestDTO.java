@@ -36,4 +36,6 @@ public class OrderRequestDTO {
     private List<OrderItemRequestDTO> orderItems;
 
     private String createdBy;
+
+    private String stripePaymentIntentId;
 }

@@ -154,6 +154,25 @@ public class OrderServiceImpl implements IOrderService {
 
         // Le total sera recalculé automatiquement par le trigger de la base de données
         order = orderRepository.findById(order.getOrderId()).orElse(order);
+
+        // Paiement Stripe déjà confirmé : créer la transaction COMPLETED et màj le CA
+        if (requestDTO.getStripePaymentIntentId() != null
+                && !requestDTO.getStripePaymentIntentId().isBlank()) {
+            Transaction transaction = new Transaction();
+            transaction.setOrder(order);
+            if (order.getCustomer() != null) {
+                transaction.setCustomer(order.getCustomer());
+            }
+            transaction.setPaymentMethod(PaymentMethodType.CARD);
+            transaction.setAmount(order.getTotalAmount());
+            transaction.setStatus(TransactionStatusType.COMPLETED);
+            transaction.setStripePaymentIntentId(requestDTO.getStripePaymentIntentId());
+            transaction.setCreatedBy(requestDTO.getCreatedBy() != null ? requestDTO.getCreatedBy() : "CUSTOMER");
+            transactionRepository.save(transaction);
+            updateRevenue(order);
+            log.info("Transaction Stripe COMPLETED créée pour commande {}", order.getOrderId());
+        }
+
         log.info("Commande créée avec succès avec l'ID: {}", order.getOrderId());
         wsPublisher.publishOrderEvent("ORDER_CREATED", order.getOrderId());
         return toOrderDTOWithItems(order);

@@ -141,6 +141,11 @@ export const API_ENDPOINTS = {
     BY_ID: (id) => `/messages/${id}`,
     BY_USER: (userId) => `/messages/user/${userId}`,
   },
+  // Stripe — paiements en ligne
+  STRIPE: {
+    CREATE_PAYMENT_INTENT: '/stripe/create-payment-intent',
+    CONFIRM_ORDER: '/stripe/confirm-order',
+  },
 };
 
 export default API_ENDPOINTS;

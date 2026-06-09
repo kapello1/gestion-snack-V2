@@ -3,7 +3,7 @@ import Layout from '../../components/layout/Layout';
 import {
   ShoppingCart, CreditCard, ArrowLeft, Plus, Minus,
   CheckCircle, Clock, Trash2, ShoppingBag, Receipt,
-  Users, Tag, ChevronRight, Utensils, AlertTriangle,
+  Users, Tag, ChevronRight, Utensils, AlertTriangle, Lock,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +12,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { PAYMENT_METHOD, ORDER_TYPE, LABELS, DOCUMENT_TYPE } from '../../utils/constants';
+import StripePaymentForm from '../../components/StripePaymentForm';
 
 const CheckoutPage = () => {
   const { user } = useAuth();
@@ -21,6 +22,9 @@ const CheckoutPage = () => {
   const submittingRef = useRef(false); // verrou dur contre la double-soumission
   const [freeTables, setFreeTables] = useState([]);
   const [tablesLoading, setTablesLoading] = useState(false);
+
+  // État Stripe : clientSecret reçu du backend, null = pas encore en mode paiement carte
+  const [stripeClientSecret, setStripeClientSecret] = useState(null);
 
   const [cart, setCart] = useState(() => {
     try {
@@ -88,68 +92,89 @@ const CheckoutPage = () => {
   }, 0);
   const getTotal = () => cart.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
 
+  const buildOrderPayload = () => ({
+    customerId: user.ownerId,
+    tableId: formData.orderType === ORDER_TYPE.ON_SITE ? formData.tableId : null,
+    orderType: formData.orderType,
+    paymentMethod: formData.paymentMethod,
+    pickupTime: formData.pickupTime || null,
+    orderItems: cart.map(item => ({
+      productId: Number(item.productId),
+      quantity: Number(item.quantity),
+      unitPrice: Number(item.unitPrice),
+    })),
+    guestCount: formData.orderType === ORDER_TYPE.ON_SITE ? (formData.guestCount || 1) : null,
+    createdBy: user.username,
+  });
+
+  const validateBeforeSubmit = () => {
+    if (cart.length === 0) { toast.warning(t('checkout.empty')); return false; }
+    const invalid = cart.filter(item => !item.productId || !item.quantity || item.quantity < 1);
+    if (invalid.length > 0) { toast.error('Panier invalide — veuillez vider le panier et recommencer.'); return false; }
+    if (formData.orderType === ORDER_TYPE.ON_SITE && !formData.tableId) {
+      toast.error('Veuillez sélectionner une table avant de commander.');
+      return false;
+    }
+    return true;
+  };
+
+  const submitOrder = async (extraPayload = {}) => {
+    const payload = { ...buildOrderPayload(), ...extraPayload };
+    const endpoint = extraPayload.stripePaymentIntentId
+      ? API_ENDPOINTS.STRIPE.CONFIRM_ORDER
+      : API_ENDPOINTS.ORDERS.BASE;
+
+    const response = await api.post(endpoint, payload);
+
+    if (response.data) {
+      if (formData.orderType === ORDER_TYPE.ON_SITE && formData.tableId) {
+        await api.put(
+          API_ENDPOINTS.TABLES.UPDATE_STATUS(formData.tableId),
+          null,
+          { params: { status: 'OCCUPIED' } }
+        ).catch(() => {});
+      }
+      localStorage.removeItem('cart');
+      toast.success(
+        formData.orderType === ORDER_TYPE.ON_SITE
+          ? t('checkout.successOnSite')
+          : t('checkout.successTakeaway')
+      );
+      navigate('/customer/orders');
+    }
+  };
+
   const handlePayment = async (e) => {
     e.preventDefault();
-
-    // Verrou dur : empêche toute double-soumission (clic rapide, StrictMode, etc.)
     if (submittingRef.current) return;
     submittingRef.current = true;
 
-    if (cart.length === 0) { toast.warning(t('checkout.empty')); submittingRef.current = false; return; }
+    if (!validateBeforeSubmit()) { submittingRef.current = false; return; }
 
-    // Validation locale du panier avant d'appeler le backend
-    const invalidItems = cart.filter(item => !item.productId || !item.quantity || item.quantity < 1);
-    if (invalidItems.length > 0) {
-      toast.error('Panier invalide — veuillez vider le panier et recommencer.');
-      submittingRef.current = false;
+    // Paiement par carte (TAKEAWAY) → initialiser Stripe avant de créer la commande
+    if (formData.paymentMethod === PAYMENT_METHOD.CARD && formData.orderType === ORDER_TYPE.TAKEAWAY) {
+      setLoading(true);
+      try {
+        const totalCents = Math.round(getTotal() * 100);
+        const { data } = await api.post(API_ENDPOINTS.STRIPE.CREATE_PAYMENT_INTENT, {
+          amountInCents: totalCents,
+          currency: 'eur',
+        });
+        setStripeClientSecret(data.clientSecret);
+      } catch (error) {
+        const msg = error.response?.data?.message || 'Impossible d\'initialiser le paiement par carte.';
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+        submittingRef.current = false;
+      }
       return;
     }
 
-    // Validation sur-place : table obligatoire
-    if (formData.orderType === ORDER_TYPE.ON_SITE && !formData.tableId) {
-      toast.error('Veuillez sélectionner une table avant de commander.');
-      submittingRef.current = false;
-      return;
-    }
-
+    // Paiement espèces / commande sur place → flux existant
     setLoading(true);
     try {
-      const orderPayload = {
-        customerId: user.ownerId,
-        tableId: formData.orderType === ORDER_TYPE.ON_SITE ? formData.tableId : null,
-        orderType: formData.orderType,
-        paymentMethod: formData.paymentMethod,
-        pickupTime: formData.pickupTime || null,
-        orderItems: cart.map(item => ({
-          productId: Number(item.productId),
-          quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice),
-        })),
-        guestCount: formData.orderType === ORDER_TYPE.ON_SITE ? (formData.guestCount || 1) : null,
-        createdBy: user.username,
-      };
-
-      const response = await api.post(API_ENDPOINTS.ORDERS.BASE, orderPayload);
-
-      if (response.data) {
-        // Pour les commandes sur place : le backend marque déjà la table OCCUPIED
-        // On fait un PUT de confirmation en cas de décalage
-        if (formData.orderType === ORDER_TYPE.ON_SITE && formData.tableId) {
-          await api.put(
-            API_ENDPOINTS.TABLES.UPDATE_STATUS(formData.tableId),
-            null,
-            { params: { status: 'OCCUPIED' } }
-          ).catch(() => {});
-        }
-
-        localStorage.removeItem('cart');
-        toast.success(
-          formData.orderType === ORDER_TYPE.ON_SITE
-            ? t('checkout.successOnSite')
-            : t('checkout.successTakeaway')
-        );
-        navigate('/customer/orders');
-      }
+      await submitOrder();
     } catch (error) {
       const backendMsg = error.response?.data?.message;
       const validationErrors = error.response?.data?.errors;
@@ -161,6 +186,18 @@ const CheckoutPage = () => {
     } finally {
       setLoading(false);
       submittingRef.current = false;
+    }
+  };
+
+  // Appelé par StripePaymentForm après confirmation Stripe réussie
+  const handleStripeSuccess = async (paymentIntentId) => {
+    setLoading(true);
+    try {
+      await submitOrder({ stripePaymentIntentId: paymentIntentId });
+    } catch (error) {
+      const msg = error.response?.data?.message || 'Erreur lors de la finalisation de la commande.';
+      toast.error(msg);
+      setLoading(false);
     }
   };
 
@@ -427,98 +464,134 @@ const CheckoutPage = () => {
             </div>
           </div>
 
-          {/* Colonne Droite: Récapitulatif */}
+          {/* Colonne Droite: Récapitulatif ou Formulaire Stripe */}
           <div className="space-y-4">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6">
-              <h2 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
-                <Receipt className="h-5 w-5 text-blue-600" />
-                {t('checkout.summary')}
-              </h2>
 
-              {/* Détail des prix */}
-              <div className="space-y-3 mb-5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">{t('checkout.base')}</span>
-                  <span className="font-semibold text-gray-900">{getSubtotal().toFixed(2)} €</span>
-                </div>
-                {getExtrasTotal() > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">{t('checkout.extras')}</span>
-                    <span className="font-semibold text-blue-600">+{getExtrasTotal().toFixed(2)} €</span>
-                  </div>
-                )}
-                <div className="h-px bg-gray-100" />
-                <div className="flex justify-between">
-                  <span className="font-bold text-gray-900">{t('checkout.total')}</span>
-                  <span className="text-2xl font-black text-blue-600">{getTotal().toFixed(2)} €</span>
-                </div>
-              </div>
+              {stripeClientSecret ? (
+                /* ── Mode paiement Stripe ── */
+                <>
+                  <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-blue-600" />
+                    Paiement par carte
+                  </h2>
+                  <p className="text-xs text-gray-400 mb-5">
+                    Total : <span className="font-black text-blue-600 text-base">{getTotal().toFixed(2)} €</span>
+                  </p>
+                  {loading ? (
+                    <div className="flex items-center justify-center py-8 gap-3 text-gray-500">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+                      Finalisation de la commande...
+                    </div>
+                  ) : (
+                    <StripePaymentForm
+                      clientSecret={stripeClientSecret}
+                      amount={getTotal()}
+                      onSuccess={handleStripeSuccess}
+                      onCancel={() => setStripeClientSecret(null)}
+                    />
+                  )}
+                </>
+              ) : (
+                /* ── Mode récapitulatif normal ── */
+                <>
+                  <h2 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
+                    <Receipt className="h-5 w-5 text-blue-600" />
+                    {t('checkout.summary')}
+                  </h2>
 
-              {/* Résumé commande */}
-              <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2 text-xs">
-                <div className="flex justify-between text-gray-600">
-                  <span>{t('checkout.typeLabel')}</span>
-                  <span className="font-semibold">{LABELS.ORDER_TYPE[formData.orderType]}</span>
-                </div>
-                {isOnSite && formData.tableId && (
-                  <div className="flex justify-between text-gray-600">
-                    <span>Table</span>
-                    <span className="font-semibold text-blue-600">
-                      #{freeTables.find(tb => tb.tableId === formData.tableId)?.tableNumber ?? formData.tableId}
-                      {freeTables.find(tb => tb.tableId === formData.tableId)?.capacity
-                        ? ` · ${freeTables.find(tb => tb.tableId === formData.tableId).capacity} pl.`
-                        : ''}
-                    </span>
+                  {/* Détail des prix */}
+                  <div className="space-y-3 mb-5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">{t('checkout.base')}</span>
+                      <span className="font-semibold text-gray-900">{getSubtotal().toFixed(2)} €</span>
+                    </div>
+                    {getExtrasTotal() > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">{t('checkout.extras')}</span>
+                        <span className="font-semibold text-blue-600">+{getExtrasTotal().toFixed(2)} €</span>
+                      </div>
+                    )}
+                    <div className="h-px bg-gray-100" />
+                    <div className="flex justify-between">
+                      <span className="font-bold text-gray-900">{t('checkout.total')}</span>
+                      <span className="text-2xl font-black text-blue-600">{getTotal().toFixed(2)} €</span>
+                    </div>
                   </div>
-                )}
-                {!isOnSite && (
-                  <div className="flex justify-between text-gray-600">
-                    <span>{t('checkout.paymentLabel')}</span>
-                    <span className="font-semibold">{LABELS.PAYMENT_METHOD[formData.paymentMethod]}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-gray-600">
-                  <span>{t('checkout.documentLabel')}</span>
-                  <span className="font-semibold">{LABELS.DOCUMENT_TYPE[formData.documentType]}</span>
-                </div>
-                {formData.pickupTime && (
-                  <div className="flex justify-between text-gray-600">
-                    <span>{t('checkout.retrievalLabel')}</span>
-                    <span className="font-semibold">{formData.pickupTime}</span>
-                  </div>
-                )}
-              </div>
 
-              {/* Bouton Commander */}
-              <button
-                type="submit"
-                form="checkout-form"
-                disabled={loading || cart.length === 0}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-xl font-black text-base hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-blue-200 active:scale-95"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
-                    <span>{t('checkout.processing')}</span>
-                  </>
-                ) : isOnSite ? (
-                  <>
-                    <CheckCircle className="h-5 w-5" />
-                    <span>{t('checkout.order')}</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="h-5 w-5" />
-                    <span>{t('checkout.pay')} {getTotal().toFixed(2)} €</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </>
-                )}
-              </button>
+                  {/* Résumé commande */}
+                  <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2 text-xs">
+                    <div className="flex justify-between text-gray-600">
+                      <span>{t('checkout.typeLabel')}</span>
+                      <span className="font-semibold">{LABELS.ORDER_TYPE[formData.orderType]}</span>
+                    </div>
+                    {isOnSite && formData.tableId && (
+                      <div className="flex justify-between text-gray-600">
+                        <span>Table</span>
+                        <span className="font-semibold text-blue-600">
+                          #{freeTables.find(tb => tb.tableId === formData.tableId)?.tableNumber ?? formData.tableId}
+                          {freeTables.find(tb => tb.tableId === formData.tableId)?.capacity
+                            ? ` · ${freeTables.find(tb => tb.tableId === formData.tableId).capacity} pl.`
+                            : ''}
+                        </span>
+                      </div>
+                    )}
+                    {!isOnSite && (
+                      <div className="flex justify-between text-gray-600">
+                        <span>{t('checkout.paymentLabel')}</span>
+                        <span className="font-semibold">{LABELS.PAYMENT_METHOD[formData.paymentMethod]}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-gray-600">
+                      <span>{t('checkout.documentLabel')}</span>
+                      <span className="font-semibold">{LABELS.DOCUMENT_TYPE[formData.documentType]}</span>
+                    </div>
+                    {formData.pickupTime && (
+                      <div className="flex justify-between text-gray-600">
+                        <span>{t('checkout.retrievalLabel')}</span>
+                        <span className="font-semibold">{formData.pickupTime}</span>
+                      </div>
+                    )}
+                  </div>
 
-              <p className="text-center text-xs text-gray-400 mt-3">
-                {t('checkout.securePayment')}
-              </p>
+                  {/* Bouton Commander */}
+                  <button
+                    type="submit"
+                    form="checkout-form"
+                    disabled={loading || cart.length === 0}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-xl font-black text-base hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-blue-200 active:scale-95"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                        <span>{t('checkout.processing')}</span>
+                      </>
+                    ) : isOnSite ? (
+                      <>
+                        <CheckCircle className="h-5 w-5" />
+                        <span>{t('checkout.order')}</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </>
+                    ) : formData.paymentMethod === PAYMENT_METHOD.CARD ? (
+                      <>
+                        <Lock className="h-5 w-5" />
+                        <span>Payer {getTotal().toFixed(2)} € par carte</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="h-5 w-5" />
+                        <span>{t('checkout.pay')} {getTotal().toFixed(2)} €</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <p className="text-center text-xs text-gray-400 mt-3">
+                    {t('checkout.securePayment')}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -47,6 +47,9 @@ public class Transaction {
     @Column(name = "transaction_date")
     private LocalDateTime transactionDate = LocalDateTime.now();
 
+    @Column(name = "stripe_payment_intent_id", length = 255)
+    private String stripePaymentIntentId;
+
     @Column(name = "created_by", length = 50)
     private String createdBy;
 
