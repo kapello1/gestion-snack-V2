@@ -19,7 +19,7 @@ import java.util.Map;
  * Endpoints Stripe : création du PaymentIntent + confirmation de commande après paiement.
  */
 @RestController
-@RequestMapping("/stripe")
+@RequestMapping("/api/stripe")
 @RequiredArgsConstructor
 @Slf4j
 public class StripeController {
