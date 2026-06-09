@@ -256,6 +256,7 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void deleteUser(Long id) {
         log.info("Suppression en cascade de l'utilisateur avec l'ID: {}", id);
         User user = userRepository.findById(id)
@@ -264,33 +265,31 @@ public class UserServiceImpl implements IUserService {
         RoleType role = user.getRole() != null ? user.getRole().getRoleName() : null;
 
         if (role == RoleType.CUSTOMER) {
-            // Cascade : supprimer le client et toutes ses données liées
             customerRepository.findById(user.getOwnerId()).ifPresent(customer -> {
                 Long customerId = customer.getCustomerId();
-                // Détacher les commandes (garder l'historique)
+                // Détacher les commandes — flush immédiat pour satisfaire ON DELETE RESTRICT
                 orderRepository.findByCustomer_CustomerId(customerId).forEach(order -> {
                     order.setCustomer(null);
                     orderRepository.save(order);
                 });
-                // Supprimer les réservations
+                entityManager.flush(); // force UPDATE orders SET customer_id=NULL avant DELETE customers
                 reservationRepository.findByCustomer_CustomerId(customerId)
-                        .forEach(reservationRepository::delete);
-                // Supprimer les avis
+                        .forEach(r -> reservationRepository.deleteById(r.getReservationId()));
                 reviewRepository.findByCustomer_CustomerId(customerId)
-                        .forEach(reviewRepository::delete);
-                customerRepository.delete(customer);
+                        .forEach(r -> reviewRepository.deleteById(r.getReviewId()));
+                customerRepository.deleteById(customerId);
                 log.info("Client ID {} supprimé en cascade", customerId);
             });
-
         } else if (role != null && role != RoleType.ADMIN && role != RoleType.PROVIDER) {
-            // Cascade : supprimer l'employé
             employeeRepository.findById(user.getOwnerId()).ifPresent(emp -> {
-                employeeRepository.delete(emp);
+                employeeRepository.deleteById(emp.getEmployeeId());
                 log.info("Employé ID {} supprimé en cascade", emp.getEmployeeId());
             });
         }
 
-        userRepository.delete(user);
+        // Flush toutes les opérations en attente, puis supprime l'utilisateur par ID
+        entityManager.flush();
+        userRepository.deleteById(id);
         log.info("Utilisateur supprimé avec succès avec l'ID: {}", id);
     }
 
