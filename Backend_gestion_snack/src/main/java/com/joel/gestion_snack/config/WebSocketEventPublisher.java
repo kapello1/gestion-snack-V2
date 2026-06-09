@@ -54,4 +54,15 @@ public class WebSocketEventPublisher {
             log.warn("Échec publication WS tables ({} id={}): {}", type, tableId, e.getMessage());
         }
     }
+
+    public void publishReservationEvent(String type, Long reservationId) {
+        try {
+            messagingTemplate.convertAndSend(
+                    "/topic/reservations",
+                    Map.of("type", type, "reservationId", reservationId));
+            log.debug("WS → /topic/reservations : {} (id={})", type, reservationId);
+        } catch (Exception e) {
+            log.warn("Échec publication WS reservations ({} id={}): {}", type, reservationId, e.getMessage());
+        }
+    }
 }

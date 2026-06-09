@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -337,6 +338,7 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void forgotPassword(String email) {
         log.info("Demande de réinitialisation de mot de passe pour l'email: {}", email);
         User user = userRepository.findByEmail(email).orElse(null);

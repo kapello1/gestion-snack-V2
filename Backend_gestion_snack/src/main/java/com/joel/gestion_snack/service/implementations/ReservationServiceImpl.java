@@ -6,6 +6,7 @@ import com.joel.gestion_snack.model.entity.*;
 import com.joel.gestion_snack.repository.CustomerRepository;
 import com.joel.gestion_snack.repository.DiningTableRepository;
 import com.joel.gestion_snack.repository.ReservationRepository;
+import com.joel.gestion_snack.config.WebSocketEventPublisher;
 import com.joel.gestion_snack.service.EmailService;
 import com.joel.gestion_snack.service.interfaces.IReservationService;
 import com.joel.gestion_snack.utils.MapperUtil;
@@ -34,6 +35,7 @@ public class ReservationServiceImpl implements IReservationService {
     private final DiningTableRepository diningTableRepository;
     private final MapperUtil mapperUtil;
     private final EmailService emailService;
+    private final WebSocketEventPublisher wsPublisher;
     
     @Override
     @Transactional(readOnly = true)
@@ -112,6 +114,7 @@ public class ReservationServiceImpl implements IReservationService {
             log.info("Email non configuré ou absent — confirmation non envoyée pour réservation ID={}", reservation.getReservationId());
         }
 
+        wsPublisher.publishReservationEvent("RESERVATION_CREATED", reservation.getReservationId());
         log.info("Réservation créée avec succès avec l'ID: {}", reservation.getReservationId());
         return mapperUtil.toReservationDTO(reservation);
     }
@@ -163,6 +166,7 @@ public class ReservationServiceImpl implements IReservationService {
         diningTableRepository.save(table);
         
         reservationRepository.deleteById(id);
+        wsPublisher.publishReservationEvent("RESERVATION_DELETED", id);
         log.info("Réservation supprimée avec succès");
     }
     
@@ -207,8 +211,7 @@ public class ReservationServiceImpl implements IReservationService {
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservation.setUpdatedBy("SYSTEM");
         reservation = reservationRepository.save(reservation);
-        
-        // Le trigger de la base de données libérera automatiquement la table
+        wsPublisher.publishReservationEvent("RESERVATION_CANCELLED", reservation.getReservationId());
         log.info("Réservation annulée avec succès");
         return mapperUtil.toReservationDTO(reservation);
     }

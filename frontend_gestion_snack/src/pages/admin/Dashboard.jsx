@@ -10,6 +10,7 @@ import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { useLanguage } from '../../context/LanguageContext';
 import StarRating from '../../components/StarRating';
+import { wsManager } from '../../lib/wsManager';
 
 /* ─────────────────────── Animated Counter ─────────────────────── */
 const AnimatedCounter = ({ target, suffix = '', decimals = 0 }) => {
@@ -178,6 +179,11 @@ const AdminDashboard = () => {
     const interval = setInterval(() => fetchStats(false), 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Refresh immédiat sur chaque événement WebSocket (commandes, tables, réservations)
+  useEffect(() => {
+    return wsManager.onEvent(() => fetchStats(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchStats = async (showLoading = false) => {
     if (showLoading) setLoading(true);

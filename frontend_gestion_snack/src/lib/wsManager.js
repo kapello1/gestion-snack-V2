@@ -16,12 +16,14 @@ const buildWsUrl = () => {
 
 let client = null;
 
+// Callbacks enregistrés par des composants non-React-Query (ex: Dashboard)
+const listeners = new Set();
+
 /**
  * Gestionnaire WebSocket singleton.
  * Une seule connexion STOMP est ouverte quelle que soit la route active.
- * Tous les événements entrants invalident le cache React Query ciblé,
- * déclenchant un re-fetch uniquement pour les composants abonnés aux
- * données concernées.
+ * Tous les événements entrants invalident le cache React Query ciblé et
+ * notifient les listeners enregistrés via onEvent().
  */
 export const wsManager = {
   connect() {
@@ -34,17 +36,20 @@ export const wsManager = {
       heartbeatOutgoing: 10000,
 
       onConnect() {
-        // Toutes les mutations de commandes (create / cancel / close / serve / pay)
-        // publient sur ce topic → invalide toutes les queries ['orders', ...]
         client.subscribe('/topic/orders', () => {
           queryClient.invalidateQueries({ queryKey: ['orders'] });
+          listeners.forEach(fn => fn({ topic: 'orders' }));
         });
 
-        // Toutes les mutations de tables publient sur ce topic
-        // → invalide les queries ['tables'] et ['orders'] (tables liées aux commandes)
         client.subscribe('/topic/tables', () => {
           queryClient.invalidateQueries({ queryKey: ['tables'] });
           queryClient.invalidateQueries({ queryKey: ['orders'] });
+          listeners.forEach(fn => fn({ topic: 'tables' }));
+        });
+
+        client.subscribe('/topic/reservations', () => {
+          queryClient.invalidateQueries({ queryKey: ['reservations'] });
+          listeners.forEach(fn => fn({ topic: 'reservations' }));
         });
       },
 
@@ -69,5 +74,14 @@ export const wsManager = {
 
   isConnected() {
     return !!client?.active;
+  },
+
+  /**
+   * Enregistre un callback appelé à chaque événement WS reçu.
+   * Retourne une fonction de désinscription à appeler dans le cleanup useEffect.
+   */
+  onEvent(fn) {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
   },
 };
