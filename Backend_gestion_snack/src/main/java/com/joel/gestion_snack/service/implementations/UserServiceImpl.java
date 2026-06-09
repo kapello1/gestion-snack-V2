@@ -349,7 +349,19 @@ public class UserServiceImpl implements IUserService {
         user.setResetPasswordToken(token);
         user.setResetPasswordTokenExpiry(LocalDateTime.now().plusHours(1));
         userRepository.save(user);
-        String firstName = user.getUsername();
+        RoleType role = user.getRole() != null ? user.getRole().getRoleName() : null;
+        String firstName;
+        if (role == RoleType.CUSTOMER) {
+            firstName = customerRepository.findById(user.getOwnerId())
+                    .map(c -> c.getFirstName())
+                    .orElse(user.getUsername());
+        } else if (role != null && role != RoleType.PROVIDER) {
+            firstName = employeeRepository.findById(user.getOwnerId())
+                    .map(e -> e.getFirstName())
+                    .orElse(user.getUsername());
+        } else {
+            firstName = user.getUsername();
+        }
         boolean sent = emailService.sendPasswordResetEmail(user.getEmail(), token, firstName);
         if (sent) {
             log.info("Email de réinitialisation envoyé à: {}", email);
