@@ -12,6 +12,8 @@ const VerifyEmail = () => {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
     if (!token) {
       setStatus('error');
       setMessage('Token de vérification manquant.');

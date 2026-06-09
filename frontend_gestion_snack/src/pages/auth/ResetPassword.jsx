@@ -16,6 +16,8 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
     if (!token) {
       toast.error('Lien invalide. Veuillez refaire une demande de réinitialisation.');
       navigate('/forgot-password');
