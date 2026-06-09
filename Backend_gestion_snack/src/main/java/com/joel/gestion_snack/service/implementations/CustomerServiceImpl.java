@@ -49,9 +49,6 @@ public class CustomerServiceImpl implements ICustomerService {
     private final MapperUtil mapperUtil;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    @org.springframework.beans.factory.annotation.Value("${spring.mail.username:}")
-    private String mailUsername;
-    
     @Override
     @Transactional(readOnly = true)
     public List<CustomerDTO> getAllCustomers() {
@@ -107,7 +104,7 @@ public class CustomerServiceImpl implements ICustomerService {
         }
 
         // 3. Préparer le Customer
-        boolean emailEnabled = mailUsername != null && !mailUsername.isBlank();
+        boolean emailEnabled = emailService.isConfigured();
         log.info("[INSCRIPTION] emailEnabled={}", emailEnabled);
         String token = null;
         Customer customer = mapperUtil.toCustomer(requestDTO);

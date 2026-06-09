@@ -75,7 +75,7 @@ public class AuthControllerImpl {
             return ResponseEntity.ok(Map.of(
                 "sent", "false",
                 "fromEmail", "(non configuré)",
-                "message", "MAIL_USERNAME est vide — définissez-le dans les variables d'environnement Render"
+                "message", "Email non configuré — définissez RESEND_API_KEY (recommandé) ou MAIL_USERNAME+MAIL_PASSWORD dans Render"
             ));
         }
         boolean sent = emailService.sendTestEmail(to);
