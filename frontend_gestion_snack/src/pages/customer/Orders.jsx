@@ -1,5 +1,5 @@
 // Page des commandes du client
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
 import { Search, ShoppingCart, X, CheckCircle, Printer, Package, Clock, CreditCard, Sparkles } from 'lucide-react';
@@ -10,11 +10,16 @@ import { LABELS, ORDER_STATUS, ORDER_TYPE } from '../../utils/constants';
 import { useAuth } from '../../context/AuthContext';
 import { generateOrderPDF } from '../../utils/pdfGenerator';
 import OrderStatusBar from '../../components/OrderStatusBar';
+import { wsManager } from '../../lib/wsManager';
 
 const OrdersPage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    return wsManager.onEvent(() => queryClient.invalidateQueries({ queryKey: ['orders'] }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeTab, setActiveTab] = useState('active');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterByDate, setFilterByDate] = useState(false);

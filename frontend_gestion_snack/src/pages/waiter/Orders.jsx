@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
 import { Search, Utensils, CheckCircle, Clock, Printer, User, Package, CalendarDays, Filter } from 'lucide-react';
@@ -7,6 +7,7 @@ import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, ORDER_STATUS } from '../../utils/constants';
+import { wsManager } from '../../lib/wsManager';
 
 const STATUS_TABS = [
   { key: 'ALL',    label: 'Toutes',     active: 'bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105' },
@@ -29,6 +30,10 @@ const groupByDate = (orders) => {
 const WaiterOrdersPage = () => {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    return wsManager.onEvent(() => queryClient.invalidateQueries({ queryKey: ['orders'] }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterByDate, setFilterByDate] = useState(true);

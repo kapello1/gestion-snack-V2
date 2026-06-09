@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
 import { Search, Filter, Eye, XCircle, Clock, Printer, Package, User, Calendar, CreditCard } from 'lucide-react';
@@ -8,6 +8,7 @@ import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, ORDER_STATUS } from '../../utils/constants';
 import OrderStatusBar from '../../components/OrderStatusBar';
+import { wsManager } from '../../lib/wsManager';
 
 const OrdersPage = () => {
   const queryClient = useQueryClient();
@@ -17,6 +18,10 @@ const OrdersPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterByDate, setFilterByDate] = useState(true);
+
+  useEffect(() => {
+    return wsManager.onEvent(() => queryClient.invalidateQueries({ queryKey: ['orders'] }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders', 'admin', statusFilter, filterByDate ? selectedDate : null],

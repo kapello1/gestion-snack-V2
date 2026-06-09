@@ -62,6 +62,7 @@ public class ProviderServiceImpl implements IProviderService {
         Provider provider = mapperUtil.toProvider(requestDTO);
         provider = providerRepository.save(provider);
         log.info("Fournisseur créé avec succès avec l'ID: {}", provider.getProviderId());
+        wsPublisher.publishUserEvent("PROVIDER_CREATED", provider.getProviderId());
         return mapperUtil.toProviderDTO(provider);
     }
 
@@ -82,6 +83,7 @@ public class ProviderServiceImpl implements IProviderService {
         provider.setUpdatedBy(requestDTO.getCreatedBy());
         provider = providerRepository.save(provider);
         log.info("Fournisseur mis à jour avec succès");
+        wsPublisher.publishUserEvent("PROVIDER_UPDATED", provider.getProviderId());
         return mapperUtil.toProviderDTO(provider);
     }
 
@@ -94,6 +96,7 @@ public class ProviderServiceImpl implements IProviderService {
         }
         providerRepository.deleteById(id);
         log.info("Fournisseur supprimé avec succès");
+        wsPublisher.publishUserEvent("PROVIDER_DELETED", id);
     }
 
     @Override

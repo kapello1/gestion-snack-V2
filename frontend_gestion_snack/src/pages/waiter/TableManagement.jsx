@@ -1,14 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { Clock, Users, CheckCircle, XCircle, AlertCircle, RefreshCw, User, Phone, Mail, Hash } from 'lucide-react';
 import api from '../../utils/api';
+import { wsManager } from '../../lib/wsManager';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/layout/Layout';
 
 const TableManagement = () => {
     const queryClient = useQueryClient();
     const [now, setNow] = useState(new Date());
+
+    useEffect(() => {
+        return wsManager.onEvent(() => {
+            queryClient.invalidateQueries({ queryKey: ['tables'] });
+            queryClient.invalidateQueries({ queryKey: ['orders', 'active'] });
+        });
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Compteur de secondes pour le chrono (ne touche pas à la base de données)
     useState(() => {

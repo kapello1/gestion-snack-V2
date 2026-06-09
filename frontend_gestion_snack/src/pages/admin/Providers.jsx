@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { useAuth } from '../../context/AuthContext';
+import { wsManager } from '../../lib/wsManager';
 
 const ProvidersPage = () => {
     const { user } = useAuth();
@@ -29,23 +30,27 @@ const ProvidersPage = () => {
     });
 
     useEffect(() => {
-        loadProviders();
+        loadProviders(true);
     }, []);
+
+    useEffect(() => {
+        return wsManager.onEvent(() => loadProviders(false));
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         filterProviders();
     }, [searchTerm, providers]);
 
-    const loadProviders = async () => {
+    const loadProviders = async (showLoading = false) => {
         try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
             const response = await api.get(API_ENDPOINTS.PROVIDERS.BASE);
             setProviders(response.data || []);
         } catch (error) {
             console.error('Erreur chargement fournisseurs:', error);
-            toast.error('Erreur lors du chargement des fournisseurs');
+            if (showLoading) toast.error('Erreur lors du chargement des fournisseurs');
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     };
 

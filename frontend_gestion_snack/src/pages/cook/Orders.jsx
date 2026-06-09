@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+
 import Layout from '../../components/layout/Layout';
 import { Search, ChefHat, CheckCircle, Clock, AlertCircle, CalendarDays, Filter } from 'lucide-react';
 import api from '../../utils/api';
@@ -7,6 +8,7 @@ import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, ORDER_STATUS } from '../../utils/constants';
 import { useNotifications } from '../../context/NotificationContext';
+import { wsManager } from '../../lib/wsManager';
 
 const STATUS_TABS = [
   { key: 'ALL',    label: 'Toutes',       color: 'text-gray-700',   active: 'bg-white text-gray-900 shadow-md' },
@@ -29,6 +31,10 @@ const groupByDate = (orders) => {
 const CookOrdersPage = () => {
   const { sendToUser } = useNotifications();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    return wsManager.onEvent(() => queryClient.invalidateQueries({ queryKey: ['orders'] }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);

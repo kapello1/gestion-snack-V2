@@ -5,6 +5,7 @@ import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { generateOrderPDF } from '../../utils/pdfGenerator';
+import { wsManager } from '../../lib/wsManager';
 
 const TicketsPage = () => {
     const [orders, setOrders] = useState([]);
@@ -12,20 +13,23 @@ const TicketsPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
-        loadOrders();
+        loadOrders(true);
     }, []);
 
-    const loadOrders = async () => {
+    useEffect(() => {
+        return wsManager.onEvent(() => loadOrders(false));
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const loadOrders = async (showLoading = false) => {
         try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
             const response = await api.get(API_ENDPOINTS.ORDERS.BASE);
-            // Filter orders that are active or closed (relevant for tickets)
             setOrders(response.data || []);
         } catch (error) {
             console.error('Erreur chargement commandes:', error);
-            toast.error('Erreur lors du chargement des tickets');
+            if (showLoading) toast.error('Erreur lors du chargement des tickets');
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     };
 

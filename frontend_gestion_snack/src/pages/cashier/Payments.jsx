@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
 import { Search, CreditCard, DollarSign, CheckCircle, History, Clock, User, CalendarDays, Filter, Receipt, Package } from 'lucide-react';
@@ -6,6 +6,7 @@ import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, ORDER_STATUS, ORDER_TYPE, PAYMENT_METHOD } from '../../utils/constants';
+import { wsManager } from '../../lib/wsManager';
 
 const groupByDate = (orders) => {
   const map = {};
@@ -29,6 +30,10 @@ const isPayable = (order) => {
 const PaymentsPage = () => {
   const queryClient = useQueryClient();
   const [view, setView] = useState('topay');
+
+  useEffect(() => {
+    return wsManager.onEvent(() => queryClient.invalidateQueries({ queryKey: ['orders'] }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterByDate, setFilterByDate] = useState(false);
