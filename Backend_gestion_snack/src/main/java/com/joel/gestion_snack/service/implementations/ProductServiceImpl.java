@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.service.implementations;
 
+import com.joel.gestion_snack.config.WebSocketEventPublisher;
 import com.joel.gestion_snack.model.dto.ProductDTO;
 import com.joel.gestion_snack.model.dto.ProductRequestDTO;
 import com.joel.gestion_snack.model.entity.Product;
@@ -28,6 +29,7 @@ public class ProductServiceImpl implements IProductService {
     private final ProductRepository productRepository;
     private final com.joel.gestion_snack.repository.ReviewRepository reviewRepository;
     private final MapperUtil mapperUtil;
+    private final WebSocketEventPublisher wsPublisher;
     
     private ProductDTO enrichProductDTO(Product product) {
         ProductDTO dto = mapperUtil.toProductDTO(product);
@@ -85,6 +87,7 @@ public class ProductServiceImpl implements IProductService {
         Product product = mapperUtil.toProduct(requestDTO);
         product = productRepository.save(product);
         log.info("Produit créé avec succès avec l'ID: {}", product.getProductId());
+        wsPublisher.publishProductEvent("PRODUCT_CREATED", product.getProductId());
         return enrichProductDTO(product);
     }
     
@@ -119,6 +122,7 @@ public class ProductServiceImpl implements IProductService {
         
         product = productRepository.save(product);
         log.info("Produit mis à jour avec succès avec l'ID: {}", product.getProductId());
+        wsPublisher.publishProductEvent("PRODUCT_UPDATED", product.getProductId());
         return enrichProductDTO(product);
     }
     
@@ -131,6 +135,7 @@ public class ProductServiceImpl implements IProductService {
         }
         productRepository.deleteById(id);
         log.info("Produit supprimé avec succès avec l'ID: {}", id);
+        wsPublisher.publishProductEvent("PRODUCT_DELETED", id);
     }
     
     @Override

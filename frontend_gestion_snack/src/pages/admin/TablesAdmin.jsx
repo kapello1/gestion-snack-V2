@@ -6,7 +6,7 @@ import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
 import { LABELS, TABLE_STATUS } from '../../utils/constants';
-import usePolling from '../../utils/usePolling';
+import { wsManager } from '../../lib/wsManager';
 
 const TablesAdminPage = () => {
     const { user } = useAuth();
@@ -26,7 +26,10 @@ const TablesAdminPage = () => {
         loadTables(true);
     }, []);
 
-    usePolling(() => loadTables(false), 3000);
+    // Rafraîchissement instantané et silencieux sur tout événement WebSocket
+    useEffect(() => {
+        return wsManager.onEvent(() => loadTables(false));
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadTables = async (showLoading = false) => {
         try {

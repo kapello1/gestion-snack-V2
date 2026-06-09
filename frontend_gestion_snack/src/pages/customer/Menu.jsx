@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from '../../components/ProductCard';
-import usePolling from '../../utils/usePolling';
+import { wsManager } from '../../lib/wsManager';
 import StarRating from '../../components/StarRating';
 
 const FALLBACK_SAUCES = [
@@ -107,7 +107,10 @@ const MenuPage = () => {
     loadExtras();
   }, [user]);
 
-  usePolling(() => loadProducts(false), 3000);
+  // Rafraîchissement instantané et silencieux sur tout événement WebSocket
+  useEffect(() => {
+    return wsManager.onEvent(() => loadProducts(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { filterProducts(); }, [searchTerm, selectedType, products]);
   useEffect(() => { localStorage.setItem('cart', JSON.stringify(cart)); }, [cart]);

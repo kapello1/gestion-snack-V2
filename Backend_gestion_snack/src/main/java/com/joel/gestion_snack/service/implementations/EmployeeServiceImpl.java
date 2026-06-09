@@ -3,6 +3,7 @@ package com.joel.gestion_snack.service.implementations;
 import com.joel.gestion_snack.model.dto.EmployeeDTO;
 import com.joel.gestion_snack.model.dto.EmployeeRequestDTO;
 import com.joel.gestion_snack.model.entity.Employee;
+import com.joel.gestion_snack.config.WebSocketEventPublisher;
 import com.joel.gestion_snack.repository.EmployeeRepository;
 import com.joel.gestion_snack.service.interfaces.IEmployeeService;
 import com.joel.gestion_snack.utils.MapperUtil;
@@ -28,6 +29,7 @@ public class EmployeeServiceImpl implements IEmployeeService {
     private final com.joel.gestion_snack.repository.UserRepository userRepository;
     private final com.joel.gestion_snack.repository.RoleRepository roleRepository;
     private final MapperUtil mapperUtil;
+    private final WebSocketEventPublisher wsPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -88,6 +90,7 @@ public class EmployeeServiceImpl implements IEmployeeService {
         employee.setRole(role);
         employee = employeeRepository.save(employee);
         log.info("Employé créé avec succès avec l'ID: {}", employee.getEmployeeId());
+        wsPublisher.publishUserEvent("USER_CREATED", employee.getEmployeeId());
         return mapperUtil.toEmployeeDTO(employee);
     }
 
@@ -113,6 +116,7 @@ public class EmployeeServiceImpl implements IEmployeeService {
         employee.setUpdatedBy(requestDTO.getCreatedBy());
         employee = employeeRepository.save(employee);
         log.info("Employé mis à jour avec succès");
+        wsPublisher.publishUserEvent("USER_UPDATED", employee.getEmployeeId());
         return mapperUtil.toEmployeeDTO(employee);
     }
 
@@ -125,6 +129,7 @@ public class EmployeeServiceImpl implements IEmployeeService {
         }
         employeeRepository.deleteById(id);
         log.info("Employé supprimé avec succès");
+        wsPublisher.publishUserEvent("USER_DELETED", id);
     }
 
     @Override
@@ -141,6 +146,7 @@ public class EmployeeServiceImpl implements IEmployeeService {
         });
 
         log.info("Statut de l'employé {} mis à jour à isActive={}", id, active);
+        wsPublisher.publishUserEvent(active ? "USER_ACTIVATED" : "USER_DEACTIVATED", id);
         return toEmployeeDTOWithStatus(employee);
     }
 }

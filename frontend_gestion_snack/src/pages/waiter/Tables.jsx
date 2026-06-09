@@ -5,6 +5,7 @@ import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, TABLE_STATUS, STATUS_COLORS } from '../../utils/constants';
+import { wsManager } from '../../lib/wsManager';
 
 const WaiterTablesPage = () => {
   const [tables, setTables] = useState([]);
@@ -16,9 +17,12 @@ const WaiterTablesPage = () => {
 
   useEffect(() => {
     loadTables(true);
-    const interval = setInterval(() => loadTables(false), 3000);
-    return () => clearInterval(interval);
   }, []);
+
+  // Rafraîchissement instantané et silencieux sur tout événement WebSocket
+  useEffect(() => {
+    return wsManager.onEvent(() => loadTables(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { filterTables(); }, [searchTerm, selectedStatus, tables]);
 

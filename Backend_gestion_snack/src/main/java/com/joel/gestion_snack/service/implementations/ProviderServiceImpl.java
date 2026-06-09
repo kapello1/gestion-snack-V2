@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.service.implementations;
 
+import com.joel.gestion_snack.config.WebSocketEventPublisher;
 import com.joel.gestion_snack.model.dto.*;
 import com.joel.gestion_snack.model.entity.*;
 import com.joel.gestion_snack.repository.*;
@@ -28,6 +29,7 @@ public class ProviderServiceImpl implements IProviderService {
     private final ProviderProductRepository providerProductRepository;
     private final ProductRepository productRepository;
     private final MapperUtil mapperUtil;
+    private final WebSocketEventPublisher wsPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -117,6 +119,7 @@ public class ProviderServiceImpl implements IProviderService {
         providerProduct = providerProductRepository.save(providerProduct);
 
         log.info("Fourniture enregistrée avec l'ID: {}", providerProduct.getProvideId());
+        wsPublisher.publishSupplyEvent("SUPPLY_CREATED", providerProduct.getProvideId());
         return mapperUtil.toProviderProductDTO(providerProduct);
     }
 
@@ -135,6 +138,9 @@ public class ProviderServiceImpl implements IProviderService {
         productRepository.save(product);
 
         log.info("Fourniture validée et stock mis à jour pour le produit: {}", product.getProductName());
+        wsPublisher.publishSupplyEvent("SUPPLY_VALIDATED", providerProduct.getProvideId());
+        // Le stock du produit ayant changé, on notifie aussi le topic products
+        wsPublisher.publishProductEvent("STOCK_UPDATED", product.getProductId());
         return mapperUtil.toProviderProductDTO(providerProduct);
     }
 

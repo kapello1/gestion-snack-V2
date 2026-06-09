@@ -5,6 +5,7 @@ import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import { wsManager } from '../../lib/wsManager';
 
 const AdminSupplies = () => {
     const navigate = useNavigate();
@@ -15,6 +16,11 @@ const AdminSupplies = () => {
     useEffect(() => {
         fetchSupplies();
     }, []);
+
+    // Rafraîchissement instantané et silencieux sur tout événement WebSocket
+    useEffect(() => {
+        return wsManager.onEvent(() => fetchSupplies());
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchSupplies = async () => {
         try {

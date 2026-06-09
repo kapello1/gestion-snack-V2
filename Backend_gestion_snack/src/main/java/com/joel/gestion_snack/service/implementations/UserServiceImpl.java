@@ -15,6 +15,7 @@ import com.joel.gestion_snack.repository.ReservationRepository;
 import com.joel.gestion_snack.repository.ReviewRepository;
 import com.joel.gestion_snack.repository.RoleRepository;
 import com.joel.gestion_snack.repository.UserRepository;
+import com.joel.gestion_snack.config.WebSocketEventPublisher;
 import com.joel.gestion_snack.service.EmailService;
 import com.joel.gestion_snack.service.interfaces.IUserService;
 import com.joel.gestion_snack.utils.MapperUtil;
@@ -54,6 +55,7 @@ public class UserServiceImpl implements IUserService {
     private final MapperUtil mapperUtil;
     private final EntityManager entityManager;
     private final EmailService emailService;
+    private final WebSocketEventPublisher wsPublisher;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Override
@@ -204,6 +206,7 @@ public class UserServiceImpl implements IUserService {
 
         user = userRepository.save(user);
         log.info("Utilisateur créé avec succès avec l'ID: {}", user.getUserId());
+        wsPublisher.publishUserEvent("USER_CREATED", user.getUserId());
         return mapperUtil.toUserDTO(user);
     }
 
@@ -252,6 +255,7 @@ public class UserServiceImpl implements IUserService {
 
         user = userRepository.save(user);
         log.info("[UPDATE_USER] Succès — userId={}", user.getUserId());
+        wsPublisher.publishUserEvent("USER_UPDATED", user.getUserId());
         return mapperUtil.toUserDTO(user);
     }
 
@@ -291,6 +295,7 @@ public class UserServiceImpl implements IUserService {
         entityManager.flush();
         userRepository.deleteById(id);
         log.info("Utilisateur supprimé avec succès avec l'ID: {}", id);
+        wsPublisher.publishUserEvent("USER_DELETED", id);
     }
 
     @Override
@@ -398,6 +403,7 @@ public class UserServiceImpl implements IUserService {
         user.setUpdatedBy("ADMIN");
         user = userRepository.save(user);
         log.info("Utilisateur désactivé avec succès: {}", id);
+        wsPublisher.publishUserEvent("USER_DEACTIVATED", user.getUserId());
         return mapperUtil.toUserDTO(user);
     }
 
@@ -410,6 +416,7 @@ public class UserServiceImpl implements IUserService {
         user.setUpdatedBy("ADMIN");
         user = userRepository.save(user);
         log.info("Utilisateur activé avec succès: {}", id);
+        wsPublisher.publishUserEvent("USER_ACTIVATED", user.getUserId());
         return mapperUtil.toUserDTO(user);
     }
 }

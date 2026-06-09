@@ -5,7 +5,7 @@ import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
-import usePolling from '../../utils/usePolling';
+import { wsManager } from '../../lib/wsManager';
 
 const ProviderOrdersPage = () => {
   const { user } = useAuth();
@@ -25,7 +25,10 @@ const ProviderOrdersPage = () => {
     filterSupplies();
   }, [searchTerm, supplies, statusFilter]);
 
-  usePolling(() => loadSupplies(false), 5000);
+  // Rafraîchissement instantané et silencieux sur tout événement WebSocket
+  useEffect(() => {
+    return wsManager.onEvent(() => loadSupplies(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadSupplies = async (showLoading = false) => {
     if (!user) return;

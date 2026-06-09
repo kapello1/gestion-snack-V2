@@ -51,6 +51,23 @@ export const wsManager = {
           queryClient.invalidateQueries({ queryKey: ['reservations'] });
           listeners.forEach(fn => fn({ topic: 'reservations' }));
         });
+
+        client.subscribe('/topic/products', () => {
+          queryClient.invalidateQueries({ queryKey: ['products'] });
+          queryClient.invalidateQueries({ queryKey: ['stock-alerts'] });
+          listeners.forEach(fn => fn({ topic: 'products' }));
+        });
+
+        client.subscribe('/topic/supplies', () => {
+          queryClient.invalidateQueries({ queryKey: ['supplies'] });
+          listeners.forEach(fn => fn({ topic: 'supplies' }));
+        });
+
+        client.subscribe('/topic/users', () => {
+          queryClient.invalidateQueries({ queryKey: ['users'] });
+          queryClient.invalidateQueries({ queryKey: ['employees'] });
+          listeners.forEach(fn => fn({ topic: 'users' }));
+        });
       },
 
       onStompError(frame) {

@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
-import usePolling from '../../utils/usePolling';
+import { wsManager } from '../../lib/wsManager';
 
 const StockAlertsPage = () => {
     const [alerts, setAlerts] = useState([]);
@@ -14,7 +14,10 @@ const StockAlertsPage = () => {
         loadAlerts(true);
     }, []);
 
-    usePolling(() => loadAlerts(false), 5000);
+    // Rafraîchissement instantané et silencieux sur tout événement WebSocket
+    useEffect(() => {
+        return wsManager.onEvent(() => loadAlerts(false));
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadAlerts = async (showLoading = false) => {
         try {

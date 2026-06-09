@@ -6,6 +6,7 @@ import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { ROLES } from '../../utils/constants';
+import { wsManager } from '../../lib/wsManager';
 
 const UsersPage = () => {
   const navigate = useNavigate();
@@ -24,23 +25,28 @@ const UsersPage = () => {
   });
 
   useEffect(() => {
-    loadUsers();
+    loadUsers(true);
   }, []);
+
+  // Rafraîchissement instantané et silencieux sur tout événement WebSocket
+  useEffect(() => {
+    return wsManager.onEvent(() => loadUsers(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     filterUsers();
   }, [searchTerm, users]);
 
-  const loadUsers = async () => {
+  const loadUsers = async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const response = await api.get(API_ENDPOINTS.USERS.BASE);
       setUsers(response.data || []);
     } catch (error) {
       console.error('Erreur chargement utilisateurs:', error);
-      toast.error('Erreur lors du chargement des utilisateurs');
+      if (showLoading) toast.error('Erreur lors du chargement des utilisateurs');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 

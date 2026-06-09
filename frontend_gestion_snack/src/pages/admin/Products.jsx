@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import { LABELS, PRODUCT_TYPE } from '../../utils/constants';
 import { useAuth } from '../../context/AuthContext';
 import ProductCard from '../../components/ProductCard';
-import usePolling from '../../utils/usePolling';
+import { wsManager } from '../../lib/wsManager';
 
 const ProductsPage = () => {
   const { user } = useAuth();
@@ -39,8 +39,10 @@ const ProductsPage = () => {
     loadProducts(true);
   }, []);
 
-  // Polling silencieux toutes les 5 secondes pour les stocks
-  usePolling(() => loadProducts(false), 5000);
+  // Rafraîchissement instantané et silencieux sur tout événement WebSocket
+  useEffect(() => {
+    return wsManager.onEvent(() => loadProducts(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     filterProducts();

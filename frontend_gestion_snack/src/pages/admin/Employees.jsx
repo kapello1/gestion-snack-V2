@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { useAuth } from '../../context/AuthContext';
+import { wsManager } from '../../lib/wsManager';
 
 const EmployeesPage = () => {
     const { user } = useAuth();
@@ -30,16 +31,21 @@ const EmployeesPage = () => {
     });
 
     useEffect(() => {
-        loadEmployees();
+        loadEmployees(true);
     }, []);
+
+    // Rafraîchissement instantané et silencieux sur tout événement WebSocket
+    useEffect(() => {
+        return wsManager.onEvent(() => loadEmployees(false));
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         filterEmployees();
     }, [searchTerm, employees]);
 
-    const loadEmployees = async () => {
+    const loadEmployees = async (showLoading = false) => {
         try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
             const response = await api.get(API_ENDPOINTS.EMPLOYEES.BASE);
             const mapped = (response.data || []).map(emp => ({
                 ...emp,
@@ -48,9 +54,9 @@ const EmployeesPage = () => {
             setEmployees(mapped);
         } catch (error) {
             console.error('Erreur chargement employés:', error);
-            toast.error('Erreur lors du chargement des employés');
+            if (showLoading) toast.error('Erreur lors du chargement des employés');
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     };
 

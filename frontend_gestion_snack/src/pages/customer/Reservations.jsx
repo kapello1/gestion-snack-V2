@@ -7,7 +7,7 @@ import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, RESERVATION_STATUS, STATUS_COLORS } from '../../utils/constants';
 import { useAuth } from '../../context/AuthContext';
-import usePolling from '../../utils/usePolling';
+import { wsManager } from '../../lib/wsManager';
 
 const ReservationsPage = () => {
   const { user } = useAuth();
@@ -34,7 +34,10 @@ const ReservationsPage = () => {
     filterReservations();
   }, [searchTerm, reservations, activeTab]);
 
-  usePolling(() => loadReservations(false), 5000);
+  // Rafraîchissement instantané et silencieux sur tout événement WebSocket
+  useEffect(() => {
+    return wsManager.onEvent(() => loadReservations(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadReservations = async (showLoading = false) => {
     if (!user?.ownerId) return;
