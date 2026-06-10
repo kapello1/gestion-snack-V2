@@ -60,6 +60,7 @@ const Register = () => {
     }
     setLoading(true);
     try {
+      console.log('AVANT appel API');
       const response = await api.post(API_ENDPOINTS.CUSTOMERS.BASE, {
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -70,14 +71,14 @@ const Register = () => {
         address: formData.address || null,
         createdBy: 'SELF',
       });
-      console.log('Réponse inscription:', response.data);
-      if (response.status === 201 && response.data) {
-        // emailVerified=true → compte actif immédiatement (email non configuré ou échec envoi)
-        // emailVerified=false → email envoyé, vérification requise
-        setModalType(response.data.emailVerified ? 'immediate' : 'email');
-        setShowModal(true);
-      }
+      console.log('STATUS:', response.status);
+      console.log('DATA:', response.data);
+      console.log('SHOW MODAL AVANT:', showModal);
+      setModalType(response.data?.emailVerified ? 'immediate' : 'email');
+      setShowModal(true);
+      console.log('SHOW MODAL APRÈS:', showModal);
     } catch (error) {
+      console.error('ERREUR inscription:', error);
       const message = error.response?.data?.message || error.message || "Erreur lors de l'inscription";
       toast.error(message);
     } finally {
