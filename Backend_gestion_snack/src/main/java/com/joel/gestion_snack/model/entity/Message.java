@@ -19,8 +19,17 @@ public class Message {
     private Long idMessage;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
+
+    @Column(name = "title", length = 255)
+    private String title;
+
+    @Column(name = "notif_type", length = 100)
+    private String notifType;
+
+    @Column(name = "is_broadcast")
+    private Boolean isBroadcast = false;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "sender_type", nullable = false)

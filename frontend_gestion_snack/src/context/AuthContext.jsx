@@ -56,9 +56,10 @@ export const AuthProvider = ({ children }) => {
 
     if (storedUser && storedToken) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
         // Reconnexion WebSocket si la session est toujours active
-        wsManager.connect();
+        wsManager.connect(parsedUser.userId);
       } catch (error) {
         console.error('Erreur lors du parsing de l\'utilisateur:', error);
         localStorage.removeItem('user');
@@ -93,7 +94,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', 'authenticated');
 
         setUser(userData);
-        wsManager.connect(); // Ouvre la connexion WebSocket temps réel
+        wsManager.connect(userData.userId); // Ouvre la connexion WebSocket temps réel
         toast.success('Connexion réussie !');
         return { success: true, data: userData };
       } else {

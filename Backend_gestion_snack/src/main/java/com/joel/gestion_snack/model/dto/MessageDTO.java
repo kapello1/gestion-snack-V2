@@ -11,6 +11,9 @@ public class MessageDTO {
     private Long orderId;
     private Long responseToMessageId;
     private String content;
+    private String title;
+    private String notifType;
+    private Boolean isBroadcast;
     private Boolean isRead;
     private LocalDateTime sentAt;
 }

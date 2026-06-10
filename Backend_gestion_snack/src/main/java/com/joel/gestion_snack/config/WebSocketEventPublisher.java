@@ -116,4 +116,42 @@ public class WebSocketEventPublisher {
             log.warn("Échec publication WS users ({} id={}): {}", type, userId, e.getMessage());
         }
     }
+
+    /**
+     * Envoie une notification personnelle à un utilisateur spécifique.
+     *
+     * @param userId  identifiant de l'utilisateur destinataire (User table PK)
+     * @param title   titre de la notification
+     * @param message corps du message
+     * @param type    type de notification (order_status, reservation_status, admin_broadcast...)
+     */
+    public void publishNotificationToUser(Long userId, String title, String message, String type) {
+        try {
+            messagingTemplate.convertAndSend(
+                    "/topic/notifications/" + userId,
+                    Map.of("title", title, "message", message, "type", type,
+                            "timestamp", java.time.Instant.now().toString(), "isBroadcast", false));
+            log.debug("WS → /topic/notifications/{} : {}", userId, title);
+        } catch (Exception e) {
+            log.warn("Échec publication WS notification user {}: {}", userId, e.getMessage());
+        }
+    }
+
+    /**
+     * Envoie une notification à tous les utilisateurs connectés.
+     *
+     * @param title   titre du broadcast
+     * @param message corps du message
+     */
+    public void publishBroadcastNotification(String title, String message) {
+        try {
+            messagingTemplate.convertAndSend(
+                    "/topic/notifications/broadcast",
+                    Map.of("title", title, "message", message, "type", "admin_broadcast",
+                            "timestamp", java.time.Instant.now().toString(), "isBroadcast", true));
+            log.debug("WS → /topic/notifications/broadcast : {}", title);
+        } catch (Exception e) {
+            log.warn("Échec publication WS broadcast: {}", e.getMessage());
+        }
+    }
 }

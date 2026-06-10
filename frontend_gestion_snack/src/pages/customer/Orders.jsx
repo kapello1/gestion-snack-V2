@@ -44,10 +44,20 @@ const OrdersPage = () => {
     .filter(o => {
       if (searchTerm && !o.orderId?.toString().includes(searchTerm.toLowerCase())) return false;
       if (activeTab === 'active') {
-        return !o.paymentCompleted &&
-          [ORDER_STATUS.ACTIVE, ORDER_STATUS.CLOSED, ORDER_STATUS.SERVED].includes(o.status);
+        if (o.status === ORDER_STATUS.CANCELLED) return false;
+        // Terminée = payée ET livrée (sur place: SERVED, à emporter: CLOSED ou SERVED)
+        const fullyDone = o.paymentCompleted && (
+          o.status === ORDER_STATUS.SERVED ||
+          (o.orderType === ORDER_TYPE.TAKEAWAY && o.status === ORDER_STATUS.CLOSED)
+        );
+        return !fullyDone && [ORDER_STATUS.ACTIVE, ORDER_STATUS.CLOSED, ORDER_STATUS.SERVED].includes(o.status);
       }
-      if (activeTab === 'finished') return o.paymentCompleted === true;
+      if (activeTab === 'finished') {
+        return o.paymentCompleted === true && (
+          o.status === ORDER_STATUS.SERVED ||
+          (o.orderType === ORDER_TYPE.TAKEAWAY && (o.status === ORDER_STATUS.CLOSED || o.status === ORDER_STATUS.SERVED))
+        );
+      }
       return o.status === ORDER_STATUS.CANCELLED;
     })
     .sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));

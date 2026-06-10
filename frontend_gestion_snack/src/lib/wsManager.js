@@ -19,6 +19,9 @@ let client = null;
 // Callbacks enregistrés par des composants non-React-Query (ex: Dashboard)
 const listeners = new Set();
 
+// Callbacks pour les notifications personnelles et broadcasts
+const notifListeners = new Set();
+
 /**
  * Gestionnaire WebSocket singleton.
  * Une seule connexion STOMP est ouverte quelle que soit la route active.
@@ -26,7 +29,7 @@ const listeners = new Set();
  * notifient les listeners enregistrés via onEvent().
  */
 export const wsManager = {
-  connect() {
+  connect(userId = null) {
     if (client?.active) return;
 
     client = new Client({
@@ -68,6 +71,24 @@ export const wsManager = {
           queryClient.invalidateQueries({ queryKey: ['employees'] });
           listeners.forEach(fn => fn({ topic: 'users' }));
         });
+
+        // Notification broadcast — reçue par tous les utilisateurs connectés
+        client.subscribe('/topic/notifications/broadcast', (msg) => {
+          try {
+            const data = JSON.parse(msg.body);
+            notifListeners.forEach(fn => fn({ ...data, isBroadcast: true }));
+          } catch {}
+        });
+
+        // Notification personnelle — reçue uniquement par l'utilisateur connecté
+        if (userId) {
+          client.subscribe(`/topic/notifications/${userId}`, (msg) => {
+            try {
+              const data = JSON.parse(msg.body);
+              notifListeners.forEach(fn => fn({ ...data, isBroadcast: false }));
+            } catch {}
+          });
+        }
       },
 
       onStompError(frame) {
@@ -94,11 +115,20 @@ export const wsManager = {
   },
 
   /**
-   * Enregistre un callback appelé à chaque événement WS reçu.
-   * Retourne une fonction de désinscription à appeler dans le cleanup useEffect.
+   * Enregistre un callback appelé à chaque événement WS reçu (données métier).
+   * Retourne une fonction de désinscription.
    */
   onEvent(fn) {
     listeners.add(fn);
     return () => listeners.delete(fn);
+  },
+
+  /**
+   * Enregistre un callback appelé à chaque notification WS reçue.
+   * Retourne une fonction de désinscription.
+   */
+  onNotification(fn) {
+    notifListeners.add(fn);
+    return () => notifListeners.delete(fn);
   },
 };

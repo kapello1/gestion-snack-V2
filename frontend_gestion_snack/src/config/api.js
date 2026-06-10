@@ -141,6 +141,13 @@ export const API_ENDPOINTS = {
     BY_ID: (id) => `/messages/${id}`,
     BY_USER: (userId) => `/messages/user/${userId}`,
   },
+  // Notifications persistées en BD + synchronisées via WebSocket
+  NOTIFICATIONS: {
+    FOR_USER: (userId) => `/messages/notifications/${userId}`,
+    PERSONAL: (ownerId) => `/messages/personal/${ownerId}`,
+    BROADCAST: '/messages/broadcast',
+    MARK_READ: (id) => `/messages/${id}/read`,
+  },
   // Stripe — paiements en ligne
   STRIPE: {
     CREATE_PAYMENT_INTENT: '/stripe/create-payment-intent',

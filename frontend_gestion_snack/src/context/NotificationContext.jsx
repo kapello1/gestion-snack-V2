@@ -2,180 +2,186 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { useAuth } from './AuthContext';
 import api from '../utils/api';
 import { API_ENDPOINTS } from '../config/api';
+import { wsManager } from '../lib/wsManager';
 
 const NotificationContext = createContext(null);
 
-const NOTIF_PREFIX = 'snack_notifs_';
-const BROADCAST_KEY = 'snack_notifs_broadcast';
-
-const uid2str = (uid) => String(uid ?? '');
-
-const loadNotifs = (userId) => {
-  try { return JSON.parse(localStorage.getItem(NOTIF_PREFIX + uid2str(userId)) || '[]'); } catch { return []; }
+// Suivi local des broadcasts lus (par userId) — évite l'aller-retour DB pour les broadcasts
+const BROADCAST_READ_KEY = 'snack_broadcast_reads_';
+const loadBroadcastReads = (userId) => {
+  try { return JSON.parse(localStorage.getItem(BROADCAST_READ_KEY + userId) || '[]'); } catch { return []; }
 };
-const saveNotifs = (userId, notifs) => {
-  try { localStorage.setItem(NOTIF_PREFIX + uid2str(userId), JSON.stringify(notifs)); } catch {}
-};
-const loadBroadcasts = () => {
-  try { return JSON.parse(localStorage.getItem(BROADCAST_KEY) || '[]'); } catch { return []; }
-};
-const saveBroadcasts = (b) => {
-  try { localStorage.setItem(BROADCAST_KEY, JSON.stringify(b)); } catch {}
+const saveBroadcastReads = (userId, ids) => {
+  try { localStorage.setItem(BROADCAST_READ_KEY + userId, JSON.stringify(ids)); } catch {}
 };
 
 export const NotificationProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const lastStatusRef = useRef({});
+  const loadedRef = useRef(false);
 
-  const userId = uid2str(user?.userId || user?.customerId || '');
+  const userId = user?.userId || null;
 
-  const mergeAndSet = useCallback((uid) => {
-    if (!uid) { setNotifications([]); return; }
-    const personal = loadNotifs(uid);
-    const broadcasts = loadBroadcasts().filter(b => !(b.readBy || []).map(uid2str).includes(uid2str(uid)));
-    const all = [...personal, ...broadcasts].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    setNotifications(all);
-  }, []);
-
+  // ──────────────────────────────────────────────
+  // Chargement initial depuis la BD
+  // ──────────────────────────────────────────────
   useEffect(() => {
-    mergeAndSet(userId);
-  }, [userId, mergeAndSet]);
+    if (!userId) {
+      setNotifications([]);
+      loadedRef.current = false;
+      return;
+    }
+    loadedRef.current = false;
+    loadFromDB(userId);
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const addNotification = useCallback((notif) => {
-    if (!userId) return;
-    const newNotif = {
-      id: Date.now() + Math.random(),
-      timestamp: new Date().toISOString(),
-      read: false,
-      ...notif,
-    };
-    setNotifications(prev => {
-      const next = [newNotif, ...prev];
-      saveNotifs(userId, next.filter(n => !n.isBroadcast));
-      return next;
-    });
-  }, [userId]);
-
-  const markAsRead = useCallback((notifId) => {
-    if (!userId) return;
-    setNotifications(prev => {
-      const next = prev.map(n => n.id === notifId ? { ...n, read: true } : n);
-      saveNotifs(userId, next.filter(n => !n.isBroadcast));
-      const b = prev.find(n => n.id === notifId && n.isBroadcast);
-      if (b) {
-        const updated = loadBroadcasts().map(br =>
-          br.id === notifId
-            ? { ...br, readBy: [...new Set([...(br.readBy || []).map(uid2str), uid2str(userId)])] }
-            : br
-        );
-        saveBroadcasts(updated);
-      }
-      return next;
-    });
-  }, [userId]);
-
-  const markAllRead = useCallback(() => {
-    if (!userId) return;
-    setNotifications(prev => {
-      const next = prev.map(n => ({ ...n, read: true }));
-      saveNotifs(userId, next.filter(n => !n.isBroadcast));
-      const updated = loadBroadcasts().map(b => ({
-        ...b,
-        readBy: [...new Set([...(b.readBy || []).map(uid2str), uid2str(userId)])]
+  const loadFromDB = async (uid) => {
+    try {
+      const res = await api.get(API_ENDPOINTS.NOTIFICATIONS.FOR_USER(uid));
+      const data = res.data || [];
+      const readBroadcasts = loadBroadcastReads(uid);
+      const normalized = data.map(n => ({
+        id: n.idMessage,
+        title: n.title || 'Notification',
+        message: n.content,
+        type: n.notifType || 'admin_broadcast',
+        timestamp: n.sentAt,
+        isBroadcast: n.isBroadcast || false,
+        read: n.isBroadcast
+          ? readBroadcasts.includes(n.idMessage)
+          : (n.isRead || false),
       }));
-      saveBroadcasts(updated);
-      return next;
+      normalized.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      setNotifications(normalized);
+      loadedRef.current = true;
+    } catch (e) {
+      console.error('[Notifications] Erreur chargement BD:', e);
+    }
+  };
+
+  // ──────────────────────────────────────────────
+  // Écoute WebSocket — notifications en temps réel
+  // ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!userId) return;
+    return wsManager.onNotification((data) => {
+      const newNotif = {
+        id: data.idMessage || (Date.now() + Math.random()),
+        title: data.title || 'Notification',
+        message: data.message || data.content || '',
+        type: data.type || 'admin_broadcast',
+        timestamp: data.timestamp || new Date().toISOString(),
+        isBroadcast: data.isBroadcast || false,
+        read: false,
+      };
+      setNotifications(prev => {
+        if (prev.some(n => n.id === newNotif.id)) return prev;
+        return [newNotif, ...prev];
+      });
     });
   }, [userId]);
 
-  // Broadcast to all users
-  const broadcastNotification = useCallback((message, title = 'Message de l\'administration') => {
-    const notif = {
-      id: Date.now() + Math.random(),
-      title,
-      message,
-      timestamp: new Date().toISOString(),
-      isBroadcast: true,
-      type: 'admin_broadcast',
-      readBy: [],
-    };
-    saveBroadcasts([...loadBroadcasts(), notif]);
-    window.dispatchEvent(new StorageEvent('storage', { key: BROADCAST_KEY }));
-  }, []);
-
-  // Send to a specific user by their userId/customerId
-  const sendToUser = useCallback((targetUserId, notif) => {
-    if (!targetUserId) return;
-    const tid = uid2str(targetUserId);
-    const newNotif = {
-      id: Date.now() + Math.random(),
-      timestamp: new Date().toISOString(),
-      read: false,
-      type: 'admin_broadcast',
-      ...notif,
-    };
-    const existing = loadNotifs(tid);
-    saveNotifs(tid, [newNotif, ...existing]);
-    // Trigger cross-tab sync for that user
-    window.dispatchEvent(new StorageEvent('storage', { key: NOTIF_PREFIX + tid }));
-  }, []);
-
-  // Cross-tab sync
-  useEffect(() => {
+  // ──────────────────────────────────────────────
+  // Actions utilisateur
+  // ──────────────────────────────────────────────
+  const markAsRead = useCallback(async (notifId) => {
     if (!userId) return;
-    const handle = (e) => {
-      if (e.key === BROADCAST_KEY || e.key === NOTIF_PREFIX + userId) {
-        mergeAndSet(userId);
-      }
-    };
-    window.addEventListener('storage', handle);
-    return () => window.removeEventListener('storage', handle);
-  }, [userId, mergeAndSet]);
+    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
+    try {
+      await api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(notifId));
+    } catch {}
+    // Aussi dans localStorage pour les broadcasts (idempotent)
+    const reads = loadBroadcastReads(userId);
+    if (!reads.includes(notifId)) saveBroadcastReads(userId, [...reads, notifId]);
+  }, [userId]);
 
-  // Poll for order/reservation status changes (customers only)
+  const markAllRead = useCallback(async () => {
+    if (!userId) return;
+    const broadcastIds = [];
+    const personalIds = [];
+    setNotifications(prev => {
+      prev.forEach(n => {
+        if (!n.read) {
+          if (n.isBroadcast) broadcastIds.push(n.id);
+          else personalIds.push(n.id);
+        }
+      });
+      return prev.map(n => ({ ...n, read: true }));
+    });
+    // Persister lus dans localStorage (broadcasts)
+    if (broadcastIds.length > 0) {
+      const reads = loadBroadcastReads(userId);
+      saveBroadcastReads(userId, [...new Set([...reads, ...broadcastIds])]);
+    }
+    // Persister lus en BD (messages personnels)
+    await Promise.all(
+      personalIds.map(id => api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id)).catch(() => {}))
+    );
+  }, [userId]);
+
+  /**
+   * Envoie une notification personnelle à un autre utilisateur (par ownerId/customerId).
+   * La notification est persistée en BD et diffusée via WebSocket.
+   */
+  const sendToUser = useCallback(async (targetOwnerId, notif) => {
+    if (!targetOwnerId) return;
+    try {
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.PERSONAL(targetOwnerId), {
+        title: notif.title || 'Notification',
+        content: notif.message,
+        notifType: notif.type || 'order_status',
+      });
+    } catch (e) {
+      console.error('[Notifications] Erreur sendToUser:', e);
+    }
+  }, []);
+
+  /**
+   * Envoie une notification broadcast à TOUS les utilisateurs connectés.
+   * La notification est persistée en BD et diffusée via WebSocket.
+   */
+  const broadcastNotification = useCallback(async (message, title = "Message de l'administration") => {
+    try {
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.BROADCAST, {
+        title,
+        content: message,
+      });
+    } catch (e) {
+      console.error('[Notifications] Erreur broadcast:', e);
+    }
+  }, []);
+
+  // ──────────────────────────────────────────────
+  // Polling statut commandes (clients uniquement)
+  // ──────────────────────────────────────────────
   useEffect(() => {
-    if (!isAuthenticated || !userId) return;
-    const custId = user?.customerId;
-    if (!custId) return;
+    if (!isAuthenticated || !userId || user?.roleName !== 'CUSTOMER') return;
+    const custOwnerId = user?.ownerId;
+    if (!custOwnerId) return;
 
     const poll = async () => {
       try {
-        const ordersRes = await api.get(API_ENDPOINTS.ORDERS.BY_CUSTOMER(custId));
-        const orders = ordersRes.data || [];
-        const statusLabels = {
-          ACTIVE: 'En cours de préparation', CLOSED: 'Prête – en attente de service',
-          SERVED: 'Servie', CANCELLED: 'Annulée', PAID: 'Payée',
+        const res = await api.get(API_ENDPOINTS.ORDERS.BY_CUSTOMER(custOwnerId));
+        const orders = res.data || [];
+        const labels = {
+          ACTIVE: 'En cours de préparation',
+          CLOSED: 'Prête – en attente de service',
+          SERVED: 'Servie',
+          CANCELLED: 'Annulée',
         };
         orders.forEach(order => {
           const key = 'order_' + order.orderId;
           const prev = lastStatusRef.current[key];
           if (prev && prev !== order.status) {
-            addNotification({
+            // Envoi via API (sera aussi reçu via WS si l'utilisateur est connecté)
+            sendToUser(custOwnerId, {
               type: 'order_status',
               title: '🍽️ Commande mise à jour',
-              message: `Commande #${order.orderId} : ${statusLabels[order.status] || order.status}`,
+              message: `Commande #${order.orderId} : ${labels[order.status] || order.status}`,
             });
           }
           lastStatusRef.current[key] = order.status;
-        });
-      } catch {}
-
-      try {
-        const resaRes = await api.get(API_ENDPOINTS.RESERVATIONS.BY_CUSTOMER(custId));
-        const reservations = resaRes.data || [];
-        const statusLabels = { CONFIRMED: 'Confirmée', CANCELLED: 'Annulée', COMPLETED: 'Terminée' };
-        reservations.forEach(resa => {
-          const key = 'resa_' + resa.reservationId;
-          const prev = lastStatusRef.current[key];
-          if (prev && prev !== resa.status) {
-            addNotification({
-              type: 'reservation_status',
-              title: '📅 Réservation mise à jour',
-              message: `Réservation du ${new Date(resa.reservationDate).toLocaleDateString('fr-FR')} : ${statusLabels[resa.status] || resa.status}`,
-            });
-          }
-          lastStatusRef.current[key] = resa.status;
         });
       } catch {}
     };
@@ -183,7 +189,17 @@ export const NotificationProvider = ({ children }) => {
     const init = setTimeout(poll, 4000);
     const interval = setInterval(poll, 30000);
     return () => { clearTimeout(init); clearInterval(interval); };
-  }, [isAuthenticated, userId, user, addNotification]);
+  }, [isAuthenticated, userId, user, sendToUser]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // addNotification conservé pour compatibilité descendante (ex: pages legacy)
+  const addNotification = useCallback((notif) => {
+    setNotifications(prev => [{
+      id: Date.now() + Math.random(),
+      timestamp: new Date().toISOString(),
+      read: false,
+      ...notif,
+    }, ...prev]);
+  }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 

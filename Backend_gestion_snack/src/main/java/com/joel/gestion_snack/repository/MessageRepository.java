@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByUserUserIdOrderBySentAtAsc(Long userId);
+    List<Message> findByUserUserIdOrderBySentAtDesc(Long userId);
+    List<Message> findByIsBroadcastTrueOrderBySentAtDesc();
 }
