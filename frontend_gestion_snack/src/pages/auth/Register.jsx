@@ -70,7 +70,8 @@ const Register = () => {
         address: formData.address || null,
         createdBy: 'SELF',
       });
-      if (response.data) {
+      console.log('Réponse inscription:', response.data);
+      if (response.data && response.data.customerId) {
         // emailVerified=true → compte actif immédiatement (email non configuré ou échec envoi)
         // emailVerified=false → email envoyé, vérification requise
         setModalType(response.data.emailVerified ? 'immediate' : 'email');
