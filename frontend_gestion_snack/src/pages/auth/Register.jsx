@@ -86,6 +86,8 @@ const Register = () => {
   };
 
   const handleModalOk = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
     setShowModal(false);
     navigate('/login');
   };
