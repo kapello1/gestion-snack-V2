@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.service.implementations;
 
+import com.joel.gestion_snack.config.WebSocketEventPublisher;
 import com.joel.gestion_snack.model.dto.CustomerDTO;
 import com.joel.gestion_snack.model.dto.CustomerRequestDTO;
 import com.joel.gestion_snack.model.entity.Customer;
@@ -47,6 +48,7 @@ public class CustomerServiceImpl implements ICustomerService {
     private final EmailService emailService;
     private final EntityManager entityManager;
     private final MapperUtil mapperUtil;
+    private final WebSocketEventPublisher wsPublisher;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Override
@@ -167,6 +169,7 @@ public class CustomerServiceImpl implements ICustomerService {
         }
 
         log.info("[INSCRIPTION] Succès — customerId={}", customer.getCustomerId());
+        wsPublisher.publishUserEvent("CUSTOMER_CREATED", customer.getCustomerId());
         return mapperUtil.toCustomerDTO(customer);
     }
 
