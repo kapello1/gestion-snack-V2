@@ -540,8 +540,8 @@ const MenuPage = () => {
                   {t('menu.extras')}
                 </h3>
 
-                {/* Viandes - pour les plats */}
-                {selectedProduct.productType === PRODUCT_TYPE.FOOD && viandes.length > 0 && (
+                {/* Viandes - uniquement si le plat a needsViande=true */}
+                {selectedProduct.productType === PRODUCT_TYPE.FOOD && selectedProduct.needsViande && viandes.length > 0 && (
                   <div>
                     <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-2 flex items-center gap-1">
                       🥩 {t('menu.chooseViandes')}
@@ -561,8 +561,8 @@ const MenuPage = () => {
                   </div>
                 )}
 
-                {/* Sauces - pour les plats */}
-                {selectedProduct.productType === PRODUCT_TYPE.FOOD && sauces.length > 0 && (
+                {/* Sauces - uniquement si le plat a needsSauce=true */}
+                {selectedProduct.productType === PRODUCT_TYPE.FOOD && selectedProduct.needsSauce && sauces.length > 0 && (
                   <div>
                     <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-2 flex items-center gap-1">
                       🫙 {t('menu.chooseSauces')}

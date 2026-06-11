@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
 import {
   Search, Plus, X, Package, Filter, Image as ImageIcon,
-  ChevronDown, ChevronUp, Trash2, Pencil, Utensils
+  ChevronDown, ChevronUp, Trash2, Pencil, Utensils, Loader2, RefreshCw
 } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
@@ -44,6 +44,7 @@ const ProductsPage = () => {
   // ── Extras (sauces & viandes) ───────────────────────────────────────────────
   const [sauces,        setSauces]        = useState([]);
   const [viandes,       setViandes]       = useState([]);
+  const [extrasLoading, setExtrasLoading] = useState(false);
   const [showExtras,    setShowExtras]    = useState(false);
   const [activeExtraTab,setActiveExtraTab]= useState('sauces'); // onglet section principale
   const [modalExtraTab, setModalExtraTab] = useState('sauces'); // onglet inline dans le modal produit
@@ -116,11 +117,13 @@ const ProductsPage = () => {
       description:       product.description || '',
       alergy:            product.alergy || '',
       imageUrl:          product.imageUrl || '',
-      // Lire la valeur réelle enregistrée en BD (false = admin a désactivé OU défaut Java)
+      // Lire la valeur réelle enregistrée en BD
       needsSauce:  isFood ? Boolean(product.needsSauce)  : false,
       needsViande: isFood ? Boolean(product.needsViande) : false,
     });
     setModalExtraTab('sauces');
+    // Recharger les extras pour avoir des données fraîches dans la section inline
+    loadExtras();
     setShowModal(true);
   };
 
@@ -141,6 +144,8 @@ const ProductsPage = () => {
       needsViande:       true,
     });
     setModalExtraTab('sauces');
+    // Recharger les extras pour avoir des données fraîches dans la section inline
+    loadExtras();
     setShowModal(true);
   };
 
@@ -202,30 +207,41 @@ const ProductsPage = () => {
 
   // ── Extras ──────────────────────────────────────────────────────────────────
   const loadExtras = async () => {
+    setExtrasLoading(true);
     try {
       const [s, v] = await Promise.allSettled([
         api.get(API_ENDPOINTS.SAUCES.BASE),
         api.get(API_ENDPOINTS.VIANDES.BASE),
       ]);
       if (s.status === 'fulfilled') setSauces(s.value.data || []);
+      else console.warn('[Extras] Erreur chargement sauces:', s.reason);
       if (v.status === 'fulfilled') setViandes(v.value.data || []);
-    } catch {
-      // silencieux
+      else console.warn('[Extras] Erreur chargement viandes:', v.reason);
+    } catch (e) {
+      console.error('[Extras] Erreur inattendue:', e);
+    } finally {
+      setExtrasLoading(false);
     }
   };
 
   const handleOpenExtraModal = (type, extra = null) => {
     setEditingExtra({ type, data: extra });
-    setExtraForm(
-      extra
-        ? {
-            name:        extra.name || '',
-            price:       extra.price !== undefined && extra.price !== null ? extra.price.toString() : '',
-            description: extra.description || '',
-            isAvailable: extra.isAvailable !== false,
-          }
-        : { name: '', price: '', description: '', isAvailable: true }
-    );
+    if (extra) {
+      // Convertir le prix (BigDecimal Java → number JS → string pour l'input)
+      let priceStr = '';
+      if (extra.price !== undefined && extra.price !== null) {
+        const n = Number(extra.price);
+        priceStr = isNaN(n) ? '' : n.toString();
+      }
+      setExtraForm({
+        name:        extra.name || '',
+        price:       priceStr,
+        description: extra.description || '',
+        isAvailable: extra.isAvailable !== false,
+      });
+    } else {
+      setExtraForm({ name: '', price: '', description: '', isAvailable: true });
+    }
     setShowExtraModal(true);
   };
 
@@ -410,22 +426,40 @@ const ProductsPage = () => {
               </div>
 
               <div className="flex justify-between items-center px-6 py-3 bg-gray-50/40">
-                <p className="text-xs text-gray-500 font-medium">
-                  {currentExtras.length} élément{currentExtras.length !== 1 ? 's' : ''}
-                </p>
-                <button
-                  onClick={() => handleOpenExtraModal(currentExtraType)}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 active:scale-95 transition-all"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Ajouter
-                </button>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-gray-500 font-medium">
+                    {extrasLoading ? 'Chargement...' : `${currentExtras.length} élément${currentExtras.length !== 1 ? 's' : ''}`}
+                  </p>
+                  {extrasLoading && <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={loadExtras}
+                    className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                    title="Recharger"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 text-gray-400 ${extrasLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => handleOpenExtraModal(currentExtraType)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 active:scale-95 transition-all"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Ajouter
+                  </button>
+                </div>
               </div>
 
               <div className="divide-y divide-gray-50">
-                {currentExtras.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <p className="text-sm font-medium text-gray-400">Aucun élément. Cliquez sur « Ajouter » pour commencer.</p>
+                {extrasLoading ? (
+                  <div className="py-10 flex items-center justify-center gap-2">
+                    <Loader2 className="h-6 w-6 text-blue-400 animate-spin" />
+                    <p className="text-sm text-gray-400">Chargement des extras...</p>
+                  </div>
+                ) : currentExtras.length === 0 ? (
+                  <div className="py-10 text-center space-y-1">
+                    <p className="text-sm font-medium text-gray-400">Aucun élément configuré.</p>
+                    <p className="text-xs text-gray-300">Cliquez sur « Ajouter » pour créer des {activeExtraTab}.</p>
                   </div>
                 ) : (
                   currentExtras.map(item => (
@@ -598,16 +632,26 @@ const ProductsPage = () => {
                         <div className="flex items-center gap-2">
                           <Utensils className="h-3.5 w-3.5 text-gray-400" />
                           <span className="text-xs font-bold text-gray-600">Gérer les extras disponibles</span>
-                          <span className="text-[10px] text-gray-400">(global — affecte tous les plats)</span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenExtraModal(modalExtraType)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white text-[11px] font-bold rounded-lg hover:bg-blue-700 transition-colors active:scale-95"
-                        >
-                          <Plus className="h-3 w-3" />
-                          Ajouter
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          {/* Bouton recharger */}
+                          <button
+                            type="button"
+                            onClick={loadExtras}
+                            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Recharger les extras"
+                          >
+                            <RefreshCw className={`h-3 w-3 text-gray-400 ${extrasLoading ? 'animate-spin' : ''}`} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenExtraModal(modalExtraType)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white text-[11px] font-bold rounded-lg hover:bg-blue-700 transition-colors active:scale-95"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Ajouter
+                          </button>
+                        </div>
                       </div>
 
                       {/* Onglets sauces / viandes */}
@@ -633,9 +677,15 @@ const ProductsPage = () => {
                       </div>
 
                       {/* Liste des extras */}
-                      {modalExtras.length === 0 ? (
-                        <div className="py-5 text-center text-xs text-gray-400">
-                          Aucun élément. Cliquez sur « Ajouter ».
+                      {extrasLoading ? (
+                        <div className="py-5 flex items-center justify-center gap-2 text-xs text-gray-400">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Chargement...
+                        </div>
+                      ) : modalExtras.length === 0 ? (
+                        <div className="py-5 text-center text-xs text-gray-400 px-4">
+                          <p className="font-medium">Aucun élément configuré.</p>
+                          <p className="mt-0.5 text-[10px]">Cliquez sur « Ajouter » pour créer des {modalExtraTab === 'sauces' ? 'sauces' : 'viandes'}.</p>
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-50 max-h-44 overflow-y-auto">
