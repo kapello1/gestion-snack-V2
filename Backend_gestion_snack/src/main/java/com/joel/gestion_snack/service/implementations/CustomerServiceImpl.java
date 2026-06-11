@@ -311,6 +311,7 @@ public class CustomerServiceImpl implements ICustomerService {
             userRepository.save(user);
             log.info("Compte User activé pour le client: {}", saved.getEmail());
             wsPublisher.publishUserEvent("USER_ACTIVATED", user.getUserId());
+            log.info("[WS] USER_ACTIVATED publié pour userId={}", user.getUserId());
         });
 
         log.info("Email vérifié avec succès pour le client ID: {}", saved.getCustomerId());
