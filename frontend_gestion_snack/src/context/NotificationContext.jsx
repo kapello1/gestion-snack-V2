@@ -3,7 +3,6 @@ import { useAuth } from './AuthContext';
 import api from '../utils/api';
 import { API_ENDPOINTS } from '../config/api';
 import { wsManager } from '../lib/wsManager';
-import { toast } from 'react-toastify';
 
 const NotificationContext = createContext(null);
 
@@ -19,8 +18,10 @@ const saveBroadcastReads = (userId, ids) => {
 export const NotificationProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState([]);
+  const [notifToast, setNotifToast] = useState(null);
   const lastStatusRef = useRef({});
   const loadedRef = useRef(false);
+  const notifTimerRef = useRef(null);
 
   const userId = user?.userId || null;
 
@@ -78,17 +79,13 @@ export const NotificationProvider = ({ children }) => {
       };
       setNotifications(prev => {
         if (prev.some(n => n.id === newNotif.id)) return prev;
-        toast.info(
-          <div className="flex flex-col gap-0.5 py-0.5">
-            <p className="font-bold text-sm leading-tight text-gray-900">{newNotif.title}</p>
-            <p className="text-xs text-gray-500 mt-0.5 leading-snug line-clamp-2">{newNotif.message}</p>
-          </div>,
-          {
-            autoClose: 5000,
-            icon: newNotif.isBroadcast ? '📢' : '🔔',
-            position: 'top-center',
-          }
-        );
+        clearTimeout(notifTimerRef.current);
+        setNotifToast({
+          title: newNotif.title,
+          message: newNotif.message,
+          emoji: newNotif.isBroadcast ? '📢' : '🔔',
+        });
+        notifTimerRef.current = setTimeout(() => setNotifToast(null), 5000);
         return [newNotif, ...prev];
       });
     });
@@ -220,6 +217,7 @@ export const NotificationProvider = ({ children }) => {
       notifications, unreadCount,
       addNotification, markAsRead, markAllRead,
       broadcastNotification, sendToUser,
+      notifToast, dismissNotifToast: () => { clearTimeout(notifTimerRef.current); setNotifToast(null); },
     }}>
       {children}
     </NotificationContext.Provider>
