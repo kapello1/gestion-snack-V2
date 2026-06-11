@@ -16,17 +16,20 @@ const Layout = ({ children }) => {
       <Chatbot />
       <ToastContainer
         position="top-center"
-        autoClose={3000}
+        autoClose={5000}
         hideProgressBar={false}
-        newestOnTop={false}
+        newestOnTop
         closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
         pauseOnHover
-        theme="light"
-        style={{ zIndex: 9999 }}
-        toastStyle={{ maxWidth: 'calc(100vw - 1rem)', margin: '0 auto' }}
+        style={{
+          zIndex: 9999,
+          paddingTop: '0.5rem',
+          width: '100%',
+          maxWidth: '400px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          top: '0',
+        }}
       />
     </div>
   );

@@ -87,11 +87,6 @@ export const NotificationProvider = ({ children }) => {
             autoClose: 5000,
             icon: newNotif.isBroadcast ? '📢' : '🔔',
             position: 'top-center',
-            style: {
-              width: 'min(calc(100vw - 1rem), 360px)',
-              margin: '0.5rem auto 0',
-              zIndex: 9999,
-            },
           }
         );
         return [newNotif, ...prev];
