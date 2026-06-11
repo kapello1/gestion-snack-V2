@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import api from '../utils/api';
 import { API_ENDPOINTS } from '../config/api';
 import { wsManager } from '../lib/wsManager';
+import { toast } from 'react-toastify';
 
 const NotificationContext = createContext(null);
 
@@ -77,6 +78,13 @@ export const NotificationProvider = ({ children }) => {
       };
       setNotifications(prev => {
         if (prev.some(n => n.id === newNotif.id)) return prev;
+        toast.info(
+          <div>
+            <p className="font-semibold text-sm">{newNotif.title}</p>
+            <p className="text-xs text-gray-600 mt-0.5">{newNotif.message}</p>
+          </div>,
+          { autoClose: 5000, icon: newNotif.isBroadcast ? '📢' : '🔔' }
+        );
         return [newNotif, ...prev];
       });
     });
