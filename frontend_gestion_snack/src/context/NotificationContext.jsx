@@ -79,11 +79,20 @@ export const NotificationProvider = ({ children }) => {
       setNotifications(prev => {
         if (prev.some(n => n.id === newNotif.id)) return prev;
         toast.info(
-          <div>
-            <p className="font-semibold text-sm">{newNotif.title}</p>
-            <p className="text-xs text-gray-600 mt-0.5">{newNotif.message}</p>
+          <div className="flex flex-col gap-0.5 py-0.5">
+            <p className="font-bold text-sm leading-tight text-gray-900">{newNotif.title}</p>
+            <p className="text-xs text-gray-500 mt-0.5 leading-snug line-clamp-2">{newNotif.message}</p>
           </div>,
-          { autoClose: 5000, icon: newNotif.isBroadcast ? '📢' : '🔔' }
+          {
+            autoClose: 5000,
+            icon: newNotif.isBroadcast ? '📢' : '🔔',
+            position: 'top-center',
+            style: {
+              width: 'min(calc(100vw - 1rem), 360px)',
+              margin: '0.5rem auto 0',
+              zIndex: 9999,
+            },
+          }
         );
         return [newNotif, ...prev];
       });

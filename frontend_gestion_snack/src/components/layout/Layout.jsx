@@ -15,7 +15,7 @@ const Layout = ({ children }) => {
       <Footer />
       <Chatbot />
       <ToastContainer
-        position="top-right"
+        position="top-center"
         autoClose={3000}
         hideProgressBar={false}
         newestOnTop={false}
@@ -25,6 +25,8 @@ const Layout = ({ children }) => {
         draggable
         pauseOnHover
         theme="light"
+        style={{ zIndex: 9999 }}
+        toastStyle={{ maxWidth: 'calc(100vw - 1rem)', margin: '0 auto' }}
       />
     </div>
   );
