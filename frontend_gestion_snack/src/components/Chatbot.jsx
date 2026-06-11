@@ -33,7 +33,8 @@ const Chatbot = () => {
   // Detect speech recognition support
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
-  const voiceSupported = !!SR && !isFirefox;
+  // voiceSupported = true dès que le navigateur implémente l'API (Firefox ne l'implémente pas → SR undefined → false)
+  const voiceSupported = !!SR;
 
   // Setup recognition
   useEffect(() => {
@@ -102,10 +103,25 @@ const Chatbot = () => {
     setVoiceError(null);
     setVoiceStatus('requesting');
 
-    // Pre-request mic permission to unblock Chrome/Edge/Safari
+    // Le micro nécessite HTTPS sur mobile (navigator.mediaDevices est undefined en HTTP)
+    if (!window.isSecureContext) {
+      setVoiceStatus('error');
+      setVoiceError('Connexion HTTPS requise pour accéder au microphone sur cet appareil.');
+      return;
+    }
+
+    // Vérifier la disponibilité de l'API (absente sur certains navigateurs/contextes)
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setVoiceStatus('error');
+      setVoiceError(t('chatbot.voiceMicNotFound'));
+      return;
+    }
+
+    // Pré-demander la permission micro pour déclencher le dialogue navigateur
+    // avant de lancer SpeechRecognition (meilleure UX et compatibilité cross-browser)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop()); // Release immediately — recognition manages mic separately
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      stream.getTracks().forEach(track => track.stop()); // Libérer immédiatement
       setVoiceStatus('idle');
     } catch (err) {
       setVoiceStatus('error');
@@ -119,14 +135,16 @@ const Chatbot = () => {
       return;
     }
 
-    // Save current input before starting new session
+    // Sauvegarder le texte actuel avant de démarrer une nouvelle session
     existingTextRef.current = inputValue;
 
     try {
       recognitionRef.current.start();
-      // recognition.onstart will fire shortly — voiceStatus stays 'idle', isListening becomes true
-    } catch {
-      setVoiceError(t('chatbot.voiceError'));
+    } catch (err) {
+      // InvalidStateError = déjà en cours (double-clic rapide), ignorer silencieusement
+      if (err.name !== 'InvalidStateError') {
+        setVoiceError(t('chatbot.voiceError'));
+      }
       setVoiceStatus('idle');
     }
   }, [isListening, inputValue, t]);
@@ -276,11 +294,13 @@ const Chatbot = () => {
             </button>
           </div>
 
-          {/* Firefox warning banner */}
-          {isFirefox && (
+          {/* Banner : reconnaissance vocale non disponible sur ce navigateur */}
+          {!voiceSupported && (
             <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-start gap-2">
               <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-700 font-medium">{t('chatbot.voiceFirefoxNotSupported')}</p>
+              <p className="text-xs text-amber-700 font-medium">
+                {isFirefox ? t('chatbot.voiceFirefoxNotSupported') : t('chatbot.voiceNotSupported')}
+              </p>
             </div>
           )}
 
