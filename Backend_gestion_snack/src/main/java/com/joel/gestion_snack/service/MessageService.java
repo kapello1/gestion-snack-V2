@@ -10,4 +10,5 @@ public interface MessageService {
     MessageDTO savePersonalNotification(Long ownerId, String title, String message, String type);
     MessageDTO saveBroadcastNotification(String title, String message);
     void markAsRead(Long messageId);
+    void deleteMessage(Long messageId);
 }

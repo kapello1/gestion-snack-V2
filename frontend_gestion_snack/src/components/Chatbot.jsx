@@ -1,4 +1,4 @@
-import { AlertCircle, Bot, Loader2, MessageSquare, Mic, RefreshCcw, Send, StopCircle, User, X, Radio } from 'lucide-react';
+import { AlertCircle, Bot, Loader2, MessageSquare, Mic, RefreshCcw, Send, StopCircle, Trash2, User, X, Radio } from 'lucide-react';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { API_ENDPOINTS } from '../config/api';
 import { useAuth } from '../context/AuthContext';
@@ -10,81 +10,66 @@ import LiveVoiceChat from './LiveVoiceChat';
 const Chatbot = () => {
   const { user, isAuthenticated } = useAuth();
   const { t, language } = useLanguage();
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { id: 'welcome', text: t('chatbot.welcome'), sender: 'bot', timestamp: new Date() }
-  ]);
-  const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [products, setProducts] = useState([]);
-  const [showLive, setShowLive] = useState(false);
 
-  // Voice state
-  const [isListening, setIsListening] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState('idle'); // idle | requesting | ready | error
-  const [voiceError, setVoiceError] = useState(null);
-  const recognitionRef = useRef(null);
-  const existingTextRef = useRef(''); // Accumulates text across recognition sessions
+  const welcomeMsg = () => ({ id: 'welcome', text: t('chatbot.welcome'), sender: 'bot', timestamp: new Date() });
+
+  const [isOpen,       setIsOpen]       = useState(false);
+  const [messages,     setMessages]     = useState([welcomeMsg()]);
+  const [inputValue,   setInputValue]   = useState('');
+  const [isLoading,    setIsLoading]    = useState(false);
+  const [error,        setError]        = useState(null);
+  const [products,     setProducts]     = useState([]);
+  const [showLive,     setShowLive]     = useState(false);
+
+  // Voice
+  const [isListening,  setIsListening]  = useState(false);
+  const [voiceStatus,  setVoiceStatus]  = useState('idle');
+  const [voiceError,   setVoiceError]   = useState(null);
+  const recognitionRef    = useRef(null);
+  const existingTextRef   = useRef('');
 
   const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
+  const inputRef       = useRef(null);
 
-  // Detect speech recognition support
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
-  // voiceSupported = true dès que le navigateur implémente l'API (Firefox ne l'implémente pas → SR undefined → false)
+  const SR         = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const isFirefox  = navigator.userAgent.toLowerCase().includes('firefox');
   const voiceSupported = !!SR;
 
-  // Setup recognition
+  // ── Reconnaissance vocale ──────────────────────────────────────────────────
   useEffect(() => {
     if (!voiceSupported) return;
     const recognition = new SR();
-    recognition.continuous = false;
-    recognition.interimResults = true;
+    recognition.continuous      = false;
+    recognition.interimResults  = true;
     recognition.maxAlternatives = 1;
 
-    recognition.onstart = () => {
-      setIsListening(true);
-      setVoiceError(null);
-    };
-
+    recognition.onstart  = () => { setIsListening(true);  setVoiceError(null); };
     recognition.onresult = (event) => {
-      let final = '';
-      let interim = '';
+      let final = '', interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) final += event.results[i][0].transcript;
         else interim += event.results[i][0].transcript;
       }
-      // Append to existing text — never replace
       const base = existingTextRef.current;
-      if (final) {
-        existingTextRef.current = base + (base && !base.endsWith(' ') ? ' ' : '') + final;
-      }
+      if (final) existingTextRef.current = base + (base && !base.endsWith(' ') ? ' ' : '') + final;
       setInputValue(existingTextRef.current + (interim ? (existingTextRef.current ? ' ' : '') + interim : ''));
     };
-
     recognition.onerror = (event) => {
       setIsListening(false);
       if (event.error === 'not-allowed' || event.error === 'permission-denied') {
         setVoiceError(t('chatbot.voiceMicDenied'));
-      } else if (event.error === 'audio-capture' || event.error === 'no-speech') {
-        // no-speech is normal when user stops; audio-capture = no mic
-        if (event.error === 'audio-capture') setVoiceError(t('chatbot.voiceMicNotFound'));
-      } else if (event.error !== 'aborted') {
+      } else if (event.error === 'audio-capture') {
+        setVoiceError(t('chatbot.voiceMicNotFound'));
+      } else if (event.error !== 'aborted' && event.error !== 'no-speech') {
         setVoiceError(t('chatbot.voiceError'));
       }
     };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
+    recognition.onend = () => setIsListening(false);
 
     recognitionRef.current = recognition;
     return () => { try { recognitionRef.current?.abort(); } catch {} };
-  }, [voiceSupported]);
+  }, [voiceSupported]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync recognition language
   useEffect(() => {
     if (recognitionRef.current) {
       const langMap = { fr: 'fr-FR', nl: 'nl-NL', de: 'de-DE' };
@@ -94,34 +79,24 @@ const Chatbot = () => {
 
   const toggleVoice = useCallback(async () => {
     if (!recognitionRef.current) return;
-
-    if (isListening) {
-      recognitionRef.current.stop();
-      return;
-    }
+    if (isListening) { recognitionRef.current.stop(); return; }
 
     setVoiceError(null);
     setVoiceStatus('requesting');
 
-    // Le micro nécessite HTTPS sur mobile (navigator.mediaDevices est undefined en HTTP)
     if (!window.isSecureContext) {
       setVoiceStatus('error');
       setVoiceError('Connexion HTTPS requise pour accéder au microphone sur cet appareil.');
       return;
     }
-
-    // Vérifier la disponibilité de l'API (absente sur certains navigateurs/contextes)
     if (!navigator.mediaDevices?.getUserMedia) {
       setVoiceStatus('error');
       setVoiceError(t('chatbot.voiceMicNotFound'));
       return;
     }
-
-    // Pré-demander la permission micro pour déclencher le dialogue navigateur
-    // avant de lancer SpeechRecognition (meilleure UX et compatibilité cross-browser)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      stream.getTracks().forEach(track => track.stop()); // Libérer immédiatement
+      stream.getTracks().forEach(track => track.stop());
       setVoiceStatus('idle');
     } catch (err) {
       setVoiceStatus('error');
@@ -134,22 +109,16 @@ const Chatbot = () => {
       }
       return;
     }
-
-    // Sauvegarder le texte actuel avant de démarrer une nouvelle session
     existingTextRef.current = inputValue;
-
     try {
       recognitionRef.current.start();
     } catch (err) {
-      // InvalidStateError = déjà en cours (double-clic rapide), ignorer silencieusement
-      if (err.name !== 'InvalidStateError') {
-        setVoiceError(t('chatbot.voiceError'));
-      }
+      if (err.name !== 'InvalidStateError') setVoiceError(t('chatbot.voiceError'));
       setVoiceStatus('idle');
     }
   }, [isListening, inputValue, t]);
 
-  // Load products
+  // ── Chargement produits + historique ──────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated) return;
     api.get(API_ENDPOINTS.PRODUCTS.BASE)
@@ -157,7 +126,6 @@ const Chatbot = () => {
       .catch(() => {});
   }, [isAuthenticated]);
 
-  // Load chat history
   useEffect(() => {
     if (!isAuthenticated || !user?.userId) return;
     api.get(`${API_ENDPOINTS.MESSAGES.BASE}/user/${user.userId}`)
@@ -169,14 +137,11 @@ const Chatbot = () => {
             sender: m.senderType === 'USER' ? 'user' : 'bot',
             timestamp: new Date(m.sentAt),
           }));
-          setMessages([
-            { id: 'welcome', text: t('chatbot.welcome'), sender: 'bot', timestamp: new Date() },
-            ...history,
-          ]);
+          setMessages([welcomeMsg(), ...history]);
         }
       })
       .catch(() => {});
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (isOpen) {
@@ -185,6 +150,7 @@ const Chatbot = () => {
     }
   }, [messages, isOpen, isLoading]);
 
+  // ── Sauvegarde message ─────────────────────────────────────────────────────
   const saveMsg = async (text, senderType) => {
     if (isAuthenticated && user?.userId) {
       try {
@@ -195,6 +161,7 @@ const Chatbot = () => {
     return Date.now();
   };
 
+  // ── Envoi message ──────────────────────────────────────────────────────────
   const handleSend = async (e) => {
     e?.preventDefault();
     const text = inputValue.trim();
@@ -207,7 +174,7 @@ const Chatbot = () => {
     setError(null);
 
     const userMsgId = await saveMsg(text, 'USER');
-    const userMsg = { id: userMsgId, text, sender: 'user', timestamp: new Date() };
+    const userMsg   = { id: userMsgId, text, sender: 'user', timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
 
     try {
@@ -240,7 +207,27 @@ const Chatbot = () => {
       .finally(() => setIsLoading(false));
   };
 
-  // Live voice pair saved to text chat
+  // ── Suppression message individuel ─────────────────────────────────────────
+  const deleteMessage = useCallback(async (msgId) => {
+    setMessages(prev => prev.filter(m => m.id !== msgId));
+    // Supprimer de la BD uniquement si c'est un vrai ID numérique (pas 'welcome' ni 'err-xxx')
+    if (typeof msgId === 'number') {
+      try { await api.delete(API_ENDPOINTS.MESSAGES.BY_ID(msgId)); } catch {}
+    }
+  }, []);
+
+  // ── Effacer toute la conversation ──────────────────────────────────────────
+  const deleteAllMessages = useCallback(async () => {
+    const toDelete = messages.filter(m => typeof m.id === 'number');
+    setMessages([welcomeMsg()]);
+    if (isAuthenticated && user?.userId) {
+      await Promise.allSettled(
+        toDelete.map(m => api.delete(API_ENDPOINTS.MESSAGES.BY_ID(m.id)))
+      );
+    }
+  }, [messages, isAuthenticated, user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Live voice pair ────────────────────────────────────────────────────────
   const handleLivePair = (userMsg, botMsg) => {
     setMessages(prev => [...prev, userMsg, botMsg]);
     if (isAuthenticated && user?.userId) {
@@ -251,9 +238,10 @@ const Chatbot = () => {
 
   const fmt = (d) => new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(d);
 
+  const hasRealMessages = messages.some(m => m.id !== 'welcome' && !String(m.id).startsWith('err-'));
+
   return (
     <>
-      {/* Live voice overlay */}
       {showLive && (
         <LiveVoiceChat
           onClose={() => setShowLive(false)}
@@ -264,7 +252,7 @@ const Chatbot = () => {
       )}
 
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-        {/* Chat window */}
+        {/* Fenêtre chat */}
         <div className={`transition-all duration-300 origin-bottom-right bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col
           ${isOpen ? 'scale-100 opacity-100 mb-4 pointer-events-auto w-[350px] sm:w-[400px] h-[540px] max-h-[85vh]' : 'hidden pointer-events-none'}`}>
 
@@ -285,16 +273,30 @@ const Chatbot = () => {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-2 hover:bg-white/20 rounded-full transition-colors"
-              aria-label={t('chatbot.closeChat')}
-            >
-              <X className="w-5 h-5" />
-            </button>
+
+            <div className="flex items-center gap-1">
+              {/* Effacer la conversation */}
+              {hasRealMessages && (
+                <button
+                  onClick={deleteAllMessages}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                  title="Effacer la conversation"
+                  aria-label="Effacer la conversation"
+                >
+                  <Trash2 className="w-4 h-4 text-white/80 hover:text-white" />
+                </button>
+              )}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                aria-label={t('chatbot.closeChat')}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
-          {/* Banner : reconnaissance vocale non disponible sur ce navigateur */}
+          {/* Banner : pas de reconnaissance vocale */}
           {!voiceSupported && (
             <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-start gap-2">
               <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -307,7 +309,10 @@ const Chatbot = () => {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 bg-[#f8f9fa] space-y-4 scroll-smooth">
             {messages.map((msg, index) => (
-              <div key={msg.id} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+              <div
+                key={msg.id}
+                className={`flex flex-col group ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
+              >
                 <div className={`flex items-end gap-2 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                   {msg.sender !== 'error' && (
                     <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm
@@ -315,22 +320,39 @@ const Chatbot = () => {
                       {msg.sender === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                     </div>
                   )}
-                  <div className={`relative px-4 py-3 shadow-sm
-                    ${msg.sender === 'user'
-                      ? 'bg-blue-600 text-white rounded-[20px] rounded-br-sm'
-                      : msg.sender === 'error'
-                        ? 'bg-red-50 text-red-600 rounded-[20px] border border-red-100 w-full'
-                        : 'bg-white text-gray-800 rounded-[20px] rounded-bl-sm border border-gray-100'
-                    }`}>
-                    {msg.sender === 'error' && <AlertCircle className="w-5 h-5 mb-1 text-red-500 inline-block mr-2" />}
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">{msg.text}</div>
-                    {msg.sender !== 'error' && (
-                      <div className={`text-[10px] mt-1 text-right ${msg.sender === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
-                        {fmt(msg.timestamp)}
-                      </div>
+
+                  <div className="relative">
+                    <div className={`px-4 py-3 shadow-sm
+                      ${msg.sender === 'user'
+                        ? 'bg-blue-600 text-white rounded-[20px] rounded-br-sm'
+                        : msg.sender === 'error'
+                          ? 'bg-red-50 text-red-600 rounded-[20px] border border-red-100 w-full'
+                          : 'bg-white text-gray-800 rounded-[20px] rounded-bl-sm border border-gray-100'
+                      }`}>
+                      {msg.sender === 'error' && <AlertCircle className="w-5 h-5 mb-1 text-red-500 inline-block mr-2" />}
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">{msg.text}</div>
+                      {msg.sender !== 'error' && (
+                        <div className={`text-[10px] mt-1 text-right ${msg.sender === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
+                          {fmt(msg.timestamp)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bouton supprimer — visible au survol, jamais sur le message de bienvenue */}
+                    {msg.id !== 'welcome' && msg.sender !== 'error' && (
+                      <button
+                        onClick={() => deleteMessage(msg.id)}
+                        className={`absolute -top-2 ${msg.sender === 'user' ? '-left-2' : '-right-2'}
+                          w-5 h-5 bg-gray-100 border border-gray-200 rounded-full flex items-center justify-center
+                          opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:border-red-200`}
+                        title="Supprimer ce message"
+                      >
+                        <X className="w-2.5 h-2.5 text-gray-400 hover:text-red-500" />
+                      </button>
                     )}
                   </div>
                 </div>
+
                 {msg.sender === 'error' && index === messages.length - 1 && (
                   <button onClick={handleRetry} className="mt-2 text-xs text-blue-600 font-bold hover:underline flex items-center gap-1 self-center">
                     <RefreshCcw className="w-3 h-3" />
@@ -355,7 +377,7 @@ const Chatbot = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Error banners */}
+          {/* Banners erreurs */}
           {error && !isLoading && (
             <div className="bg-red-50 px-4 py-2 text-xs text-red-600 font-medium border-t border-red-100 flex items-center justify-between">
               <span className="truncate mr-2 flex-1">{t('chatbot.unstableConnection')}</span>
@@ -369,7 +391,7 @@ const Chatbot = () => {
             </div>
           )}
 
-          {/* Input area */}
+          {/* Zone de saisie */}
           <div className="bg-white p-3 border-t border-gray-100 rounded-b-2xl">
             {isListening && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-100 rounded-xl mb-2 text-xs text-red-600 font-semibold">
@@ -404,7 +426,6 @@ const Chatbot = () => {
                 disabled={isLoading}
               />
 
-              {/* Mic button */}
               {voiceSupported && (
                 <button
                   type="button"
@@ -421,7 +442,6 @@ const Chatbot = () => {
                 </button>
               )}
 
-              {/* Live voice button — next to mic */}
               <button
                 type="button"
                 onClick={() => setShowLive(true)}
@@ -433,7 +453,6 @@ const Chatbot = () => {
                 <Radio className="w-4 h-4" />
               </button>
 
-              {/* Send button */}
               <button
                 type="submit"
                 disabled={!inputValue.trim() || isLoading}
@@ -455,7 +474,7 @@ const Chatbot = () => {
           </div>
         </div>
 
-        {/* Floating toggle button */}
+        {/* Bouton flottant */}
         <button
           onClick={() => setIsOpen(o => !o)}
           className="flex items-center justify-center p-4 bg-gradient-to-tr from-blue-600 to-blue-500 text-white rounded-full shadow-2xl hover:shadow-[0_10px_25px_-5px_rgba(37,99,235,0.5)] hover:scale-110 active:scale-95 transition-all duration-300 relative"

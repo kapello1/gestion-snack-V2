@@ -125,6 +125,11 @@ public class MessageServiceImpl implements MessageService {
         });
     }
 
+    @Override
+    public void deleteMessage(Long messageId) {
+        messageRepository.deleteById(messageId);
+    }
+
     private MessageDTO mapToDTO(Message message) {
         MessageDTO dto = new MessageDTO();
         dto.setIdMessage(message.getIdMessage());

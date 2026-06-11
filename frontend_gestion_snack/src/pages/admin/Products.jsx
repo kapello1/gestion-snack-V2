@@ -17,39 +17,40 @@ const ProductsPage = () => {
   const { user } = useAuth();
 
   // ── Produits ────────────────────────────────────────────────────────────────
-  const [products, setProducts] = useState([]);
+  const [products,         setProducts]         = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [filePreview, setFilePreview] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const [loading,          setLoading]          = useState(true);
+  const [searchTerm,       setSearchTerm]       = useState('');
+  const [selectedType,     setSelectedType]     = useState('');
+  const [showModal,        setShowModal]        = useState(false);
+  const [editingProduct,   setEditingProduct]   = useState(null);
+  const [selectedFile,     setSelectedFile]     = useState(null);
+  const [filePreview,      setFilePreview]      = useState('');
+  const [uploading,        setUploading]        = useState(false);
 
   const [formData, setFormData] = useState({
-    productName: '',
-    unitPrice: '',
+    productName:       '',
+    unitPrice:         '',
     quantityAvailable: '',
-    alertThreshold: '',
-    productType: PRODUCT_TYPE.FOOD,
-    description: '',
-    alergy: '',
-    imageUrl: '',
-    needsSauce: true,
-    needsViande: true,
+    alertThreshold:    '',
+    productType:       PRODUCT_TYPE.FOOD,
+    description:       '',
+    alergy:            '',
+    imageUrl:          '',
+    needsSauce:        true,
+    needsViande:       true,
   });
 
   // ── Extras (sauces & viandes) ───────────────────────────────────────────────
-  const [sauces, setSauces] = useState([]);
-  const [viandes, setViandes] = useState([]);
-  const [showExtras, setShowExtras] = useState(false);
-  const [activeExtraTab, setActiveExtraTab] = useState('sauces');
-  const [showExtraModal, setShowExtraModal] = useState(false);
-  const [editingExtra, setEditingExtra] = useState(null); // { type: 'sauce'|'viande', data: {...}|null }
-  const [extraForm, setExtraForm] = useState({ name: '', price: '', description: '', isAvailable: true });
-  const [savingExtra, setSavingExtra] = useState(false);
+  const [sauces,        setSauces]        = useState([]);
+  const [viandes,       setViandes]       = useState([]);
+  const [showExtras,    setShowExtras]    = useState(false);
+  const [activeExtraTab,setActiveExtraTab]= useState('sauces'); // onglet section principale
+  const [modalExtraTab, setModalExtraTab] = useState('sauces'); // onglet inline dans le modal produit
+  const [showExtraModal,setShowExtraModal]= useState(false);
+  const [editingExtra,  setEditingExtra]  = useState(null); // { type: 'sauce'|'viande', data: {...}|null }
+  const [extraForm,     setExtraForm]     = useState({ name: '', price: '', description: '', isAvailable: true });
+  const [savingExtra,   setSavingExtra]   = useState(false);
 
   // ── Chargement initial ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -63,7 +64,7 @@ const ProductsPage = () => {
 
   useEffect(() => {
     filterProducts();
-  }, [searchTerm, selectedType, products]);
+  }, [searchTerm, selectedType, products]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Produits ────────────────────────────────────────────────────────────────
   const loadProducts = async (showLoading = false) => {
@@ -107,18 +108,19 @@ const ProductsPage = () => {
     setFilePreview(product.imageUrl || '');
     const isFood = product.productType === PRODUCT_TYPE.FOOD;
     setFormData({
-      productName: product.productName || '',
-      unitPrice: product.unitPrice?.toString() || '',
+      productName:       product.productName || '',
+      unitPrice:         product.unitPrice?.toString() || '',
       quantityAvailable: product.quantityAvailable?.toString() || '',
-      alertThreshold: product.alertThreshold?.toString() || '',
-      productType: product.productType || PRODUCT_TYPE.FOOD,
-      description: product.description || '',
-      alergy: product.alergy || '',
-      imageUrl: product.imageUrl || '',
-      // Toujours true pour FOOD (les false en DB venaient du défaut Java, jamais d'un choix admin)
-      needsSauce: isFood,
-      needsViande: isFood,
+      alertThreshold:    product.alertThreshold?.toString() || '',
+      productType:       product.productType || PRODUCT_TYPE.FOOD,
+      description:       product.description || '',
+      alergy:            product.alergy || '',
+      imageUrl:          product.imageUrl || '',
+      // Lire la valeur réelle enregistrée en BD (false = admin a désactivé OU défaut Java)
+      needsSauce:  isFood ? Boolean(product.needsSauce)  : false,
+      needsViande: isFood ? Boolean(product.needsViande) : false,
     });
+    setModalExtraTab('sauces');
     setShowModal(true);
   };
 
@@ -127,17 +129,18 @@ const ProductsPage = () => {
     setSelectedFile(null);
     setFilePreview('');
     setFormData({
-      productName: '',
-      unitPrice: '',
+      productName:       '',
+      unitPrice:         '',
       quantityAvailable: '',
-      alertThreshold: '',
-      productType: PRODUCT_TYPE.FOOD,
-      description: '',
-      alergy: '',
-      imageUrl: '',
-      needsSauce: true,
-      needsViande: true,
+      alertThreshold:    '',
+      productType:       PRODUCT_TYPE.FOOD,
+      description:       '',
+      alergy:            '',
+      imageUrl:          '',
+      needsSauce:        true,
+      needsViande:       true,
     });
+    setModalExtraTab('sauces');
     setShowModal(true);
   };
 
@@ -145,13 +148,13 @@ const ProductsPage = () => {
     e.preventDefault();
     try {
       setUploading(true);
-      const isFood = formData.productType === PRODUCT_TYPE.FOOD;
+      const isFood  = formData.productType === PRODUCT_TYPE.FOOD;
       const payload = {
         ...formData,
-        unitPrice: parseFloat(formData.unitPrice),
+        unitPrice:         parseFloat(formData.unitPrice),
         quantityAvailable: parseInt(formData.quantityAvailable),
-        alertThreshold: parseInt(formData.alertThreshold),
-        needsSauce: isFood ? formData.needsSauce : false,
+        alertThreshold:    parseInt(formData.alertThreshold),
+        needsSauce:  isFood ? formData.needsSauce  : false,
         needsViande: isFood ? formData.needsViande : false,
         createdBy: user.username,
         updatedBy: user.username,
@@ -216,8 +219,8 @@ const ProductsPage = () => {
     setExtraForm(
       extra
         ? {
-            name: extra.name || '',
-            price: extra.price?.toString() || '',
+            name:        extra.name || '',
+            price:       extra.price !== undefined && extra.price !== null ? extra.price.toString() : '',
             description: extra.description || '',
             isAvailable: extra.isAvailable !== false,
           }
@@ -228,17 +231,17 @@ const ProductsPage = () => {
 
   const handleSaveExtra = async () => {
     const { type, data } = editingExtra;
-    if (!extraForm.name.trim() || !extraForm.price) return;
+    if (!extraForm.name.trim() || extraForm.price === '') return;
     const payload = {
-      name: extraForm.name.trim(),
-      price: parseFloat(extraForm.price),
+      name:        extraForm.name.trim(),
+      price:       parseFloat(extraForm.price),
       description: extraForm.description.trim(),
       isAvailable: extraForm.isAvailable,
     };
     try {
       setSavingExtra(true);
       if (data) {
-        const id = type === 'sauce' ? data.sauceId : data.viandeId;
+        const id       = type === 'sauce' ? data.sauceId   : data.viandeId;
         const endpoint = type === 'sauce'
           ? API_ENDPOINTS.SAUCES.BY_ID(id)
           : API_ENDPOINTS.VIANDES.BY_ID(id);
@@ -277,16 +280,21 @@ const ProductsPage = () => {
     return (
       <Layout>
         <div className="flex flex-col justify-center items-center h-64 space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
           <p className="text-gray-500 animate-pulse">Chargement de la carte...</p>
         </div>
       </Layout>
     );
   }
 
-  const currentExtras = activeExtraTab === 'sauces' ? sauces : viandes;
-  const currentExtraType = activeExtraTab === 'sauces' ? 'sauce' : 'viande';
-  const currentIdKey = activeExtraTab === 'sauces' ? 'sauceId' : 'viandeId';
+  const currentExtras    = activeExtraTab === 'sauces' ? sauces   : viandes;
+  const currentExtraType = activeExtraTab === 'sauces' ? 'sauce'  : 'viande';
+  const currentIdKey     = activeExtraTab === 'sauces' ? 'sauceId': 'viandeId';
+
+  // Pour la section inline dans le modal produit
+  const modalExtras    = modalExtraTab === 'sauces' ? sauces   : viandes;
+  const modalExtraType = modalExtraTab === 'sauces' ? 'sauce'  : 'viande';
+  const modalIdKey     = modalExtraTab === 'sauces' ? 'sauceId': 'viandeId';
 
   return (
     <Layout>
@@ -360,7 +368,7 @@ const ProductsPage = () => {
           )}
         </div>
 
-        {/* ── Section Gestion des Extras ───────────────────────────────────── */}
+        {/* ── Section Gestion des Extras (accordion global) ────────────────── */}
         <div className="mt-12 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
           <button
             onClick={() => setShowExtras(v => !v)}
@@ -382,10 +390,9 @@ const ProductsPage = () => {
 
           {showExtras && (
             <div className="border-t border-gray-100">
-              {/* Tabs */}
               <div className="flex border-b border-gray-100">
                 {[
-                  { key: 'sauces', label: '🫙 Sauces', count: sauces.length, active: 'text-orange-600 border-orange-500' },
+                  { key: 'sauces',  label: '🫙 Sauces',  count: sauces.length,  active: 'text-orange-600 border-orange-500' },
                   { key: 'viandes', label: '🥩 Viandes', count: viandes.length, active: 'text-red-600 border-red-500' },
                 ].map(tab => (
                   <button
@@ -402,7 +409,6 @@ const ProductsPage = () => {
                 ))}
               </div>
 
-              {/* Barre d'action */}
               <div className="flex justify-between items-center px-6 py-3 bg-gray-50/40">
                 <p className="text-xs text-gray-500 font-medium">
                   {currentExtras.length} élément{currentExtras.length !== 1 ? 's' : ''}
@@ -416,7 +422,6 @@ const ProductsPage = () => {
                 </button>
               </div>
 
-              {/* Liste des items */}
               <div className="divide-y divide-gray-50">
                 {currentExtras.length === 0 ? (
                   <div className="py-10 text-center">
@@ -436,9 +441,7 @@ const ProductsPage = () => {
                           {Number(item.price).toFixed(2)} €
                         </span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                          item.isAvailable !== false
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
+                          item.isAvailable !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                         }`}>
                           {item.isAvailable !== false ? 'Disponible' : 'Indispo.'}
                         </span>
@@ -467,8 +470,8 @@ const ProductsPage = () => {
 
         {/* ── Modal Produit ────────────────────────────────────────────────── */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-[2rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-[2rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 flex-shrink-0">
                 <div>
                   <h2 className="text-2xl font-black text-gray-900">
@@ -476,15 +479,13 @@ const ProductsPage = () => {
                   </h2>
                   <p className="text-sm text-gray-500 font-medium">Remplissez les informations ci-dessous</p>
                 </div>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="p-2 hover:bg-white rounded-full transition-colors shadow-sm"
-                >
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white rounded-full transition-colors shadow-sm">
                   <X className="h-6 w-6 text-gray-400" />
                 </button>
               </div>
 
               <form onSubmit={handleSubmit} className="p-8 overflow-y-auto space-y-6 flex-1">
+
                 {/* Image */}
                 <div className="space-y-3">
                   <label className="block text-sm font-bold text-gray-700 ml-1">Illustration du produit</label>
@@ -508,23 +509,13 @@ const ProductsPage = () => {
                         </>
                       )}
                     </div>
-                    <input
-                      type="file"
-                      id="image-upload-input"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
+                    <input type="file" id="image-upload-input" accept="image/*" onChange={handleFileChange} className="hidden" />
                     <div className="flex-1 w-full space-y-2">
                       <input
                         type="url"
                         placeholder="Ou collez un lien d'image (ex: https://...)"
                         value={formData.imageUrl}
-                        onChange={e => {
-                          setFormData({ ...formData, imageUrl: e.target.value });
-                          setFilePreview('');
-                          setSelectedFile(null);
-                        }}
+                        onChange={e => { setFormData({ ...formData, imageUrl: e.target.value }); setFilePreview(''); setSelectedFile(null); }}
                         className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium"
                       />
                       <p className="text-[10px] text-gray-400 font-medium ml-1">
@@ -534,6 +525,7 @@ const ProductsPage = () => {
                   </div>
                 </div>
 
+                {/* Nom + Type */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 ml-1">Nom du produit *</label>
@@ -545,7 +537,6 @@ const ProductsPage = () => {
                       required
                     />
                   </div>
-
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 ml-1">Type de produit *</label>
                     <select
@@ -555,7 +546,7 @@ const ProductsPage = () => {
                         setFormData({
                           ...formData,
                           productType: type,
-                          needsSauce: type === PRODUCT_TYPE.FOOD,
+                          needsSauce:  type === PRODUCT_TYPE.FOOD,
                           needsViande: type === PRODUCT_TYPE.FOOD,
                         });
                       }}
@@ -569,34 +560,126 @@ const ProductsPage = () => {
                   </div>
                 </div>
 
-                {/* Extras disponibles — visible uniquement pour les plats */}
+                {/* ── Section extras — uniquement pour les plats FOOD ─────────────── */}
                 {formData.productType === PRODUCT_TYPE.FOOD && (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 ml-1">Extras disponibles pour ce plat</label>
-                    <div className="flex flex-wrap gap-4 bg-gray-50 rounded-2xl px-4 py-3.5 border border-gray-100">
-                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={formData.needsSauce}
-                          onChange={e => setFormData({ ...formData, needsSauce: e.target.checked })}
-                          className="w-4 h-4 accent-orange-500 rounded"
-                        />
-                        <span className="text-sm font-semibold text-gray-700">🫙 Sauces</span>
-                      </label>
-                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={formData.needsViande}
-                          onChange={e => setFormData({ ...formData, needsViande: e.target.checked })}
-                          className="w-4 h-4 accent-red-500 rounded"
-                        />
-                        <span className="text-sm font-semibold text-gray-700">🥩 Viandes</span>
-                      </label>
+                  <div className="space-y-3">
+                    {/* Checkboxes needsSauce / needsViande */}
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-700 ml-1">Extras proposés pour ce plat</label>
+                      <div className="flex flex-wrap gap-4 bg-gray-50 rounded-2xl px-4 py-3.5 border border-gray-100">
+                        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={formData.needsSauce}
+                            onChange={e => setFormData({ ...formData, needsSauce: e.target.checked })}
+                            className="w-4 h-4 accent-orange-500 rounded"
+                          />
+                          <span className="text-sm font-semibold text-gray-700">🫙 Sauces</span>
+                        </label>
+                        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={formData.needsViande}
+                            onChange={e => setFormData({ ...formData, needsViande: e.target.checked })}
+                            className="w-4 h-4 accent-red-500 rounded"
+                          />
+                          <span className="text-sm font-semibold text-gray-700">🥩 Viandes</span>
+                        </label>
+                      </div>
+                      <p className="text-[10px] text-gray-400 ml-1">
+                        Décochez pour ne pas proposer ces extras à la commande de ce produit.
+                      </p>
                     </div>
-                    <p className="text-[10px] text-gray-400 ml-1">Décochez pour ne pas proposer ces extras à la commande de ce produit.</p>
+
+                    {/* ── Gestionnaire inline des extras (sauces & viandes) ──────── */}
+                    <div className="border border-gray-200 rounded-2xl overflow-hidden">
+                      {/* En-tête */}
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                        <div className="flex items-center gap-2">
+                          <Utensils className="h-3.5 w-3.5 text-gray-400" />
+                          <span className="text-xs font-bold text-gray-600">Gérer les extras disponibles</span>
+                          <span className="text-[10px] text-gray-400">(global — affecte tous les plats)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenExtraModal(modalExtraType)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white text-[11px] font-bold rounded-lg hover:bg-blue-700 transition-colors active:scale-95"
+                        >
+                          <Plus className="h-3 w-3" />
+                          Ajouter
+                        </button>
+                      </div>
+
+                      {/* Onglets sauces / viandes */}
+                      <div className="flex border-b border-gray-100">
+                        {[
+                          { key: 'sauces',  emoji: '🫙', label: 'Sauces',  count: sauces.length,  color: 'text-orange-600' },
+                          { key: 'viandes', emoji: '🥩', label: 'Viandes', count: viandes.length, color: 'text-red-600' },
+                        ].map(tab => (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => setModalExtraTab(tab.key)}
+                            className={`flex-1 py-2 text-xs font-bold transition-colors border-b-2 ${
+                              modalExtraTab === tab.key
+                                ? `${tab.color} border-current bg-white`
+                                : 'text-gray-400 border-transparent hover:text-gray-600 hover:bg-gray-50'
+                            }`}
+                          >
+                            {tab.emoji} {tab.label}
+                            <span className="ml-1 opacity-60">({tab.count})</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Liste des extras */}
+                      {modalExtras.length === 0 ? (
+                        <div className="py-5 text-center text-xs text-gray-400">
+                          Aucun élément. Cliquez sur « Ajouter ».
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-gray-50 max-h-44 overflow-y-auto">
+                          {modalExtras.map(item => (
+                            <div key={item[modalIdKey]} className="flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-gray-800 leading-tight">{item.name}</p>
+                                {item.description && (
+                                  <p className="text-[10px] text-gray-500 truncate mt-0.5">{item.description}</p>
+                                )}
+                              </div>
+                              <span className="text-xs font-bold text-gray-600 flex-shrink-0">
+                                {Number(item.price).toFixed(2)} €
+                              </span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                item.isAvailable !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                              }`}>
+                                {item.isAvailable !== false ? 'Dispo' : 'Indispo'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenExtraModal(modalExtraType, item)}
+                                className="p-1 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
+                                title="Modifier"
+                              >
+                                <Pencil className="h-3 w-3 text-blue-500" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteExtra(modalExtraType, item[modalIdKey])}
+                                className="p-1 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="h-3 w-3 text-red-500" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
+                {/* Description */}
                 <div className="space-y-2">
                   <label className="block text-sm font-bold text-gray-700 ml-1">Description</label>
                   <textarea
@@ -608,6 +691,7 @@ const ProductsPage = () => {
                   />
                 </div>
 
+                {/* Allergènes */}
                 <div className="space-y-2">
                   <label className="block text-sm font-bold text-gray-700 ml-1 flex items-center gap-2">
                     Allergènes
@@ -622,13 +706,12 @@ const ProductsPage = () => {
                   />
                 </div>
 
+                {/* Prix / Stock / Alerte */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 ml-1">Prix (€) *</label>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      type="number" step="0.01" min="0"
                       value={formData.unitPrice}
                       onChange={e => setFormData({ ...formData, unitPrice: e.target.value })}
                       className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-bold"
@@ -638,8 +721,7 @@ const ProductsPage = () => {
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 ml-1">Stock *</label>
                     <input
-                      type="number"
-                      min="0"
+                      type="number" min="0"
                       value={formData.quantityAvailable}
                       onChange={e => setFormData({ ...formData, quantityAvailable: e.target.value })}
                       className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-bold"
@@ -649,8 +731,7 @@ const ProductsPage = () => {
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 ml-1">Alerte *</label>
                     <input
-                      type="number"
-                      min="0"
+                      type="number" min="0"
                       value={formData.alertThreshold}
                       onChange={e => setFormData({ ...formData, alertThreshold: e.target.value })}
                       className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-bold"
@@ -659,6 +740,7 @@ const ProductsPage = () => {
                   </div>
                 </div>
 
+                {/* Boutons */}
                 <div className="flex gap-4 pt-2">
                   <button
                     type="submit"
@@ -680,9 +762,9 @@ const ProductsPage = () => {
           </div>
         )}
 
-        {/* ── Modal Extra (sauce / viande) ─────────────────────────────────── */}
+        {/* ── Modal Extra (sauce / viande) — z-[60] pour passer au-dessus du modal produit ── */}
         {showExtraModal && editingExtra && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden">
               <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <h2 className="text-lg font-black text-gray-900">
@@ -690,10 +772,7 @@ const ProductsPage = () => {
                     ? `Modifier ${editingExtra.type === 'sauce' ? 'la sauce' : 'la viande'}`
                     : `Ajouter ${editingExtra.type === 'sauce' ? 'une sauce' : 'une viande'}`}
                 </h2>
-                <button
-                  onClick={() => setShowExtraModal(false)}
-                  className="p-2 hover:bg-white rounded-full transition-colors shadow-sm"
-                >
+                <button onClick={() => setShowExtraModal(false)} className="p-2 hover:bg-white rounded-full transition-colors shadow-sm">
                   <X className="h-5 w-5 text-gray-400" />
                 </button>
               </div>
@@ -714,9 +793,7 @@ const ProductsPage = () => {
                 <div className="space-y-1.5">
                   <label className="block text-sm font-bold text-gray-700">Prix (€) *</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="number" step="0.01" min="0"
                     value={extraForm.price}
                     onChange={e => setExtraForm({ ...extraForm, price: e.target.value })}
                     className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 font-bold"
@@ -725,7 +802,9 @@ const ProductsPage = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-bold text-gray-700">Description <span className="text-[10px] font-normal text-gray-400">(optionnel)</span></label>
+                  <label className="block text-sm font-bold text-gray-700">
+                    Description <span className="text-[10px] font-normal text-gray-400">(optionnel)</span>
+                  </label>
                   <input
                     type="text"
                     value={extraForm.description}
@@ -748,7 +827,7 @@ const ProductsPage = () => {
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={handleSaveExtra}
-                    disabled={!extraForm.name.trim() || !extraForm.price || savingExtra}
+                    disabled={!extraForm.name.trim() || extraForm.price === '' || savingExtra}
                     className="flex-1 py-3.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors active:scale-95"
                   >
                     {savingExtra ? 'Enregistrement...' : 'Enregistrer'}

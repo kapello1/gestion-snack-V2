@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, X, CheckCheck, Send, Megaphone, Users, Radio, Search, Loader2 } from 'lucide-react';
+import { Bell, X, CheckCheck, Send, Megaphone, Users, Radio, Search, Loader2, Trash2 } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../utils/constants';
@@ -7,38 +7,43 @@ import api from '../utils/api';
 import { API_ENDPOINTS } from '../config/api';
 
 const TYPE_ICON = {
-  order_status: '🍽️',
+  order_status:       '🍽️',
   reservation_status: '📅',
-  admin_broadcast: '📢',
+  admin_broadcast:    '📢',
 };
 
 const formatAge = (ts) => {
   const diff = Date.now() - new Date(ts).getTime();
-  if (diff < 60000) return 'À l\'instant';
+  if (diff < 60000)   return 'À l\'instant';
   if (diff < 3600000) return `Il y a ${Math.floor(diff / 60000)} min`;
-  if (diff < 86400000) return `Il y a ${Math.floor(diff / 3600000)} h`;
+  if (diff < 86400000)return `Il y a ${Math.floor(diff / 3600000)} h`;
   return new Date(ts).toLocaleDateString('fr-FR');
 };
 
 const NotificationBell = () => {
-  const { notifications, unreadCount, markAsRead, markAllRead, broadcastNotification, sendToUser } = useNotifications();
+  const {
+    notifications, unreadCount,
+    markAsRead, markAllRead,
+    deleteNotification, deleteAllNotifications,
+    broadcastNotification, sendToUser,
+  } = useNotifications();
   const { user } = useAuth();
   const isAdmin = user?.roleName === ROLES.ADMIN;
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [sendMode, setSendMode] = useState('all'); // 'all' | 'specific'
-  const [msgTitle, setMsgTitle] = useState('');
-  const [msgBody, setMsgBody] = useState('');
-  const [customers, setCustomers] = useState([]);
+  const [isOpen,      setIsOpen]      = useState(false);
+  const [showForm,    setShowForm]    = useState(false);
+  const [sendMode,    setSendMode]    = useState('all');
+  const [msgTitle,    setMsgTitle]    = useState('');
+  const [msgBody,     setMsgBody]     = useState('');
+  const [customers,   setCustomers]   = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [custSearch, setCustSearch] = useState('');
-  const [loadingCusts, setLoadingCusts] = useState(false);
-  const [sending, setSending] = useState(false);
+  const [custSearch,  setCustSearch]  = useState('');
+  const [loadingCusts,setLoadingCusts]= useState(false);
+  const [sending,     setSending]     = useState(false);
 
   const panelRef = useRef(null);
 
-  // Close dropdown when clicking outside
+  // Fermer en cliquant en dehors
   useEffect(() => {
     const handler = (e) => {
       if (panelRef.current && !panelRef.current.contains(e.target)) {
@@ -92,35 +97,32 @@ const NotificationBell = () => {
   const handleSend = async () => {
     if (!msgBody.trim()) return;
     setSending(true);
-    const title = msgTitle.trim() || 'Message de l\'administration';
+    const title   = msgTitle.trim() || 'Message de l\'administration';
     const message = msgBody.trim();
-
     if (sendMode === 'all') {
       broadcastNotification(message, title);
     } else {
-      selectedIds.forEach(id => {
-        sendToUser(id, { title, message });
-      });
+      selectedIds.forEach(id => sendToUser(id, { title, message }));
     }
-
     setSending(false);
     closeForm();
   };
 
+  const handleDeleteAll = () => {
+    if (notifications.length === 0) return;
+    deleteAllNotifications();
+  };
+
   const filteredCustomers = customers.filter(c => {
     const q = custSearch.toLowerCase();
-    return (
-      !q ||
-      (c.fullName || c.username || '').toLowerCase().includes(q) ||
-      (c.email || '').toLowerCase().includes(q)
-    );
+    return !q || (c.fullName || c.username || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q);
   });
 
   const canSend = msgBody.trim() && (sendMode === 'all' || selectedIds.size > 0);
 
   return (
     <div className="relative" ref={panelRef}>
-      {/* Bell button */}
+      {/* Bouton cloche */}
       <button
         onClick={() => { setIsOpen(o => !o); if (isOpen) setShowForm(false); }}
         className="relative p-2 rounded-md hover:bg-blue-700 transition-colors focus:outline-none"
@@ -136,13 +138,13 @@ const NotificationBell = () => {
 
       {isOpen && (
         <>
-          {/* Overlay mobile uniquement */}
+          {/* Overlay mobile */}
           <div
             className="fixed inset-0 z-40 sm:hidden"
             onClick={() => { setIsOpen(false); setShowForm(false); }}
           />
 
-          {/* Panel : bottom-sheet sur mobile, dropdown sur desktop */}
+          {/* Panel : bottom-sheet mobile, dropdown desktop */}
           <div className="
             fixed inset-x-0 bottom-0 z-50 flex flex-col
             sm:absolute sm:inset-auto sm:right-0 sm:bottom-auto sm:top-full sm:mt-2 sm:w-96
@@ -153,7 +155,7 @@ const NotificationBell = () => {
             overflow-hidden
             max-h-[90vh] sm:max-h-screen
           ">
-            {/* Poignée de glissement (mobile uniquement) */}
+            {/* Poignée drag (mobile) */}
             <div className="sm:hidden flex justify-center pt-2.5 pb-1 flex-shrink-0">
               <div className="w-9 h-1.5 bg-gray-300 rounded-full" />
             </div>
@@ -179,6 +181,15 @@ const NotificationBell = () => {
                     <CheckCheck className="h-4 w-4 text-blue-600" />
                   </button>
                 )}
+                {notifications.length > 0 && (
+                  <button
+                    onClick={handleDeleteAll}
+                    className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Supprimer toutes les notifications"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-400 hover:text-red-600" />
+                  </button>
+                )}
                 <button
                   onClick={() => { setIsOpen(false); setShowForm(false); }}
                   className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
@@ -188,7 +199,7 @@ const NotificationBell = () => {
               </div>
             </div>
 
-            {/* Notification list */}
+            {/* Liste des notifications */}
             <div className="overflow-y-auto divide-y divide-gray-100 flex-1 sm:max-h-72 sm:flex-none">
               {notifications.length === 0 ? (
                 <div className="py-10 text-center">
@@ -198,13 +209,23 @@ const NotificationBell = () => {
                 </div>
               ) : (
                 notifications.map(notif => (
-                  <button
+                  <div
                     key={notif.id}
-                    onClick={() => markAsRead(notif.id)}
                     className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3 ${!notif.read ? 'bg-blue-50' : 'bg-white'}`}
                   >
-                    <span className="text-lg flex-shrink-0 mt-0.5 leading-none">{TYPE_ICON[notif.type] || '🔔'}</span>
-                    <div className="flex-1 min-w-0">
+                    {/* Emoji type */}
+                    <span
+                      className="text-lg flex-shrink-0 mt-0.5 leading-none cursor-pointer"
+                      onClick={() => markAsRead(notif.id)}
+                    >
+                      {TYPE_ICON[notif.type] || '🔔'}
+                    </span>
+
+                    {/* Contenu — clic marque comme lu */}
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => markAsRead(notif.id)}
+                    >
                       <div className="flex items-start gap-2">
                         <p className={`text-sm break-words leading-snug flex-1 ${!notif.read ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
                           {notif.title}
@@ -216,12 +237,21 @@ const NotificationBell = () => {
                       <p className="text-xs text-gray-600 mt-0.5 leading-relaxed line-clamp-3 break-words">{notif.message}</p>
                       <p className="text-[10px] text-gray-400 mt-1">{formatAge(notif.timestamp)}</p>
                     </div>
-                  </button>
+
+                    {/* Bouton supprimer individuel */}
+                    <button
+                      onClick={() => deleteNotification(notif.id, notif.isBroadcast)}
+                      className="flex-shrink-0 p-1.5 rounded-lg hover:bg-red-50 transition-colors mt-0.5"
+                      title="Supprimer cette notification"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-gray-300 hover:text-red-500 transition-colors" />
+                    </button>
+                  </div>
                 ))
               )}
             </div>
 
-            {/* Admin broadcast section */}
+            {/* Section admin — envoi de notifications */}
             {isAdmin && (
               <div className="border-t border-gray-200 bg-gray-50 p-3 flex-shrink-0">
                 {!showForm ? (
@@ -234,7 +264,6 @@ const NotificationBell = () => {
                   </button>
                 ) : (
                   <div className="space-y-2.5">
-                    {/* Title */}
                     <input
                       type="text"
                       value={msgTitle}
@@ -242,8 +271,6 @@ const NotificationBell = () => {
                       placeholder="Titre (optionnel)"
                       className="w-full text-sm text-gray-900 placeholder-gray-400 px-3 py-2 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
                     />
-
-                    {/* Message */}
                     <textarea
                       value={msgBody}
                       onChange={e => setMsgBody(e.target.value)}
@@ -253,7 +280,7 @@ const NotificationBell = () => {
                       className="w-full text-sm text-gray-900 placeholder-gray-400 px-3 py-2 bg-white border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
                     />
 
-                    {/* Recipient toggle */}
+                    {/* Toggle destinataires */}
                     <div className="flex rounded-xl overflow-hidden border border-gray-300 bg-white">
                       <button
                         onClick={() => setSendMode('all')}
@@ -271,7 +298,7 @@ const NotificationBell = () => {
                       </button>
                     </div>
 
-                    {/* Customer selection */}
+                    {/* Sélection de clients */}
                     {sendMode === 'specific' && (
                       <div className="border border-gray-300 rounded-xl bg-white overflow-hidden">
                         <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200">
@@ -294,9 +321,9 @@ const NotificationBell = () => {
                             <p className="text-xs text-gray-500 text-center py-4">Aucun client trouvé</p>
                           ) : (
                             filteredCustomers.map(c => {
-                              const id = c.customerId || c.userId;
-                              const name = c.fullName || c.username || `Client #${id}`;
-                              const sub = c.email || '';
+                              const id      = c.customerId || c.userId;
+                              const name    = c.fullName || c.username || `Client #${id}`;
+                              const sub     = c.email || '';
                               const checked = selectedIds.has(id);
                               return (
                                 <label
@@ -328,7 +355,6 @@ const NotificationBell = () => {
                       </div>
                     )}
 
-                    {/* Action buttons */}
                     <div className="flex gap-2">
                       <button
                         onClick={closeForm}
@@ -341,11 +367,7 @@ const NotificationBell = () => {
                         disabled={!canSend || sending}
                         className="flex-1 py-2 text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-xl font-bold transition-colors flex items-center justify-center gap-1.5"
                       >
-                        {sending ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Send className="h-3.5 w-3.5" />
-                        )}
+                        {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                         Envoyer
                       </button>
                     </div>

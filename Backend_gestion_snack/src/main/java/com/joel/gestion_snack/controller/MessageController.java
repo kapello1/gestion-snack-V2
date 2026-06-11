@@ -59,4 +59,11 @@ public class MessageController {
         messageService.markAsRead(id);
         return ResponseEntity.noContent().build();
     }
+
+    /** Supprime un message (chatbot ou notification personnelle) par son ID */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteMessage(@PathVariable Long id) {
+        messageService.deleteMessage(id);
+        return ResponseEntity.noContent().build();
+    }
 }

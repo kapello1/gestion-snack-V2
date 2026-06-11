@@ -6,14 +6,14 @@ import { wsManager } from '../lib/wsManager';
 
 const NotificationContext = createContext(null);
 
-// Suivi local des broadcasts lus (par userId) — évite l'aller-retour DB pour les broadcasts
-const BROADCAST_READ_KEY = 'snack_broadcast_reads_';
-const loadBroadcastReads = (userId) => {
-  try { return JSON.parse(localStorage.getItem(BROADCAST_READ_KEY + userId) || '[]'); } catch { return []; }
-};
-const saveBroadcastReads = (userId, ids) => {
-  try { localStorage.setItem(BROADCAST_READ_KEY + userId, JSON.stringify(ids)); } catch {}
-};
+// ── Persistance locale des broadcasts lus / masqués (par userId) ─────────────
+const BROADCAST_READ_KEY   = 'snack_broadcast_reads_';
+const BROADCAST_HIDDEN_KEY = 'snack_broadcast_hidden_';
+
+const loadBroadcastReads  = (uid) => { try { return JSON.parse(localStorage.getItem(BROADCAST_READ_KEY   + uid) || '[]'); } catch { return []; } };
+const saveBroadcastReads  = (uid, ids) => { try { localStorage.setItem(BROADCAST_READ_KEY   + uid, JSON.stringify(ids)); } catch {} };
+const loadBroadcastHidden = (uid) => { try { return JSON.parse(localStorage.getItem(BROADCAST_HIDDEN_KEY + uid) || '[]'); } catch { return []; } };
+const saveBroadcastHidden = (uid, ids) => { try { localStorage.setItem(BROADCAST_HIDDEN_KEY + uid, JSON.stringify(ids)); } catch {} };
 
 export const NotificationProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
@@ -25,9 +25,7 @@ export const NotificationProvider = ({ children }) => {
 
   const userId = user?.userId || null;
 
-  // ──────────────────────────────────────────────
-  // Chargement initial depuis la BD
-  // ──────────────────────────────────────────────
+  // ── Chargement initial depuis la BD ──────────────────────────────────────
   useEffect(() => {
     if (!userId) {
       setNotifications([]);
@@ -42,18 +40,24 @@ export const NotificationProvider = ({ children }) => {
     try {
       const res = await api.get(API_ENDPOINTS.NOTIFICATIONS.FOR_USER(uid));
       const data = res.data || [];
-      const readBroadcasts = loadBroadcastReads(uid);
-      const normalized = data.map(n => ({
-        id: n.idMessage,
-        title: n.title || 'Notification',
-        message: n.content,
-        type: n.notifType || 'admin_broadcast',
-        timestamp: n.sentAt,
-        isBroadcast: n.isBroadcast || false,
-        read: n.isBroadcast
-          ? readBroadcasts.includes(n.idMessage)
-          : (n.isRead || false),
-      }));
+      const readBroadcasts   = loadBroadcastReads(uid);
+      const hiddenBroadcasts = loadBroadcastHidden(uid);
+
+      const normalized = data
+        // Exclure les broadcasts masqués (supprimés localement par l'utilisateur)
+        .filter(n => !(n.isBroadcast && hiddenBroadcasts.includes(n.idMessage)))
+        .map(n => ({
+          id: n.idMessage,
+          title: n.title || 'Notification',
+          message: n.content,
+          type: n.notifType || 'admin_broadcast',
+          timestamp: n.sentAt,
+          isBroadcast: n.isBroadcast || false,
+          read: n.isBroadcast
+            ? readBroadcasts.includes(n.idMessage)
+            : (n.isRead || false),
+        }));
+
       normalized.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       setNotifications(normalized);
       loadedRef.current = true;
@@ -62,9 +66,7 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
-  // ──────────────────────────────────────────────
-  // Écoute WebSocket — notifications en temps réel
-  // ──────────────────────────────────────────────
+  // ── Écoute WebSocket ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!userId) return;
     return wsManager.onNotification((data) => {
@@ -91,16 +93,11 @@ export const NotificationProvider = ({ children }) => {
     });
   }, [userId]);
 
-  // ──────────────────────────────────────────────
-  // Actions utilisateur
-  // ──────────────────────────────────────────────
+  // ── Actions lecture ───────────────────────────────────────────────────────
   const markAsRead = useCallback(async (notifId) => {
     if (!userId) return;
     setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
-    try {
-      await api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(notifId));
-    } catch {}
-    // Aussi dans localStorage pour les broadcasts (idempotent)
+    try { await api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(notifId)); } catch {}
     const reads = loadBroadcastReads(userId);
     if (!reads.includes(notifId)) saveBroadcastReads(userId, [...reads, notifId]);
   }, [userId]);
@@ -108,7 +105,7 @@ export const NotificationProvider = ({ children }) => {
   const markAllRead = useCallback(async () => {
     if (!userId) return;
     const broadcastIds = [];
-    const personalIds = [];
+    const personalIds  = [];
     setNotifications(prev => {
       prev.forEach(n => {
         if (!n.read) {
@@ -118,21 +115,62 @@ export const NotificationProvider = ({ children }) => {
       });
       return prev.map(n => ({ ...n, read: true }));
     });
-    // Persister lus dans localStorage (broadcasts)
     if (broadcastIds.length > 0) {
       const reads = loadBroadcastReads(userId);
       saveBroadcastReads(userId, [...new Set([...reads, ...broadcastIds])]);
     }
-    // Persister lus en BD (messages personnels)
     await Promise.all(
       personalIds.map(id => api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id)).catch(() => {}))
     );
   }, [userId]);
 
-  /**
-   * Envoie une notification personnelle à un autre utilisateur (par ownerId/customerId).
-   * La notification est persistée en BD et diffusée via WebSocket.
-   */
+  // ── Suppression individuelle ──────────────────────────────────────────────
+  const deleteNotification = useCallback(async (notifId, isBroadcast = false) => {
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+
+    if (isBroadcast) {
+      // Broadcasts sont partagés → on les masque localement sans toucher la BD
+      if (userId) {
+        const hidden = loadBroadcastHidden(userId);
+        if (!hidden.includes(notifId)) saveBroadcastHidden(userId, [...hidden, notifId]);
+        // Retirer aussi des lus
+        const reads = loadBroadcastReads(userId).filter(id => id !== notifId);
+        saveBroadcastReads(userId, reads);
+      }
+      return;
+    }
+
+    // Message personnel → supprimer de la BD
+    try {
+      await api.delete(API_ENDPOINTS.MESSAGES.BY_ID(notifId));
+    } catch {}
+  }, [userId]);
+
+  // ── Suppression de toutes les notifications ───────────────────────────────
+  const deleteAllNotifications = useCallback(async () => {
+    if (!userId) return;
+
+    setNotifications(prev => {
+      const broadcasts = prev.filter(n => n.isBroadcast);
+      const personal   = prev.filter(n => !n.isBroadcast);
+
+      // Masquer tous les broadcasts localement
+      if (broadcasts.length > 0) {
+        const existingHidden = loadBroadcastHidden(userId);
+        saveBroadcastHidden(userId, [...new Set([...existingHidden, ...broadcasts.map(n => n.id)])]);
+        saveBroadcastReads(userId, []);
+      }
+
+      // Supprimer les messages personnels de la BD (en parallèle, silencieux)
+      Promise.allSettled(
+        personal.map(n => api.delete(API_ENDPOINTS.MESSAGES.BY_ID(n.id)))
+      );
+
+      return [];
+    });
+  }, [userId]);
+
+  // ── Envoi de notifications ────────────────────────────────────────────────
   const sendToUser = useCallback(async (targetOwnerId, notif) => {
     if (!targetOwnerId) return;
     try {
@@ -146,24 +184,15 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  /**
-   * Envoie une notification broadcast à TOUS les utilisateurs connectés.
-   * La notification est persistée en BD et diffusée via WebSocket.
-   */
   const broadcastNotification = useCallback(async (message, title = "Message de l'administration") => {
     try {
-      await api.post(API_ENDPOINTS.NOTIFICATIONS.BROADCAST, {
-        title,
-        content: message,
-      });
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.BROADCAST, { title, content: message });
     } catch (e) {
       console.error('[Notifications] Erreur broadcast:', e);
     }
   }, []);
 
-  // ──────────────────────────────────────────────
-  // Polling statut commandes (clients uniquement)
-  // ──────────────────────────────────────────────
+  // ── Polling statut commandes (clients uniquement) ─────────────────────────
   useEffect(() => {
     if (!isAuthenticated || !userId || user?.roleName !== 'CUSTOMER') return;
     const custOwnerId = user?.ownerId;
@@ -174,19 +203,18 @@ export const NotificationProvider = ({ children }) => {
         const res = await api.get(API_ENDPOINTS.ORDERS.BY_CUSTOMER(custOwnerId));
         const orders = res.data || [];
         const labels = {
-          ACTIVE: 'En cours de préparation',
-          CLOSED: 'Prête – en attente de service',
-          SERVED: 'Servie',
+          ACTIVE:    'En cours de préparation',
+          CLOSED:    'Prête – en attente de service',
+          SERVED:    'Servie',
           CANCELLED: 'Annulée',
         };
         orders.forEach(order => {
-          const key = 'order_' + order.orderId;
+          const key  = 'order_' + order.orderId;
           const prev = lastStatusRef.current[key];
           if (prev && prev !== order.status) {
-            // Envoi via API (sera aussi reçu via WS si l'utilisateur est connecté)
             sendToUser(custOwnerId, {
-              type: 'order_status',
-              title: '🍽️ Commande mise à jour',
+              type:    'order_status',
+              title:   '🍽️ Commande mise à jour',
               message: `Commande #${order.orderId} : ${labels[order.status] || order.status}`,
             });
           }
@@ -195,12 +223,11 @@ export const NotificationProvider = ({ children }) => {
       } catch {}
     };
 
-    const init = setTimeout(poll, 4000);
+    const init     = setTimeout(poll, 4000);
     const interval = setInterval(poll, 30000);
     return () => { clearTimeout(init); clearInterval(interval); };
   }, [isAuthenticated, userId, user, sendToUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // addNotification conservé pour compatibilité descendante (ex: pages legacy)
   const addNotification = useCallback((notif) => {
     setNotifications(prev => [{
       id: Date.now() + Math.random(),
@@ -216,6 +243,7 @@ export const NotificationProvider = ({ children }) => {
     <NotificationContext.Provider value={{
       notifications, unreadCount,
       addNotification, markAsRead, markAllRead,
+      deleteNotification, deleteAllNotifications,
       broadcastNotification, sendToUser,
       notifToast, dismissNotifToast: () => { clearTimeout(notifTimerRef.current); setNotifToast(null); },
     }}>
