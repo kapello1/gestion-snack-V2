@@ -135,204 +135,226 @@ const NotificationBell = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+        <>
+          {/* Overlay mobile uniquement */}
+          <div
+            className="fixed inset-0 z-40 sm:hidden"
+            onClick={() => { setIsOpen(false); setShowForm(false); }}
+          />
 
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-blue-600 flex-shrink-0" />
-              <span className="font-bold text-gray-900 text-sm">Notifications</span>
-              {unreadCount > 0 && (
-                <span className="text-[10px] bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full">
-                  {unreadCount} nouvelle{unreadCount > 1 ? 's' : ''}
-                </span>
-              )}
+          {/* Panel : bottom-sheet sur mobile, dropdown sur desktop */}
+          <div className="
+            fixed inset-x-0 bottom-0 z-50 flex flex-col
+            sm:absolute sm:inset-auto sm:right-0 sm:bottom-auto sm:top-full sm:mt-2 sm:w-96
+            bg-white
+            rounded-t-2xl sm:rounded-2xl
+            shadow-2xl
+            border-t sm:border border-gray-200
+            overflow-hidden
+            max-h-[90vh] sm:max-h-screen
+          ">
+            {/* Poignée de glissement (mobile uniquement) */}
+            <div className="sm:hidden flex justify-center pt-2.5 pb-1 flex-shrink-0">
+              <div className="w-9 h-1.5 bg-gray-300 rounded-full" />
             </div>
-            <div className="flex gap-1 items-center">
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllRead}
-                  className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
-                  title="Tout marquer comme lu"
-                >
-                  <CheckCheck className="h-4 w-4 text-blue-600" />
-                </button>
-              )}
-              <button
-                onClick={() => { setIsOpen(false); setShowForm(false); }}
-                className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <X className="h-4 w-4 text-gray-600" />
-              </button>
-            </div>
-          </div>
 
-          {/* Notification list */}
-          <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
-            {notifications.length === 0 ? (
-              <div className="py-10 text-center">
-                <Bell className="h-10 w-10 text-gray-200 mx-auto mb-2" />
-                <p className="text-sm text-gray-500 font-medium">Aucune notification</p>
-                <p className="text-xs text-gray-400 mt-1">Vous êtes à jour !</p>
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                <span className="font-bold text-gray-900 text-sm">Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="text-[10px] bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full">
+                    {unreadCount} nouvelle{unreadCount > 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
-            ) : (
-              notifications.map(notif => (
+              <div className="flex gap-1 items-center">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+                    title="Tout marquer comme lu"
+                  >
+                    <CheckCheck className="h-4 w-4 text-blue-600" />
+                  </button>
+                )}
                 <button
-                  key={notif.id}
-                  onClick={() => markAsRead(notif.id)}
-                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3 ${!notif.read ? 'bg-blue-50' : 'bg-white'}`}
+                  onClick={() => { setIsOpen(false); setShowForm(false); }}
+                  className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
                 >
-                  <span className="text-lg flex-shrink-0 mt-0.5 leading-none">{TYPE_ICON[notif.type] || '🔔'}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className={`text-sm truncate ${!notif.read ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                        {notif.title}
-                      </p>
-                      {!notif.read && (
-                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full flex-shrink-0 shadow-sm" />
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-600 mt-0.5 leading-relaxed line-clamp-2">{notif.message}</p>
-                    <p className="text-[10px] text-gray-400 mt-1">{formatAge(notif.timestamp)}</p>
-                  </div>
+                  <X className="h-4 w-4 text-gray-600" />
                 </button>
-              ))
-            )}
-          </div>
+              </div>
+            </div>
 
-          {/* Admin broadcast section */}
-          {isAdmin && (
-            <div className="border-t border-gray-200 bg-gray-50 p-3">
-              {!showForm ? (
-                <button
-                  onClick={openForm}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold text-blue-700 bg-white hover:bg-blue-50 rounded-xl transition-colors border border-dashed border-blue-300"
-                >
-                  <Megaphone className="h-3.5 w-3.5" />
-                  Envoyer une notification
-                </button>
+            {/* Notification list */}
+            <div className="overflow-y-auto divide-y divide-gray-100 flex-1 sm:max-h-72 sm:flex-none">
+              {notifications.length === 0 ? (
+                <div className="py-10 text-center">
+                  <Bell className="h-10 w-10 text-gray-200 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 font-medium">Aucune notification</p>
+                  <p className="text-xs text-gray-400 mt-1">Vous êtes à jour !</p>
+                </div>
               ) : (
-                <div className="space-y-2.5">
-                  {/* Title */}
-                  <input
-                    type="text"
-                    value={msgTitle}
-                    onChange={e => setMsgTitle(e.target.value)}
-                    placeholder="Titre (optionnel)"
-                    className="w-full text-sm text-gray-900 placeholder-gray-400 px-3 py-2 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
-                  />
-
-                  {/* Message */}
-                  <textarea
-                    value={msgBody}
-                    onChange={e => setMsgBody(e.target.value)}
-                    placeholder="Votre message..."
-                    rows={2}
-                    autoFocus
-                    className="w-full text-sm text-gray-900 placeholder-gray-400 px-3 py-2 bg-white border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
-                  />
-
-                  {/* Recipient toggle */}
-                  <div className="flex rounded-xl overflow-hidden border border-gray-300 bg-white">
-                    <button
-                      onClick={() => setSendMode('all')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors ${sendMode === 'all' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-                    >
-                      <Radio className="h-3.5 w-3.5" />
-                      Tous les clients
-                    </button>
-                    <button
-                      onClick={() => setSendMode('specific')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors border-l border-gray-300 ${sendMode === 'specific' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-                    >
-                      <Users className="h-3.5 w-3.5" />
-                      Sélection
-                    </button>
-                  </div>
-
-                  {/* Customer selection */}
-                  {sendMode === 'specific' && (
-                    <div className="border border-gray-300 rounded-xl bg-white overflow-hidden">
-                      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200">
-                        <Search className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                        <input
-                          type="text"
-                          value={custSearch}
-                          onChange={e => setCustSearch(e.target.value)}
-                          placeholder="Rechercher un client..."
-                          className="flex-1 text-xs text-gray-900 placeholder-gray-400 bg-transparent focus:outline-none"
-                        />
-                      </div>
-                      <div className="max-h-32 overflow-y-auto">
-                        {loadingCusts ? (
-                          <div className="flex items-center justify-center py-4 gap-2">
-                            <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
-                            <span className="text-xs text-gray-500">Chargement...</span>
-                          </div>
-                        ) : filteredCustomers.length === 0 ? (
-                          <p className="text-xs text-gray-500 text-center py-4">Aucun client trouvé</p>
-                        ) : (
-                          filteredCustomers.map(c => {
-                            const id = c.customerId || c.userId;
-                            const name = c.fullName || c.username || `Client #${id}`;
-                            const sub = c.email || '';
-                            const checked = selectedIds.has(id);
-                            return (
-                              <label
-                                key={id}
-                                className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors ${checked ? 'bg-blue-50' : ''}`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() => toggleCustomer(id)}
-                                  className="w-3.5 h-3.5 accent-blue-600 flex-shrink-0"
-                                />
-                                <div className="min-w-0">
-                                  <p className="text-xs font-semibold text-gray-800 truncate">{name}</p>
-                                  {sub && <p className="text-[10px] text-gray-500 truncate">{sub}</p>}
-                                </div>
-                              </label>
-                            );
-                          })
+                notifications.map(notif => (
+                  <button
+                    key={notif.id}
+                    onClick={() => markAsRead(notif.id)}
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3 ${!notif.read ? 'bg-blue-50' : 'bg-white'}`}
+                  >
+                    <span className="text-lg flex-shrink-0 mt-0.5 leading-none">{TYPE_ICON[notif.type] || '🔔'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-2">
+                        <p className={`text-sm break-words leading-snug flex-1 ${!notif.read ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                          {notif.title}
+                        </p>
+                        {!notif.read && (
+                          <span className="w-2.5 h-2.5 bg-blue-500 rounded-full flex-shrink-0 mt-1 shadow-sm" />
                         )}
                       </div>
-                      {selectedIds.size > 0 && (
-                        <div className="px-3 py-1.5 border-t border-gray-200 bg-blue-50">
-                          <p className="text-[10px] font-semibold text-blue-700">
-                            {selectedIds.size} client{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
-                          </p>
-                        </div>
-                      )}
+                      <p className="text-xs text-gray-600 mt-0.5 leading-relaxed line-clamp-3 break-words">{notif.message}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">{formatAge(notif.timestamp)}</p>
                     </div>
-                  )}
-
-                  {/* Action buttons */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={closeForm}
-                      className="flex-1 py-2 text-xs text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-xl font-semibold transition-colors"
-                    >
-                      Annuler
-                    </button>
-                    <button
-                      onClick={handleSend}
-                      disabled={!canSend || sending}
-                      className="flex-1 py-2 text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-xl font-bold transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      {sending ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Send className="h-3.5 w-3.5" />
-                      )}
-                      Envoyer
-                    </button>
-                  </div>
-                </div>
+                  </button>
+                ))
               )}
             </div>
-          )}
-        </div>
+
+            {/* Admin broadcast section */}
+            {isAdmin && (
+              <div className="border-t border-gray-200 bg-gray-50 p-3 flex-shrink-0">
+                {!showForm ? (
+                  <button
+                    onClick={openForm}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold text-blue-700 bg-white hover:bg-blue-50 rounded-xl transition-colors border border-dashed border-blue-300"
+                  >
+                    <Megaphone className="h-3.5 w-3.5" />
+                    Envoyer une notification
+                  </button>
+                ) : (
+                  <div className="space-y-2.5">
+                    {/* Title */}
+                    <input
+                      type="text"
+                      value={msgTitle}
+                      onChange={e => setMsgTitle(e.target.value)}
+                      placeholder="Titre (optionnel)"
+                      className="w-full text-sm text-gray-900 placeholder-gray-400 px-3 py-2 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
+                    />
+
+                    {/* Message */}
+                    <textarea
+                      value={msgBody}
+                      onChange={e => setMsgBody(e.target.value)}
+                      placeholder="Votre message..."
+                      rows={2}
+                      autoFocus
+                      className="w-full text-sm text-gray-900 placeholder-gray-400 px-3 py-2 bg-white border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
+                    />
+
+                    {/* Recipient toggle */}
+                    <div className="flex rounded-xl overflow-hidden border border-gray-300 bg-white">
+                      <button
+                        onClick={() => setSendMode('all')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors ${sendMode === 'all' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                      >
+                        <Radio className="h-3.5 w-3.5" />
+                        Tous les clients
+                      </button>
+                      <button
+                        onClick={() => setSendMode('specific')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors border-l border-gray-300 ${sendMode === 'specific' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        Sélection
+                      </button>
+                    </div>
+
+                    {/* Customer selection */}
+                    {sendMode === 'specific' && (
+                      <div className="border border-gray-300 rounded-xl bg-white overflow-hidden">
+                        <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200">
+                          <Search className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                          <input
+                            type="text"
+                            value={custSearch}
+                            onChange={e => setCustSearch(e.target.value)}
+                            placeholder="Rechercher un client..."
+                            className="flex-1 text-xs text-gray-900 placeholder-gray-400 bg-transparent focus:outline-none"
+                          />
+                        </div>
+                        <div className="max-h-32 overflow-y-auto">
+                          {loadingCusts ? (
+                            <div className="flex items-center justify-center py-4 gap-2">
+                              <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                              <span className="text-xs text-gray-500">Chargement...</span>
+                            </div>
+                          ) : filteredCustomers.length === 0 ? (
+                            <p className="text-xs text-gray-500 text-center py-4">Aucun client trouvé</p>
+                          ) : (
+                            filteredCustomers.map(c => {
+                              const id = c.customerId || c.userId;
+                              const name = c.fullName || c.username || `Client #${id}`;
+                              const sub = c.email || '';
+                              const checked = selectedIds.has(id);
+                              return (
+                                <label
+                                  key={id}
+                                  className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors ${checked ? 'bg-blue-50' : ''}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleCustomer(id)}
+                                    className="w-3.5 h-3.5 accent-blue-600 flex-shrink-0"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-semibold text-gray-800 truncate">{name}</p>
+                                    {sub && <p className="text-[10px] text-gray-500 truncate">{sub}</p>}
+                                  </div>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                        {selectedIds.size > 0 && (
+                          <div className="px-3 py-1.5 border-t border-gray-200 bg-blue-50">
+                            <p className="text-[10px] font-semibold text-blue-700">
+                              {selectedIds.size} client{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={closeForm}
+                        className="flex-1 py-2 text-xs text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-xl font-semibold transition-colors"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        onClick={handleSend}
+                        disabled={!canSend || sending}
+                        className="flex-1 py-2 text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-xl font-bold transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        {sending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Send className="h-3.5 w-3.5" />
+                        )}
+                        Envoyer
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

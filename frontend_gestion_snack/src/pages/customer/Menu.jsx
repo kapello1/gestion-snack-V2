@@ -167,7 +167,7 @@ const MenuPage = () => {
     ? Number(selectedProduct.unitPrice) + extrasTotal()
     : 0;
 
-  const toggleExtra = (list, setList, item, idKey) => {
+  const toggleExtra = (_list, setList, item, idKey) => {
     setList(prev =>
       prev.some(i => i[idKey] === item[idKey])
         ? prev.filter(i => i[idKey] !== item[idKey])
@@ -540,8 +540,8 @@ const MenuPage = () => {
                   {t('menu.extras')}
                 </h3>
 
-                {/* Viandes - pour les plats (sauf si explicitement désactivé) */}
-                {selectedProduct.needsViande !== false && selectedProduct.productType === PRODUCT_TYPE.FOOD && viandes.length > 0 && (
+                {/* Viandes - pour les plats */}
+                {selectedProduct.productType === PRODUCT_TYPE.FOOD && viandes.length > 0 && (
                   <div>
                     <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-2 flex items-center gap-1">
                       🥩 {t('menu.chooseViandes')}
@@ -561,8 +561,8 @@ const MenuPage = () => {
                   </div>
                 )}
 
-                {/* Sauces - pour les plats (sauf si explicitement désactivé) */}
-                {selectedProduct.needsSauce !== false && selectedProduct.productType === PRODUCT_TYPE.FOOD && sauces.length > 0 && (
+                {/* Sauces - pour les plats */}
+                {selectedProduct.productType === PRODUCT_TYPE.FOOD && sauces.length > 0 && (
                   <div>
                     <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-2 flex items-center gap-1">
                       🫙 {t('menu.chooseSauces')}
