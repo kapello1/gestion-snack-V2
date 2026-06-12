@@ -224,6 +224,7 @@ public class DiningTableServiceImpl implements IDiningTableService {
             dto.setActiveReservationDate(activeRes.getDatetimeFrom());
             dto.setReservedForCustomerPhone(activeRes.getCustomer().getPhone());
             dto.setReservedForCustomerEmail(activeRes.getCustomer().getEmail());
+            dto.setReservationPlaces(activeRes.getPlaces());
         }
     }
 }

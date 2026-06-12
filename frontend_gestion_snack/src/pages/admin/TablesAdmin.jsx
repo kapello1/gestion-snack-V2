@@ -224,12 +224,29 @@ const TablesAdminPage = () => {
                             )}
 
                             {table.status === 'RESERVED' && table.reservedForCustomerName && (
-                                <div className="mt-3 p-2 bg-yellow-50 rounded border border-yellow-200 text-sm">
-                                    <div className="font-semibold text-yellow-800 mb-1">Réservation:</div>
-                                    <div className="text-gray-700">Client: {table.reservedForCustomerName} (ID: {table.reservedForCustomerId})</div>
-                                    {table.reservedForCustomerPhone && <div className="text-gray-700">Tél: {table.reservedForCustomerPhone}</div>}
-                                    {table.reservedForCustomerEmail && <div className="text-gray-700">Email: {table.reservedForCustomerEmail}</div>}
-                                    <div className="text-gray-700">Le: {new Date(table.activeReservationDate).toLocaleString()}</div>
+                                <div className="mt-3 p-2 bg-yellow-50 rounded border border-yellow-200 text-sm space-y-0.5">
+                                    <div className="font-semibold text-yellow-800 mb-1">📅 Réservation</div>
+                                    <div className="flex items-center gap-1 text-gray-700">
+                                        <User className="h-3 w-3 text-yellow-500" />
+                                        {table.reservedForCustomerName}
+                                    </div>
+                                    {table.reservedForCustomerPhone && (
+                                        <div className="flex items-center gap-1 text-gray-700">
+                                            <Phone className="h-3 w-3 text-yellow-500" />
+                                            {table.reservedForCustomerPhone}
+                                        </div>
+                                    )}
+                                    {table.reservationPlaces > 0 && (
+                                        <div className="flex items-center gap-1 text-gray-700 font-semibold">
+                                            <Users className="h-3 w-3 text-yellow-500" />
+                                            {table.reservationPlaces} personne{table.reservationPlaces > 1 ? 's' : ''}
+                                        </div>
+                                    )}
+                                    {table.activeReservationDate && (
+                                        <div className="text-gray-500 text-xs">
+                                            🕐 {new Date(table.activeReservationDate).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

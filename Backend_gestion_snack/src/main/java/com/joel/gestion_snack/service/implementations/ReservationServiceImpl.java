@@ -211,8 +211,19 @@ public class ReservationServiceImpl implements IReservationService {
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservation.setUpdatedBy("SYSTEM");
         reservation = reservationRepository.save(reservation);
+
+        // Libérer la table si elle était encore RESERVED pour cette réservation
+        DiningTable table = reservation.getTable();
+        if (table != null && table.getStatus() == com.joel.gestion_snack.model.entity.TableStatusType.RESERVED) {
+            table.setStatus(com.joel.gestion_snack.model.entity.TableStatusType.FREE);
+            table.setUpdatedBy("SYSTEM");
+            diningTableRepository.save(table);
+            wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", table.getTableId());
+            log.info("Table {} repassée à FREE suite à l'annulation de la réservation {}", table.getTableId(), id);
+        }
+
         wsPublisher.publishReservationEvent("RESERVATION_CANCELLED", reservation.getReservationId());
-        log.info("Réservation annulée avec succès");
+        log.info("Réservation {} annulée avec succès", id);
         return mapperUtil.toReservationDTO(reservation);
     }
 }

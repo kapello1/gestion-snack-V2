@@ -222,13 +222,28 @@ const WaiterTablesPage = () => {
 
                     {/* Reservation info */}
                     {table.status === TABLE_STATUS.RESERVED && table.reservedForCustomerName && (
-                      <div className="p-3 bg-yellow-50 rounded-xl border border-yellow-200 text-sm">
+                      <div className="p-3 bg-yellow-50 rounded-xl border border-yellow-200 text-sm space-y-1">
                         <p className="font-bold text-yellow-800 mb-1">Réservation</p>
-                        <p className="text-gray-700">{table.reservedForCustomerName}</p>
-                        {table.reservedForCustomerPhone && <p className="text-gray-600 mt-0.5">📞 {table.reservedForCustomerPhone}</p>}
-                        {table.reservedForCustomerEmail && <p className="text-gray-600 mt-0.5 break-all">✉️ {table.reservedForCustomerEmail}</p>}
+                        <p className="text-gray-700 flex items-center gap-1">
+                          <User className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                          {table.reservedForCustomerName}
+                        </p>
+                        {table.reservedForCustomerPhone && (
+                          <p className="text-gray-600 flex items-center gap-1">
+                            <Phone className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                            {table.reservedForCustomerPhone}
+                          </p>
+                        )}
+                        {table.reservationPlaces > 0 && (
+                          <p className="text-gray-700 flex items-center gap-1 font-semibold">
+                            <Users className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                            {table.reservationPlaces} personne{table.reservationPlaces > 1 ? 's' : ''}
+                          </p>
+                        )}
                         {table.activeReservationDate && (
-                          <p className="text-gray-500 text-xs mt-1">{new Date(table.activeReservationDate).toLocaleString('fr-FR')}</p>
+                          <p className="text-gray-500 text-xs flex items-center gap-1">
+                            🕐 {new Date(table.activeReservationDate).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                          </p>
                         )}
                       </div>
                     )}
