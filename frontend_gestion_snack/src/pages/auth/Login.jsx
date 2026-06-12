@@ -62,8 +62,14 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-2xl">
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Cercles décoratifs animés */}
+      <div className="absolute w-64 h-64 bg-white/10 rounded-full -top-8 -left-8 animate-float" style={{ animationDelay: '0s' }} />
+      <div className="absolute w-96 h-96 bg-white/10 rounded-full -bottom-16 -right-16 animate-float" style={{ animationDelay: '2s' }} />
+      <div className="absolute w-32 h-32 bg-white/10 rounded-full top-1/2 right-16 animate-float" style={{ animationDelay: '4s' }} />
+      <div className="absolute w-48 h-48 bg-white/10 rounded-full bottom-16 left-16 animate-float" style={{ animationDelay: '1s' }} />
+
+      <div className="relative z-10 max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-2xl">
         <div className="text-center">
           <div className="flex justify-center">
             <div className="bg-blue-600 p-3 rounded-full">
