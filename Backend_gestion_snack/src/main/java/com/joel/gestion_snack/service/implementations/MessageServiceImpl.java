@@ -61,7 +61,15 @@ public class MessageServiceImpl implements MessageService {
                 .stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
-        List<MessageDTO> broadcasts = messageRepository.findByIsBroadcastTrueOrderBySentAtDesc()
+
+        // Seuls les broadcasts envoyés APRÈS l'inscription de l'utilisateur sont visibles
+        User user = userRepository.findById(userId).orElse(null);
+        LocalDateTime registeredAt = (user != null && user.getCreatedAt() != null)
+                ? user.getCreatedAt()
+                : LocalDateTime.now();
+
+        List<MessageDTO> broadcasts = messageRepository
+                .findByIsBroadcastTrueAndSentAtGreaterThanEqualOrderBySentAtDesc(registeredAt)
                 .stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
