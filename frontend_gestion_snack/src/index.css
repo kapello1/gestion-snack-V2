@@ -2,76 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ══════════════════════════════════════════════════════════
-   AUTH PAGES — Animations & Décorations restaurant
-══════════════════════════════════════════════════════════ */
-
-/* Dégradé animé du fond */
+/* ── Fond animé ───────────────────────────────────────── */
 @keyframes gradientShift {
   0%   { background-position: 0%   50%; }
   50%  { background-position: 100% 50%; }
   100% { background-position: 0%   50%; }
 }
 .animate-gradient-shift {
-  animation: gradientShift 16s ease infinite;
+  animation: gradientShift 18s ease infinite;
 }
 
-/* Flottement vertical doux (orbes) */
+/* ── Flottement vertical ──────────────────────────────── */
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-22px); }
+  0%, 100% { transform: translateY(0px);   }
+  50%       { transform: translateY(-18px); }
 }
-.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-float              { animation: float 7s  ease-in-out infinite; }
+.animate-float-slow         { animation: float 11s ease-in-out infinite; }
+.animate-float-delay-2      { animation: float 8s  ease-in-out 2s   infinite; }
+.animate-float-delay-4      { animation: float 9s  ease-in-out 4s   infinite; }
+.animate-float-delay-6      { animation: float 7s  ease-in-out 6s   infinite; }
 
-/* Dérive + rotation des icônes restaurant */
-@keyframes drift {
-  0%,  100% { transform: translateY(0px)   translateX(0px)  rotate(0deg);  }
-  20%        { transform: translateY(-14px) translateX(10px) rotate(6deg);  }
-  45%        { transform: translateY(-28px) translateX(-8px) rotate(-4deg); }
-  70%        { transform: translateY(-18px) translateX(14px) rotate(9deg);  }
-}
-.animate-drift { animation: drift 9s ease-in-out infinite; }
-
-/* Entrée de la carte (slide-up + fade) */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(50px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
-}
-.animate-fade-in-up {
-  animation: fadeInUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* Lueur pulsée ambrée (Login) */
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 22px rgba(251,191,36,.45), 0 10px 36px rgba(251,191,36,.18); }
-  50%       { box-shadow: 0 0 50px rgba(251,191,36,.80), 0 10px 44px rgba(251,191,36,.40); }
-}
-.animate-pulse-glow { animation: pulseGlow 3.2s ease-in-out infinite; }
-
-/* Lueur pulsée émeraude (Register) */
-@keyframes pulseGlowGreen {
-  0%, 100% { box-shadow: 0 0 22px rgba(16,185,129,.45), 0 10px 36px rgba(16,185,129,.18); }
-  50%       { box-shadow: 0 0 50px rgba(16,185,129,.80), 0 10px 44px rgba(16,185,129,.40); }
-}
-.animate-pulse-glow-green { animation: pulseGlowGreen 3.2s ease-in-out infinite; }
-
-/* Scintillement (indicateur statut) */
-@keyframes twinkle {
-  0%, 100% { opacity: 1;   transform: scale(1);    }
-  50%       { opacity: 0.2; transform: scale(0.55); }
-}
-.animate-twinkle { animation: twinkle 2.2s ease-in-out infinite; }
-
-/* Rotation lente */
-@keyframes spinSlow {
-  from { transform: rotate(0deg);   }
-  to   { transform: rotate(360deg); }
-}
-.animate-spin-slow { animation: spinSlow 22s linear infinite; }
-
-/* Flottement horizontal des badges */
+/* ── Flottement horizontal (widgets sidebar) ──────────── */
 @keyframes floatX {
-  0%, 100% { transform: translateX(0px); }
+  0%, 100% { transform: translateX(0px);  }
   50%       { transform: translateX(8px); }
 }
-.animate-float-x { animation: floatX 5s ease-in-out infinite; }
+.animate-float-x            { animation: floatX 6s ease-in-out infinite; }
+.animate-float-x-delay-2    { animation: floatX 7s ease-in-out 2s infinite; }
+.animate-float-x-delay-4    { animation: floatX 8s ease-in-out 4s infinite; }
+
+/* ── Rotation lente (rings) ───────────────────────────── */
+@keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.animate-spin-slow           { animation: spinSlow 30s linear infinite; }
+.animate-spin-slow-reverse   { animation: spinSlow 22s linear infinite reverse; }
+
+/* ── Entrée carte ─────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(36px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+.animate-fade-in-up { animation: fadeInUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ── Lueur pulsée bleue ───────────────────────────────── */
+@keyframes glowBlue {
+  0%, 100% { box-shadow: 0 0 18px rgba(99,102,241,.5),  0 4px 24px rgba(99,102,241,.2);  }
+  50%       { box-shadow: 0 0 40px rgba(99,102,241,.85), 0 8px 40px rgba(99,102,241,.45); }
+}
+.animate-glow-blue { animation: glowBlue 3.5s ease-in-out infinite; }
+
+/* ── Lueur pulsée verte ───────────────────────────────── */
+@keyframes glowGreen {
+  0%, 100% { box-shadow: 0 0 18px rgba(16,185,129,.5),  0 4px 24px rgba(16,185,129,.2);  }
+  50%       { box-shadow: 0 0 40px rgba(16,185,129,.85), 0 8px 40px rgba(16,185,129,.45); }
+}
+.animate-glow-green { animation: glowGreen 3.5s ease-in-out infinite; }
+
+/* ── Point scintillant ────────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+.animate-blink { animation: blink 2s ease-in-out infinite; }
+
+/* ── Barre de progression animée ─────────────────────── */
+@keyframes progressBar {
+  from { width: 0%;   }
+  to   { width: 68%;  }
+}
+.animate-progress { animation: progressBar 2.5s ease-out 0.5s both; }
