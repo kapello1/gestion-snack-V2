@@ -103,7 +103,7 @@ const CheckoutPage = () => {
       quantity: Number(item.quantity),
       unitPrice: Number(item.unitPrice),
     })),
-    guestCount: formData.orderType === ORDER_TYPE.ON_SITE ? (formData.guestCount || 1) : null,
+    guestCount: formData.orderType === ORDER_TYPE.ON_SITE ? (parseInt(formData.guestCount, 10) || 1) : null,
     createdBy: user.username,
   });
 
@@ -385,8 +385,8 @@ const CheckoutPage = () => {
                     <input
                       type="number"
                       min="1"
-                      value={formData.guestCount || 1}
-                      onChange={e => setFormData(prev => ({ ...prev, guestCount: parseInt(e.target.value) }))}
+                      value={formData.guestCount}
+                      onChange={e => setFormData(prev => ({ ...prev, guestCount: e.target.value }))}
                       className="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all font-medium"
                       required
                     />
