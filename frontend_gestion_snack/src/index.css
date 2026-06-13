@@ -142,3 +142,29 @@
   transition: background .2s;
 }
 .input-inner:focus-within { background: #ffffff; }
+
+/* ══════════════════════════════════════════════════════════
+   PERFORMANCE — GPU compositing forcé
+══════════════════════════════════════════════════════════ */
+.animate-blob1, .animate-blob2, .animate-blob3,
+.animate-float, .animate-float-slow,
+.animate-float-delay-2, .animate-float-delay-4,
+.animate-drift1, .animate-drift2, .animate-drift3,
+.animate-spin-slow, .animate-spin-slow-reverse {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE — animations simplifiées (< 1024px)
+══════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+  /* Blobs : morphing supprimé → simple flottement léger */
+  .animate-blob1 { animation: float 14s ease-in-out infinite; }
+  .animate-blob2 { animation: float 18s ease-in-out 3s infinite; }
+  .animate-blob3 { animation: float 11s ease-in-out 6s infinite; }
+  /* Rings : supprimés sur mobile (lourds, invisibles) */
+  .animate-spin-slow, .animate-spin-slow-reverse { animation: none; }
+  /* Cartes photo : drift supprimé (elles sont cachées de toute façon) */
+  .animate-drift1, .animate-drift2, .animate-drift3 { animation: none; }
+}
