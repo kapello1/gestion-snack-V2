@@ -2,72 +2,143 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Fond animé ───────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   AUTH — ANIMATIONS
+══════════════════════════════════════════════════════════ */
+
+/* 1 · Background gradient shift */
 @keyframes gradientShift {
-  0%   { background-position: 0%   50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0%   50%; }
+  0%,100% { background-position: 0%   50%; }
+  50%      { background-position: 100% 50%; }
 }
-.animate-gradient-shift {
-  animation: gradientShift 18s ease infinite;
-}
+.animate-gradient-shift { animation: gradientShift 18s ease infinite; }
 
-/* ── Flottement vertical ──────────────────────────────── */
+/* 2 · Gradient X (boutons, bordures inputs) */
+@keyframes gradientX {
+  0%,100% { background-position: 0%   50%; }
+  50%      { background-position: 100% 50%; }
+}
+.animate-gradient-x { background-size: 300% 300%; animation: gradientX 4s ease infinite; }
+
+/* 3 · Blobs morphants organiques */
+@keyframes blob1 {
+  0%,100% { transform:translate(0px,0px) scale(1);          border-radius:60% 40% 30% 70%/60% 30% 70% 40%; }
+  25%     { transform:translate(32px,-42px) scale(1.08);    border-radius:40% 60% 70% 30%/40% 70% 30% 60%; }
+  50%     { transform:translate(-18px,24px) scale(0.94);    border-radius:30% 70% 40% 60%/70% 40% 60% 30%; }
+  75%     { transform:translate(26px,16px)  scale(1.03);    border-radius:70% 30% 60% 40%/30% 60% 40% 70%; }
+}
+@keyframes blob2 {
+  0%,100% { transform:translate(0px,0px) scale(1);          border-radius:40% 60% 60% 40%/60% 40% 40% 60%; }
+  33%     { transform:translate(-32px,26px) scale(1.07);    border-radius:70% 30% 40% 60%/50% 60% 40% 50%; }
+  66%     { transform:translate(22px,-22px) scale(0.93);    border-radius:50% 50% 70% 30%/40% 60% 30% 70%; }
+}
+@keyframes blob3 {
+  0%,100% { transform:translate(0px,0px) scale(1);          border-radius:50% 50% 30% 70%/50% 70% 30% 50%; }
+  50%     { transform:translate(-14px,32px) scale(1.1);     border-radius:30% 70% 70% 30%/60% 40% 60% 40%; }
+}
+.animate-blob1 { animation: blob1 14s ease-in-out infinite; }
+.animate-blob2 { animation: blob2 18s ease-in-out infinite; }
+.animate-blob3 { animation: blob3 11s ease-in-out infinite; }
+
+/* 4 · Float vertical */
 @keyframes float {
-  0%, 100% { transform: translateY(0px);   }
-  50%       { transform: translateY(-18px); }
+  0%,100% { transform:translateY(0px);   }
+  50%      { transform:translateY(-16px); }
 }
-.animate-float              { animation: float 7s  ease-in-out infinite; }
-.animate-float-slow         { animation: float 11s ease-in-out infinite; }
-.animate-float-delay-2      { animation: float 8s  ease-in-out 2s   infinite; }
-.animate-float-delay-4      { animation: float 9s  ease-in-out 4s   infinite; }
-.animate-float-delay-6      { animation: float 7s  ease-in-out 6s   infinite; }
+.animate-float           { animation: float 7s  ease-in-out infinite; }
+.animate-float-slow      { animation: float 11s ease-in-out infinite; }
+.animate-float-delay-2   { animation: float 8s  ease-in-out 2s infinite; }
+.animate-float-delay-4   { animation: float 9s  ease-in-out 4s infinite; }
 
-/* ── Flottement horizontal (widgets sidebar) ──────────── */
+/* 5 · Float horizontal */
 @keyframes floatX {
-  0%, 100% { transform: translateX(0px);  }
-  50%       { transform: translateX(8px); }
+  0%,100% { transform:translateX(0px); }
+  50%      { transform:translateX(9px); }
 }
-.animate-float-x            { animation: floatX 6s ease-in-out infinite; }
-.animate-float-x-delay-2    { animation: floatX 7s ease-in-out 2s infinite; }
-.animate-float-x-delay-4    { animation: floatX 8s ease-in-out 4s infinite; }
+.animate-float-x          { animation: floatX 6s ease-in-out infinite; }
+.animate-float-x-delay-2  { animation: floatX 7s ease-in-out 2s infinite; }
+.animate-float-x-delay-4  { animation: floatX 8s ease-in-out 4s infinite; }
 
-/* ── Rotation lente (rings) ───────────────────────────── */
-@keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.animate-spin-slow           { animation: spinSlow 30s linear infinite; }
-.animate-spin-slow-reverse   { animation: spinSlow 22s linear infinite reverse; }
+/* 6 · Dérive pour cartes photo restaurant */
+@keyframes drift1 { 0%,100%{transform:translateY(0px)    rotate(-0.6deg);} 50%{transform:translateY(-15px) rotate(0.6deg);} }
+@keyframes drift2 { 0%,100%{transform:translateY(0px)    rotate(0.5deg);}  50%{transform:translateY(-11px) rotate(-0.5deg);} }
+@keyframes drift3 { 0%,100%{transform:translateY(0px)    rotate(0.8deg);}  50%{transform:translateY(-19px) rotate(-0.8deg);} }
+.animate-drift1 { animation: drift1 9s  ease-in-out infinite; }
+.animate-drift2 { animation: drift2 12s ease-in-out 2s infinite; }
+.animate-drift3 { animation: drift3 15s ease-in-out 4s infinite; }
 
-/* ── Entrée carte ─────────────────────────────────────── */
+/* 7 · Rings tournants */
+@keyframes spinSlow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+.animate-spin-slow         { animation: spinSlow 30s linear infinite; }
+.animate-spin-slow-reverse { animation: spinSlow 22s linear infinite reverse; }
+
+/* 8 · Entrée carte (fadeInUp) */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(36px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  from { opacity:0; transform:translateY(38px) scale(.97); }
+  to   { opacity:1; transform:translateY(0)    scale(1);   }
 }
-.animate-fade-in-up { animation: fadeInUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-fade-in-up { animation: fadeInUp .7s cubic-bezier(.22,1,.36,1) both; }
 
-/* ── Lueur pulsée bleue ───────────────────────────────── */
-@keyframes glowBlue {
-  0%, 100% { box-shadow: 0 0 18px rgba(99,102,241,.5),  0 4px 24px rgba(99,102,241,.2);  }
-  50%       { box-shadow: 0 0 40px rgba(99,102,241,.85), 0 8px 40px rgba(99,102,241,.45); }
-}
-.animate-glow-blue { animation: glowBlue 3.5s ease-in-out infinite; }
-
-/* ── Lueur pulsée verte ───────────────────────────────── */
-@keyframes glowGreen {
-  0%, 100% { box-shadow: 0 0 18px rgba(16,185,129,.5),  0 4px 24px rgba(16,185,129,.2);  }
-  50%       { box-shadow: 0 0 40px rgba(16,185,129,.85), 0 8px 40px rgba(16,185,129,.45); }
-}
+/* 9 · Lueurs pulsées */
+@keyframes glowBlue  { 0%,100%{box-shadow:0 0 18px rgba(99,102,241,.45),0 4px 24px rgba(99,102,241,.18)} 50%{box-shadow:0 0 42px rgba(99,102,241,.82),0 8px 42px rgba(99,102,241,.42)} }
+@keyframes glowGreen { 0%,100%{box-shadow:0 0 18px rgba(16,185,129,.45),0 4px 24px rgba(16,185,129,.18)} 50%{box-shadow:0 0 42px rgba(16,185,129,.82),0 8px 42px rgba(16,185,129,.42)} }
+.animate-glow-blue  { animation: glowBlue  3.5s ease-in-out infinite; }
 .animate-glow-green { animation: glowGreen 3.5s ease-in-out infinite; }
 
-/* ── Point scintillant ────────────────────────────────── */
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.2; }
-}
+/* 10 · Blink (point statut) */
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
 .animate-blink { animation: blink 2s ease-in-out infinite; }
 
-/* ── Barre de progression animée ─────────────────────── */
-@keyframes progressBar {
-  from { width: 0%;   }
-  to   { width: 68%;  }
+/* 11 · Progress bar widget */
+@keyframes progressBar { from{width:0%} to{width:68%} }
+.animate-progress { animation: progressBar 2.5s ease-out .5s both; }
+
+/* ══════════════════════════════════════════════════════════
+   BORDURES INPUT ANIMÉES (gradient tournant)
+══════════════════════════════════════════════════════════ */
+
+/* Indigo/violet (Login) */
+.input-border {
+  padding: 1.5px;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgba(99,102,241,.45) 0%, rgba(139,92,246,.45) 50%, rgba(167,139,250,.45) 100%);
+  background-size: 300% 300%;
+  animation: gradientX 4s ease infinite;
+  transition: filter .2s, box-shadow .2s;
 }
-.animate-progress { animation: progressBar 2.5s ease-out 0.5s both; }
+.input-border:focus-within {
+  filter: brightness(1.6) saturate(1.4);
+  box-shadow: 0 0 0 4px rgba(99,102,241,.12);
+}
+.input-border-error {
+  padding: 1.5px;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgba(239,68,68,.7), rgba(220,38,38,.7));
+}
+
+/* Emerald/teal (Register) */
+.input-border-green {
+  padding: 1.5px;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgba(16,185,129,.45) 0%, rgba(20,184,166,.45) 50%, rgba(52,211,153,.45) 100%);
+  background-size: 300% 300%;
+  animation: gradientX 4s ease infinite;
+  transition: filter .2s, box-shadow .2s;
+}
+.input-border-green:focus-within {
+  filter: brightness(1.6) saturate(1.4);
+  box-shadow: 0 0 0 4px rgba(16,185,129,.12);
+}
+.input-border-green-error {
+  padding: 1.5px;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgba(239,68,68,.7), rgba(220,38,38,.7));
+}
+
+/* Classe interne (fond blanc) */
+.input-inner {
+  border-radius: calc(0.75rem - 1.5px);
+  background: #f8f9fc;
+  transition: background .2s;
+}
+.input-inner:focus-within { background: #ffffff; }

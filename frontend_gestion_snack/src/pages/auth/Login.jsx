@@ -1,74 +1,48 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import {
-  LogIn, User, Lock, Eye, EyeOff,
-  UtensilsCrossed, Clock, Star, ShieldCheck, Users,
-} from 'lucide-react';
+import { LogIn, User, Lock, Eye, EyeOff, UtensilsCrossed, ShieldCheck } from 'lucide-react';
 
-/* ────────────────────────────────────────────────────────
-   Petits points décoratifs (CSS pur, pas d'emojis)
-──────────────────────────────────────────────────────── */
+/* ── Particules déco ─────────────────────────────────────── */
 const DOTS = [
-  { cls: 'w-1.5 h-1.5 bg-indigo-400/50', s: { top: '11%',  left: '17%'  }, delay: '0s',   dur: '5s'  },
-  { cls: 'w-2.5 h-2.5 bg-violet-400/35', s: { top: '67%',  left: '9%'   }, delay: '1.5s', dur: '7s'  },
-  { cls: 'w-2   h-2   bg-sky-400/45',    s: { top: '30%',  right: '11%' }, delay: '3s',   dur: '6s'  },
-  { cls: 'w-1.5 h-1.5 bg-purple-300/55', s: { top: '82%',  right: '18%' }, delay: '0.8s', dur: '8s'  },
-  { cls: 'w-3   h-3   bg-indigo-300/25', s: { top: '18%',  right: '7%'  }, delay: '2.2s', dur: '6s'  },
-  { cls: 'w-2   h-2   bg-blue-400/40',   s: { top: '52%',  left: '6%'   }, delay: '4s',   dur: '7s'  },
-  { cls: 'w-1.5 h-1.5 bg-violet-400/50', s: { top: '91%',  left: '38%'  }, delay: '1.2s', dur: '5s'  },
-  { cls: 'w-2   h-2   bg-indigo-300/40', s: { top: '44%',  right: '5%'  }, delay: '5s',   dur: '6s'  },
+  { s: { top:'8%',   left:'12%'  }, size:'w-1.5 h-1.5', color:'bg-indigo-400/40', delay:'0s',   dur:'6s'  },
+  { s: { top:'64%',  left:'7%'   }, size:'w-2.5 h-2.5', color:'bg-violet-400/30', delay:'1.8s', dur:'8s'  },
+  { s: { top:'26%',  right:'9%'  }, size:'w-2   h-2',   color:'bg-purple-300/45', delay:'3.2s', dur:'7s'  },
+  { s: { top:'81%',  right:'14%' }, size:'w-1.5 h-1.5', color:'bg-sky-400/35',   delay:'0.6s', dur:'9s'  },
+  { s: { top:'14%',  right:'5%'  }, size:'w-3   h-3',   color:'bg-indigo-300/20', delay:'2.5s', dur:'7s'  },
+  { s: { top:'49%',  left:'4%'   }, size:'w-2   h-2',   color:'bg-violet-400/35', delay:'4.5s', dur:'8s'  },
+  { s: { top:'90%',  left:'35%'  }, size:'w-1.5 h-1.5', color:'bg-purple-400/45', delay:'1.1s', dur:'6s'  },
+  { s: { top:'38%',  right:'4%'  }, size:'w-2   h-2',   color:'bg-indigo-300/30', delay:'5.2s', dur:'7s'  },
 ];
 
-/* ────────────────────────────────────────────────────────
-   Widgets flottants (desktop ≥ xl) — aspect "app UI"
-──────────────────────────────────────────────────────── */
-const WidgetOrder = () => (
-  <div className="bg-white rounded-2xl shadow-2xl p-4 w-52 border border-gray-100">
-    <div className="flex items-center gap-2.5 mb-3">
-      <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
-        <UtensilsCrossed className="h-4 w-4 text-indigo-600" />
+/* ── Carte photo restaurant ──────────────────────────────── */
+const PhotoCard = ({ src, fallback, tag, title, subtitle, animCls, style }) => (
+  <div
+    className={`absolute hidden xl:block overflow-hidden rounded-2xl border border-white/[0.1] shadow-[0_20px_60px_rgba(0,0,0,0.55)] ${animCls}`}
+    style={style}
+  >
+    <img
+      src={src}
+      alt={title}
+      className="w-full h-full object-cover"
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+        e.currentTarget.parentElement.style.background = fallback;
+      }}
+    />
+    {/* overlay gradient */}
+    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+    {/* tag */}
+    {tag && (
+      <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md bg-white/10 border border-white/20">
+        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-blink" />
+        <span className="text-[10px] font-bold text-white/90 uppercase tracking-widest">{tag}</span>
       </div>
-      <div>
-        <p className="text-[12px] font-black text-gray-900 leading-none">Commande #312</p>
-        <p className="text-[10px] text-gray-400 font-medium mt-0.5">Il y a 2 min</p>
-      </div>
-    </div>
-    <div className="flex items-center gap-1.5 mb-2">
-      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-blink" />
-      <p className="text-[11px] text-emerald-600 font-bold">En préparation</p>
-    </div>
-    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-      <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full animate-progress" />
-    </div>
-  </div>
-);
-
-const WidgetRating = () => (
-  <div className="bg-white rounded-2xl shadow-2xl p-4 w-48 border border-gray-100">
-    <div className="flex items-center gap-1 mb-1">
-      {[1,2,3,4,5].map(i => (
-        <Star key={i} className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
-      ))}
-    </div>
-    <p className="text-[22px] font-black text-gray-900 leading-none">4.9</p>
-    <p className="text-[10px] text-gray-400 font-semibold mt-0.5">sur 5 · 1 248 avis</p>
-    <div className="mt-2 flex items-center gap-1.5">
-      <div className="w-2 h-2 rounded-full bg-green-500" />
-      <p className="text-[10px] text-green-600 font-bold">Restaurant #1 région</p>
-    </div>
-  </div>
-);
-
-const WidgetUsers = () => (
-  <div className="bg-white rounded-2xl shadow-2xl p-4 w-48 border border-gray-100">
-    <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center mb-2">
-      <Users className="h-4 w-4 text-violet-600" />
-    </div>
-    <p className="text-[22px] font-black text-gray-900 leading-none">3 420</p>
-    <p className="text-[10px] text-gray-400 font-semibold mt-0.5">clients satisfaits</p>
-    <div className="mt-2 h-1.5 bg-gray-100 rounded-full">
-      <div className="h-full w-[82%] bg-gradient-to-r from-violet-400 to-purple-600 rounded-full" />
+    )}
+    {/* caption */}
+    <div className="absolute bottom-0 left-0 right-0 px-4 pt-8 pb-4 bg-gradient-to-t from-black/80 to-transparent backdrop-blur-[2px]">
+      <p className="text-white font-black text-[13px] leading-snug drop-shadow-lg">{title}</p>
+      {subtitle && <p className="text-white/55 text-[11px] font-medium mt-0.5">{subtitle}</p>}
     </div>
   </div>
 );
@@ -92,7 +66,7 @@ const Login = () => {
     navigate(map[user.roleName] || '/dashboard');
   }, [user, navigate]);
 
-  const handleChange  = (e) => setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
+  const handleChange = (e) => setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -117,160 +91,198 @@ const Login = () => {
   return (
     <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 py-12">
 
-      {/* ── Fond dégradé animé (profond, sobre) ─────────── */}
+      {/* ════ FOND ANIMÉ ════════════════════════════════════ */}
       <div
         className="absolute inset-0 animate-gradient-shift"
         style={{
-          background: 'linear-gradient(-45deg, #080c1a, #0f0d2e, #0a1628, #0d0b24, #080c1a)',
+          background: 'linear-gradient(-45deg, #050813, #0d0b26, #0a1230, #090a1e, #050813)',
           backgroundSize: '400% 400%',
         }}
       />
 
-      {/* ── Orbes lumineux flous ─────────────────────────── */}
+      {/* ── Blobs morphants ─────────────────────────────────── */}
       <div
-        className="absolute rounded-full animate-float-slow"
+        className="absolute animate-blob1"
         style={{
-          width: 600, height: 600,
-          top: '-15%', left: '-10%',
-          background: 'radial-gradient(circle, rgba(99,102,241,0.28) 0%, transparent 68%)',
-          filter: 'blur(60px)',
+          width: 680, height: 680, top: '-18%', left: '-12%',
+          background: 'radial-gradient(circle, rgba(99,102,241,0.38) 0%, rgba(79,70,229,0.18) 50%, transparent 72%)',
+          filter: 'blur(55px)',
         }}
       />
       <div
-        className="absolute rounded-full animate-float-delay-4"
+        className="absolute animate-blob2"
         style={{
-          width: 500, height: 500,
-          bottom: '-12%', right: '-8%',
-          background: 'radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 68%)',
-          filter: 'blur(60px)',
-        }}
-      />
-      <div
-        className="absolute rounded-full animate-float-delay-2"
-        style={{
-          width: 300, height: 300,
-          top: '38%', left: '55%',
-          background: 'radial-gradient(circle, rgba(56,189,248,0.15) 0%, transparent 68%)',
+          width: 560, height: 560, bottom: '-14%', right: '-10%',
+          background: 'radial-gradient(circle, rgba(124,58,237,0.35) 0%, rgba(109,40,217,0.15) 50%, transparent 72%)',
           filter: 'blur(50px)',
         }}
       />
+      <div
+        className="absolute animate-blob3"
+        style={{
+          width: 340, height: 340, top: '35%', left: '45%',
+          background: 'radial-gradient(circle, rgba(56,189,248,0.22) 0%, rgba(14,165,233,0.08) 50%, transparent 72%)',
+          filter: 'blur(48px)',
+        }}
+      />
+      <div
+        className="absolute animate-float-delay-4"
+        style={{
+          width: 280, height: 280, top: '5%', right: '25%',
+          background: 'radial-gradient(circle, rgba(167,139,250,0.20) 0%, transparent 70%)',
+          filter: 'blur(45px)',
+        }}
+      />
 
-      {/* ── Rings géométriques tournants ─────────────────── */}
+      {/* ── Rings géométriques ─────────────────────────────── */}
       <div
-        className="absolute rounded-full border border-white/[0.04] animate-spin-slow"
-        style={{ width: 700, height: 700, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
+        className="absolute rounded-full border border-white/[0.03] animate-spin-slow"
+        style={{ width: 780, height: 780, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
       />
       <div
-        className="absolute rounded-full border border-indigo-500/[0.07] animate-spin-slow-reverse"
-        style={{ width: 480, height: 480, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
-      />
-      <div
-        className="absolute rounded-full border border-violet-400/[0.05] animate-spin-slow"
-        style={{ width: 280, height: 280, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', animationDuration: '20s' }}
+        className="absolute rounded-full border border-indigo-400/[0.06] animate-spin-slow-reverse"
+        style={{ width: 520, height: 520, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
       />
 
-      {/* ── Petits points décoratifs ─────────────────────── */}
+      {/* ── Particules ──────────────────────────────────────── */}
       {DOTS.map((d, i) => (
         <div
           key={i}
-          className={`absolute rounded-full ${d.cls} animate-float`}
+          className={`absolute rounded-full ${d.size} ${d.color} animate-float`}
           style={{ ...d.s, animationDelay: d.delay, animationDuration: d.dur }}
         />
       ))}
 
-      {/* ── Widgets flottants (xl+) ──────────────────────── */}
-      <div className="absolute hidden xl:block animate-float-x"
-           style={{ top: '22%', left: '3%' }}>
-        <WidgetOrder />
-      </div>
-      <div className="absolute hidden xl:block animate-float-x-delay-2"
-           style={{ top: '54%', left: '3%' }}>
-        <WidgetRating />
-      </div>
-      <div className="absolute hidden xl:block animate-float-x-delay-4"
-           style={{ top: '36%', right: '3%' }}>
-        <WidgetUsers />
-      </div>
+      {/* ════ CARTES PHOTO RESTAURANT (xl+) ════════════════ */}
+      <PhotoCard
+        src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=420&q=85&auto=format&fit=crop"
+        fallback="linear-gradient(135deg,#1e1b4b,#312e81)"
+        tag="Ambiance"
+        title="Une expérience gastronomique unique"
+        subtitle="Cuisine raffinée · Cadre élégant"
+        animCls="animate-drift1"
+        style={{ left: '2%', top: '14%', width: 210, height: 270 }}
+      />
+      <PhotoCard
+        src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=380&q=85&auto=format&fit=crop"
+        fallback="linear-gradient(135deg,#1e3a5f,#0f172a)"
+        tag="Menu du jour"
+        title="Créations du chef"
+        subtitle="Saison · Produits frais"
+        animCls="animate-drift2"
+        style={{ left: '2%', top: '56%', width: 185, height: 230 }}
+      />
+      <PhotoCard
+        src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=380&q=85&auto=format&fit=crop"
+        fallback="linear-gradient(135deg,#3b0764,#1e1b4b)"
+        tag="Spécialité"
+        title="Plats signature maison"
+        subtitle="Chaque détail compte"
+        animCls="animate-drift3"
+        style={{ right: '2%', top: '22%', width: 195, height: 255 }}
+      />
 
-      {/* ════ CARTE DE CONNEXION ════════════════════════════ */}
+      {/* ════ CARTE CONNEXION ══════════════════════════════ */}
       <div className="relative z-10 w-full max-w-md animate-fade-in-up">
 
-        {/* Barre accent */}
-        <div className="h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 rounded-t-3xl" />
+        {/* Barre accent animée */}
+        <div
+          className="h-[3px] rounded-t-3xl animate-gradient-x"
+          style={{ background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa, #7c3aed, #6366f1)', backgroundSize: '300% 300%' }}
+        />
 
-        <div className="bg-white rounded-b-3xl shadow-[0_40px_100px_rgba(0,0,0,0.6)] px-8 py-10">
+        <div className="bg-white rounded-b-3xl shadow-[0_40px_100px_rgba(0,0,0,0.65)] px-8 py-10">
 
-          {/* ── Logo + titre ─────────────────────────────── */}
+          {/* En-tête */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg animate-glow-blue mb-4">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg animate-glow-blue mb-4"
+                 style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)' }}>
               <UtensilsCrossed className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Bon retour !</h1>
+
+            <h1
+              className="text-2xl font-black tracking-tight bg-clip-text text-transparent"
+              style={{ backgroundImage: 'linear-gradient(135deg, #4f46e5, #7c3aed, #9333ea)' }}
+            >
+              Bon retour !
+            </h1>
             <p className="text-sm text-gray-500 font-medium mt-1">Connectez-vous à votre espace</p>
 
-            {/* Séparateur */}
             <div className="flex items-center gap-2 w-full mt-5">
-              <div className="flex-1 h-px bg-gray-100" />
-              <span className="text-xs font-semibold text-gray-300 px-1">CONNEXION</span>
-              <div className="flex-1 h-px bg-gray-100" />
+              <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, #e0e7ff)' }} />
+              <span className="text-[11px] font-bold text-indigo-300 px-2 tracking-widest">CONNEXION</span>
+              <div className="flex-1 h-px" style={{ background: 'linear-gradient(270deg, transparent, #e0e7ff)' }} />
             </div>
           </div>
 
-          {/* ── Formulaire ───────────────────────────────── */}
+          {/* Formulaire */}
           <form onSubmit={handleSubmit} className="space-y-5">
 
             {/* Identifiant */}
             <div>
-              <label className="block text-xs font-bold text-gray-600 mb-1.5">
+              <label className="block text-xs font-bold mb-1.5"
+                     style={{ color: '#4f46e5' }}>
                 Nom d'utilisateur
               </label>
-              <div className="relative">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                <input
-                  name="username"
-                  type="text"
-                  required
-                  autoComplete="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  placeholder="Votre identifiant"
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 text-sm font-medium focus:outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all duration-200"
-                />
+              <div className="input-border">
+                <div className="input-inner">
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-400 pointer-events-none" />
+                    <input
+                      name="username"
+                      type="text"
+                      required
+                      autoComplete="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      placeholder="Votre identifiant"
+                      className="w-full pl-10 pr-4 py-3 bg-transparent text-gray-800 placeholder-gray-400 text-sm font-medium focus:outline-none"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Mot de passe */}
             <div>
-              <label className="block text-xs font-bold text-gray-600 mb-1.5">
+              <label className="block text-xs font-bold mb-1.5"
+                     style={{ color: '#4f46e5' }}>
                 Mot de passe
               </label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                <input
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  autoComplete="current-password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Votre mot de passe"
-                  className="w-full pl-10 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 text-sm font-medium focus:outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all duration-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(v => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-500 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+              <div className="input-border">
+                <div className="input-inner">
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-400 pointer-events-none" />
+                    <input
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="current-password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="Votre mot de passe"
+                      className="w-full pl-10 pr-11 py-3 bg-transparent text-gray-800 placeholder-gray-400 text-sm font-medium focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(v => !v)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-500 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Mot de passe oublié */}
-            <div className="flex justify-end -mt-1">
+            <div className="flex justify-end">
               <Link
                 to="/forgot-password"
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                className="text-xs font-semibold transition-colors"
+                style={{ color: '#7c3aed' }}
+                onMouseEnter={e => e.target.style.color = '#6d28d9'}
+                onMouseLeave={e => e.target.style.color = '#7c3aed'}
               >
                 Mot de passe oublié ?
               </Link>
@@ -280,7 +292,12 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:-translate-y-px active:translate-y-0"
+              className="w-full py-3.5 text-white font-bold text-sm rounded-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0 animate-gradient-x"
+              style={{
+                background: 'linear-gradient(90deg, #6366f1, #7c3aed, #9333ea, #7c3aed, #6366f1)',
+                backgroundSize: '300% 300%',
+                boxShadow: '0 8px 30px rgba(99,102,241,0.35)',
+              }}
             >
               {loading ? (
                 <div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -290,18 +307,22 @@ const Login = () => {
             </button>
           </form>
 
-          {/* ── Pied de carte ────────────────────────────── */}
+          {/* Pied */}
           <div className="mt-7 pt-6 border-t border-gray-100">
             <p className="text-center text-sm text-gray-500">
               Pas encore de compte ?{' '}
-              <Link to="/register" className="font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+              <Link
+                to="/register"
+                className="font-bold transition-colors"
+                style={{ color: '#6366f1' }}
+                onMouseEnter={e => e.target.style.color = '#4f46e5'}
+                onMouseLeave={e => e.target.style.color = '#6366f1'}
+              >
                 Créer un compte
               </Link>
             </p>
-
-            {/* Badge sécurité */}
             <div className="mt-5 flex items-center justify-center gap-1.5 text-gray-400">
-              <ShieldCheck className="h-3.5 w-3.5 text-gray-300" />
+              <ShieldCheck className="h-3.5 w-3.5 text-indigo-300" />
               <span className="text-[11px] font-medium">Connexion sécurisée · Données chiffrées</span>
             </div>
           </div>

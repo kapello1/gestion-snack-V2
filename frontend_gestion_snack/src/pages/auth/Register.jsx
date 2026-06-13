@@ -1,89 +1,55 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  UserPlus, User, Mail, Lock, Phone, MapPin,
-  Eye, EyeOff, CheckCircle, Gift, Zap, ShieldCheck, CalendarCheck,
-} from 'lucide-react';
+import { UserPlus, User, Mail, Lock, Phone, MapPin, Eye, EyeOff, CheckCircle, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 
-/* ────────────────────────────────────────────────────────
-   Petits points décoratifs
-──────────────────────────────────────────────────────── */
+/* ── Particules déco ─────────────────────────────────────── */
 const DOTS = [
-  { cls: 'w-1.5 h-1.5 bg-emerald-400/50', s: { top: '9%',  left: '14%'  }, delay: '0s',   dur: '5s' },
-  { cls: 'w-2.5 h-2.5 bg-teal-400/30',    s: { top: '65%', left: '7%'   }, delay: '1.6s', dur: '7s' },
-  { cls: 'w-2   h-2   bg-green-400/40',   s: { top: '28%', right: '10%' }, delay: '3.1s', dur: '6s' },
-  { cls: 'w-1.5 h-1.5 bg-emerald-300/55', s: { top: '80%', right: '16%' }, delay: '0.7s', dur: '8s' },
-  { cls: 'w-3   h-3   bg-teal-300/20',    s: { top: '16%', right: '6%'  }, delay: '2.3s', dur: '6s' },
-  { cls: 'w-2   h-2   bg-cyan-400/35',    s: { top: '50%', left: '5%'   }, delay: '4.2s', dur: '7s' },
-  { cls: 'w-1.5 h-1.5 bg-green-300/50',   s: { top: '92%', left: '42%'  }, delay: '1s',   dur: '5s' },
+  { s: { top:'7%',   left:'11%'  }, size:'w-1.5 h-1.5', color:'bg-emerald-400/40', delay:'0s',   dur:'6s'  },
+  { s: { top:'62%',  left:'6%'   }, size:'w-2.5 h-2.5', color:'bg-teal-400/30',   delay:'1.6s', dur:'8s'  },
+  { s: { top:'25%',  right:'8%'  }, size:'w-2   h-2',   color:'bg-green-300/45',  delay:'3.0s', dur:'7s'  },
+  { s: { top:'79%',  right:'13%' }, size:'w-1.5 h-1.5', color:'bg-cyan-400/35',   delay:'0.7s', dur:'9s'  },
+  { s: { top:'13%',  right:'4%'  }, size:'w-3   h-3',   color:'bg-emerald-300/20',delay:'2.3s', dur:'7s'  },
+  { s: { top:'47%',  left:'3%'   }, size:'w-2   h-2',   color:'bg-teal-300/35',   delay:'4.2s', dur:'8s'  },
+  { s: { top:'91%',  left:'32%'  }, size:'w-1.5 h-1.5', color:'bg-green-400/40',  delay:'1.0s', dur:'6s'  },
+  { s: { top:'36%',  right:'3%'  }, size:'w-2   h-2',   color:'bg-cyan-300/30',   delay:'5.0s', dur:'7s'  },
 ];
 
-/* ────────────────────────────────────────────────────────
-   Widgets flottants (desktop ≥ xl)
-──────────────────────────────────────────────────────── */
-const WidgetWelcome = () => (
-  <div className="bg-white rounded-2xl shadow-2xl p-4 w-52 border border-gray-100">
-    <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center mb-3">
-      <Gift className="h-4 w-4 text-emerald-600" />
-    </div>
-    <p className="text-[13px] font-black text-gray-900 leading-tight">Offre de bienvenue</p>
-    <p className="text-[10px] text-gray-400 font-medium mt-1 leading-relaxed">
-      Votre premier repas avec une remise exclusive.
-    </p>
-    <div className="mt-3 flex items-center gap-1.5">
-      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-blink" />
-      <span className="text-[10px] text-emerald-600 font-bold">Disponible maintenant</span>
-    </div>
-  </div>
-);
-
-const WidgetSpeed = () => (
-  <div className="bg-white rounded-2xl shadow-2xl p-4 w-48 border border-gray-100">
-    <div className="w-9 h-9 bg-teal-100 rounded-xl flex items-center justify-center mb-3">
-      <Zap className="h-4 w-4 text-teal-600" />
-    </div>
-    <p className="text-[13px] font-black text-gray-900">Inscription rapide</p>
-    <p className="text-[10px] text-gray-400 font-medium mt-1">Moins d'une minute</p>
-    <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-      <div className="h-full w-[90%] bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full" />
-    </div>
-  </div>
-);
-
-const WidgetReservation = () => (
-  <div className="bg-white rounded-2xl shadow-2xl p-4 w-52 border border-gray-100">
-    <div className="flex items-center gap-2.5 mb-3">
-      <div className="w-9 h-9 bg-cyan-100 rounded-xl flex items-center justify-center flex-shrink-0">
-        <CalendarCheck className="h-4 w-4 text-cyan-600" />
+/* ── Carte photo restaurant ──────────────────────────────── */
+const PhotoCard = ({ src, fallback, tag, title, subtitle, animCls, style }) => (
+  <div
+    className={`absolute hidden xl:block overflow-hidden rounded-2xl border border-white/[0.1] shadow-[0_20px_60px_rgba(0,0,0,0.55)] ${animCls}`}
+    style={style}
+  >
+    <img
+      src={src}
+      alt={title}
+      className="w-full h-full object-cover"
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+        e.currentTarget.parentElement.style.background = fallback;
+      }}
+    />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+    {tag && (
+      <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md bg-white/10 border border-white/20">
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-blink" />
+        <span className="text-[10px] font-bold text-white/90 uppercase tracking-widest">{tag}</span>
       </div>
-      <div>
-        <p className="text-[12px] font-black text-gray-900 leading-none">Réservation</p>
-        <p className="text-[10px] text-gray-400 font-medium mt-0.5">Table pour 4 · 20h00</p>
-      </div>
-    </div>
-    <div className="flex items-center gap-1.5">
-      <CheckCircle className="h-3 w-3 text-emerald-500" />
-      <span className="text-[11px] text-emerald-600 font-bold">Confirmée</span>
+    )}
+    <div className="absolute bottom-0 left-0 right-0 px-4 pt-8 pb-4 bg-gradient-to-t from-black/80 to-transparent backdrop-blur-[2px]">
+      <p className="text-white font-black text-[13px] leading-snug drop-shadow-lg">{title}</p>
+      {subtitle && <p className="text-white/55 text-[11px] font-medium mt-0.5">{subtitle}</p>}
     </div>
   </div>
 );
 
-/* ────────────────────────────────────────────────────────
-   Champ réutilisable
-──────────────────────────────────────────────────────── */
-const Field = ({ id, label, icon: Icon, error, required: req, children }) => (
-  <div>
-    <label htmlFor={id} className="block text-xs font-bold text-gray-600 mb-1.5">
-      {label}{req && <span className="text-emerald-500 ml-0.5">*</span>}
-    </label>
-    <div className="relative">
-      <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-      {children}
-    </div>
-    {error && <p className="mt-1 text-[11px] text-red-500 font-semibold">{error}</p>}
+/* ── Wrapper input avec bordure animée ──────────────────── */
+const InputWrap = ({ error, children }) => (
+  <div className={error ? 'input-border-green-error' : 'input-border-green'}>
+    <div className="input-inner">{children}</div>
   </div>
 );
 
@@ -91,15 +57,15 @@ const Field = ({ id, label, icon: Icon, error, required: req, children }) => (
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    firstName: '', lastName: '', username: '', email: '',
-    password: '', confirmPassword: '', phone: '', address: '',
+    firstName:'', lastName:'', username:'', email:'',
+    password:'', confirmPassword:'', phone:'', address:'',
   });
-  const [loading,      setLoading]      = useState(false);
-  const [errors,       setErrors]       = useState({});
-  const [showPwd,      setShowPwd]      = useState(false);
-  const [showConfirm,  setShowConfirm]  = useState(false);
-  const [showModal,    setShowModal]    = useState(false);
-  const [modalType,    setModalType]    = useState('email');
+  const [loading,     setLoading]     = useState(false);
+  const [errors,      setErrors]      = useState({});
+  const [showPwd,     setShowPwd]     = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showModal,   setShowModal]   = useState(false);
+  const [modalType,   setModalType]   = useState('email');
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -109,12 +75,12 @@ const Register = () => {
 
   const validate = () => {
     const e = {};
-    if (!formData.firstName.trim())   e.firstName = 'Le prénom est requis';
-    if (!formData.lastName.trim())    e.lastName  = 'Le nom est requis';
-    if (!formData.username.trim())    e.username  = "Le nom d'utilisateur est requis";
-    if (!formData.email.trim())       e.email     = "L'email est requis";
+    if (!formData.firstName.trim())  e.firstName = 'Le prénom est requis';
+    if (!formData.lastName.trim())   e.lastName  = 'Le nom est requis';
+    if (!formData.username.trim())   e.username  = "Le nom d'utilisateur est requis";
+    if (!formData.email.trim())      e.email     = "L'email est requis";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = 'Email invalide';
-    if (!formData.password)           e.password  = 'Le mot de passe est requis';
+    if (!formData.password)          e.password  = 'Le mot de passe est requis';
     else if (formData.password.length < 4) e.password = 'Minimum 4 caractères';
     if (formData.password !== formData.confirmPassword) e.confirmPassword = 'Les mots de passe ne correspondent pas';
     setErrors(e);
@@ -128,8 +94,8 @@ const Register = () => {
     try {
       const res = await api.post(API_ENDPOINTS.CUSTOMERS.BASE, {
         firstName: formData.firstName, lastName: formData.lastName,
-        username: formData.username,   email: formData.email,
-        password: formData.password,
+        username:  formData.username,  email: formData.email,
+        password:  formData.password,
         phone:    formData.phone    || null,
         address:  formData.address  || null,
         createdBy: 'SELF',
@@ -150,122 +116,137 @@ const Register = () => {
     navigate('/login');
   };
 
-  /* ── Classe commune pour les inputs ─────────────────── */
-  const inputCls = (field) =>
-    `w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl text-gray-900 placeholder-gray-400 text-sm font-medium focus:outline-none focus:bg-white focus:ring-2 transition-all duration-200 ${
-      errors[field]
-        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-        : 'border-gray-200 focus:border-emerald-400 focus:ring-emerald-100'
-    }`;
+  const inp = 'w-full bg-transparent text-gray-800 placeholder-gray-400 text-sm font-medium focus:outline-none';
 
   return (
     <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 py-10">
 
-      {/* ── Fond dégradé animé ──────────────────────────── */}
+      {/* ════ FOND ANIMÉ ════════════════════════════════════ */}
       <div
         className="absolute inset-0 animate-gradient-shift"
         style={{
-          background: 'linear-gradient(-45deg, #06130d, #071a14, #0a1628, #061310, #071a14)',
+          background: 'linear-gradient(-45deg, #030f0a, #051a10, #061e14, #040e08, #030f0a)',
           backgroundSize: '400% 400%',
         }}
       />
 
-      {/* ── Orbes lumineux ───────────────────────────────── */}
+      {/* ── Blobs morphants ─────────────────────────────────── */}
       <div
-        className="absolute rounded-full animate-float-slow"
+        className="absolute animate-blob1"
         style={{
-          width: 580, height: 580, top: '-14%', left: '-8%',
-          background: 'radial-gradient(circle, rgba(16,185,129,0.25) 0%, transparent 68%)',
-          filter: 'blur(65px)',
+          width: 680, height: 680, top: '-18%', left: '-12%',
+          background: 'radial-gradient(circle, rgba(16,185,129,0.38) 0%, rgba(5,150,105,0.18) 50%, transparent 72%)',
+          filter: 'blur(55px)',
         }}
       />
       <div
-        className="absolute rounded-full animate-float-delay-4"
+        className="absolute animate-blob2"
         style={{
-          width: 480, height: 480, bottom: '-12%', right: '-8%',
-          background: 'radial-gradient(circle, rgba(20,184,166,0.22) 0%, transparent 68%)',
-          filter: 'blur(60px)',
-        }}
-      />
-      <div
-        className="absolute rounded-full animate-float-delay-2"
-        style={{
-          width: 280, height: 280, top: '35%', left: '58%',
-          background: 'radial-gradient(circle, rgba(52,211,153,0.15) 0%, transparent 68%)',
+          width: 560, height: 560, bottom: '-14%', right: '-10%',
+          background: 'radial-gradient(circle, rgba(20,184,166,0.35) 0%, rgba(13,148,136,0.15) 50%, transparent 72%)',
           filter: 'blur(50px)',
         }}
       />
-
-      {/* ── Rings tournants ──────────────────────────────── */}
       <div
-        className="absolute rounded-full border border-white/[0.04] animate-spin-slow"
-        style={{ width: 720, height: 720, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
+        className="absolute animate-blob3"
+        style={{
+          width: 340, height: 340, top: '35%', left: '48%',
+          background: 'radial-gradient(circle, rgba(52,211,153,0.22) 0%, rgba(16,185,129,0.08) 50%, transparent 72%)',
+          filter: 'blur(48px)',
+        }}
       />
       <div
-        className="absolute rounded-full border border-emerald-500/[0.07] animate-spin-slow-reverse"
-        style={{ width: 500, height: 500, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
+        className="absolute animate-float-delay-4"
+        style={{
+          width: 260, height: 260, top: '6%', right: '22%',
+          background: 'radial-gradient(circle, rgba(6,182,212,0.20) 0%, transparent 70%)',
+          filter: 'blur(45px)',
+        }}
       />
 
-      {/* ── Points décoratifs ─────────────────────────────── */}
+      {/* ── Rings géométriques ─────────────────────────────── */}
+      <div
+        className="absolute rounded-full border border-white/[0.03] animate-spin-slow"
+        style={{ width: 780, height: 780, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
+      />
+      <div
+        className="absolute rounded-full border border-emerald-400/[0.06] animate-spin-slow-reverse"
+        style={{ width: 520, height: 520, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
+      />
+
+      {/* ── Particules ──────────────────────────────────────── */}
       {DOTS.map((d, i) => (
         <div
           key={i}
-          className={`absolute rounded-full ${d.cls} animate-float`}
+          className={`absolute rounded-full ${d.size} ${d.color} animate-float`}
           style={{ ...d.s, animationDelay: d.delay, animationDuration: d.dur }}
         />
       ))}
 
-      {/* ── Widgets flottants (xl+) ──────────────────────── */}
-      <div className="absolute hidden xl:block animate-float-x"
-           style={{ top: '18%', left: '3%' }}>
-        <WidgetWelcome />
-      </div>
-      <div className="absolute hidden xl:block animate-float-x-delay-2"
-           style={{ top: '55%', left: '3%' }}>
-        <WidgetSpeed />
-      </div>
-      <div className="absolute hidden xl:block animate-float-x-delay-4"
-           style={{ top: '30%', right: '3%' }}>
-        <WidgetReservation />
-      </div>
+      {/* ════ CARTES PHOTO RESTAURANT (xl+) ════════════════ */}
+      <PhotoCard
+        src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=420&q=85&auto=format&fit=crop"
+        fallback="linear-gradient(135deg,#064e3b,#065f46)"
+        tag="Bienvenue"
+        title="Rejoignez notre communauté"
+        subtitle="Accès membre exclusif"
+        animCls="animate-drift1"
+        style={{ left: '2%', top: '18%', width: 205, height: 265 }}
+      />
+      <PhotoCard
+        src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=380&q=85&auto=format&fit=crop"
+        fallback="linear-gradient(135deg,#134e4a,#0f172a)"
+        tag="À la carte"
+        title="Découvrez nos spécialités"
+        subtitle="Fraîcheur · Saison"
+        animCls="animate-drift2"
+        style={{ left: '2%', top: '60%', width: 185, height: 220 }}
+      />
+      <PhotoCard
+        src="https://images.unsplash.com/photo-1551782450-a2132b4ba21d?w=380&q=85&auto=format&fit=crop"
+        fallback="linear-gradient(135deg,#065f46,#0c4a3a)"
+        tag="Signature"
+        title="L'art de la table"
+        subtitle="Chaque repas, une expérience"
+        animCls="animate-drift3"
+        style={{ right: '2%', top: '25%', width: 195, height: 250 }}
+      />
 
-      {/* ════ MODAL CONFIRMATION ═══════════════════════════ */}
+      {/* ════ MODAL CONFIRMATION ════════════════════════════ */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/65 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center animate-fade-in-up">
-            <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-5 shadow-lg ${
-              modalType === 'email'
-                ? 'bg-gradient-to-br from-indigo-500 to-violet-600'
-                : 'bg-gradient-to-br from-emerald-500 to-teal-600'
-            }`}>
+            <div
+              className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-5 shadow-lg"
+              style={{ background: modalType === 'email'
+                ? 'linear-gradient(135deg,#6366f1,#7c3aed)'
+                : 'linear-gradient(135deg,#10b981,#0d9488)' }}
+            >
               {modalType === 'email'
                 ? <Mail className="h-8 w-8 text-white" />
                 : <CheckCircle className="h-8 w-8 text-white" />
               }
             </div>
-
             {modalType === 'email' ? (
               <>
                 <h2 className="text-xl font-black text-gray-900 mb-2">Vérifiez votre email</h2>
                 <p className="text-sm text-gray-500 mb-1">Un lien de confirmation a été envoyé à :</p>
-                <p className="font-black text-indigo-600 text-sm mb-4 break-all">{formData.email}</p>
+                <p className="font-black text-emerald-600 text-sm mb-4 break-all">{formData.email}</p>
                 <p className="text-xs text-gray-400 leading-relaxed mb-6">
                   Cliquez sur le lien pour activer votre compte.
-                  Il est valable <strong className="text-gray-600">24 heures</strong>.
+                  Valable <strong className="text-gray-600">24 heures</strong>.
                 </p>
               </>
             ) : (
               <>
                 <h2 className="text-xl font-black text-gray-900 mb-2">Compte créé !</h2>
-                <p className="text-sm text-gray-500 mb-6">
-                  Votre inscription est complète. Vous pouvez maintenant vous connecter.
-                </p>
+                <p className="text-sm text-gray-500 mb-6">Votre inscription est complète. Connectez-vous maintenant.</p>
               </>
             )}
-
             <button
               onClick={handleModalOk}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg hover:-translate-y-px transition-all duration-200"
+              className="w-full py-3 text-white font-bold text-sm rounded-xl hover:-translate-y-px transition-all duration-200 animate-gradient-x"
+              style={{ background: 'linear-gradient(90deg,#10b981,#0d9488,#059669,#0d9488,#10b981)', backgroundSize: '300% 300%', boxShadow: '0 8px 25px rgba(16,185,129,0.3)' }}
             >
               Aller à la connexion
             </button>
@@ -276,24 +257,33 @@ const Register = () => {
       {/* ════ CARTE INSCRIPTION ════════════════════════════ */}
       <div className="relative z-10 w-full max-w-xl animate-fade-in-up">
 
-        {/* Barre accent */}
-        <div className="h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-t-3xl" />
+        {/* Barre accent animée */}
+        <div
+          className="h-[3px] rounded-t-3xl animate-gradient-x"
+          style={{ background: 'linear-gradient(90deg, #10b981, #0d9488, #06b6d4, #0d9488, #10b981)', backgroundSize: '300% 300%' }}
+        />
 
-        <div className="bg-white rounded-b-3xl shadow-[0_40px_100px_rgba(0,0,0,0.6)] px-8 py-9">
+        <div className="bg-white rounded-b-3xl shadow-[0_40px_100px_rgba(0,0,0,0.65)] px-8 py-9">
 
           {/* En-tête */}
           <div className="flex flex-col items-center mb-7">
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg animate-glow-green mb-4">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg animate-glow-green mb-4"
+              style={{ background: 'linear-gradient(135deg, #10b981, #0d9488)' }}
+            >
               <UserPlus className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Créer un compte</h1>
-            <p className="text-sm text-gray-500 font-medium mt-1">
-              Rejoignez-nous pour commander et réserver
-            </p>
+            <h1
+              className="text-2xl font-black tracking-tight bg-clip-text text-transparent"
+              style={{ backgroundImage: 'linear-gradient(135deg, #059669, #0d9488, #0891b2)' }}
+            >
+              Créer un compte
+            </h1>
+            <p className="text-sm text-gray-500 font-medium mt-1">Rejoignez-nous pour commander et réserver</p>
             <div className="flex items-center gap-2 w-full mt-5">
-              <div className="flex-1 h-px bg-gray-100" />
-              <span className="text-xs font-semibold text-gray-300 px-1">INSCRIPTION</span>
-              <div className="flex-1 h-px bg-gray-100" />
+              <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, #d1fae5)' }} />
+              <span className="text-[11px] font-bold text-emerald-300 px-2 tracking-widest">INSCRIPTION</span>
+              <div className="flex-1 h-px" style={{ background: 'linear-gradient(270deg, transparent, #d1fae5)' }} />
             </div>
           </div>
 
@@ -301,92 +291,140 @@ const Register = () => {
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
 
-              <Field id="firstName" label="Prénom" icon={User} error={errors.firstName} required>
-                <input id="firstName" name="firstName" type="text" required autoComplete="given-name"
-                  value={formData.firstName} onChange={handleChange} placeholder="Votre prénom"
-                  className={inputCls('firstName')} />
-              </Field>
-
-              <Field id="lastName" label="Nom" icon={User} error={errors.lastName} required>
-                <input id="lastName" name="lastName" type="text" required autoComplete="family-name"
-                  value={formData.lastName} onChange={handleChange} placeholder="Votre nom"
-                  className={inputCls('lastName')} />
-              </Field>
-
-              <Field id="username" label="Nom d'utilisateur" icon={User} error={errors.username} required>
-                <input id="username" name="username" type="text" required autoComplete="username"
-                  value={formData.username} onChange={handleChange} placeholder="Votre identifiant"
-                  className={inputCls('username')} />
-              </Field>
-
-              <Field id="email" label="Email" icon={Mail} error={errors.email} required>
-                <input id="email" name="email" type="email" required autoComplete="email"
-                  value={formData.email} onChange={handleChange} placeholder="email@exemple.com"
-                  className={inputCls('email')} />
-              </Field>
-
-              <Field id="phone" label="Téléphone" icon={Phone}>
-                <input id="phone" name="phone" type="tel" autoComplete="tel"
-                  value={formData.phone} onChange={handleChange} placeholder="+32 468 02 09 86"
-                  className={inputCls('phone')} />
-              </Field>
-
-              <Field id="address" label="Adresse" icon={MapPin}>
-                <input id="address" name="address" type="text" autoComplete="street-address"
-                  value={formData.address} onChange={handleChange} placeholder="Adresse complète"
-                  className={inputCls('address')} />
-              </Field>
-
-              {/* Mot de passe */}
               <div>
-                <label htmlFor="password" className="block text-xs font-bold text-gray-600 mb-1.5">
-                  Mot de passe <span className="text-emerald-500">*</span>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: '#059669' }}>
+                  Prénom <span className="text-emerald-400">*</span>
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                  <input
-                    id="password" name="password" type={showPwd ? 'text' : 'password'}
-                    required autoComplete="new-password"
-                    value={formData.password} onChange={handleChange} placeholder="Minimum 4 caractères"
-                    className={inputCls('password').replace('pr-4', 'pr-11')}
-                  />
-                  <button type="button" onClick={() => setShowPwd(v => !v)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-500 transition-colors">
-                    {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                <InputWrap error={errors.firstName}>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400 pointer-events-none" />
+                    <input name="firstName" type="text" required autoComplete="given-name"
+                      value={formData.firstName} onChange={handleChange} placeholder="Votre prénom"
+                      className={`${inp} pl-10 pr-4 py-3`} />
+                  </div>
+                </InputWrap>
+                {errors.firstName && <p className="mt-1 text-[11px] text-red-500 font-semibold">{errors.firstName}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: '#059669' }}>
+                  Nom <span className="text-emerald-400">*</span>
+                </label>
+                <InputWrap error={errors.lastName}>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400 pointer-events-none" />
+                    <input name="lastName" type="text" required autoComplete="family-name"
+                      value={formData.lastName} onChange={handleChange} placeholder="Votre nom"
+                      className={`${inp} pl-10 pr-4 py-3`} />
+                  </div>
+                </InputWrap>
+                {errors.lastName && <p className="mt-1 text-[11px] text-red-500 font-semibold">{errors.lastName}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: '#059669' }}>
+                  Nom d'utilisateur <span className="text-emerald-400">*</span>
+                </label>
+                <InputWrap error={errors.username}>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400 pointer-events-none" />
+                    <input name="username" type="text" required autoComplete="username"
+                      value={formData.username} onChange={handleChange} placeholder="Votre identifiant"
+                      className={`${inp} pl-10 pr-4 py-3`} />
+                  </div>
+                </InputWrap>
+                {errors.username && <p className="mt-1 text-[11px] text-red-500 font-semibold">{errors.username}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: '#059669' }}>
+                  Email <span className="text-emerald-400">*</span>
+                </label>
+                <InputWrap error={errors.email}>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400 pointer-events-none" />
+                    <input name="email" type="email" required autoComplete="email"
+                      value={formData.email} onChange={handleChange} placeholder="email@exemple.com"
+                      className={`${inp} pl-10 pr-4 py-3`} />
+                  </div>
+                </InputWrap>
+                {errors.email && <p className="mt-1 text-[11px] text-red-500 font-semibold">{errors.email}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: '#059669' }}>Téléphone</label>
+                <InputWrap>
+                  <div className="relative">
+                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400 pointer-events-none" />
+                    <input name="phone" type="tel" autoComplete="tel"
+                      value={formData.phone} onChange={handleChange} placeholder="+32 468 02 09 86"
+                      className={`${inp} pl-10 pr-4 py-3`} />
+                  </div>
+                </InputWrap>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: '#059669' }}>Adresse</label>
+                <InputWrap>
+                  <div className="relative">
+                    <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400 pointer-events-none" />
+                    <input name="address" type="text" autoComplete="street-address"
+                      value={formData.address} onChange={handleChange} placeholder="Adresse complète"
+                      className={`${inp} pl-10 pr-4 py-3`} />
+                  </div>
+                </InputWrap>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: '#059669' }}>
+                  Mot de passe <span className="text-emerald-400">*</span>
+                </label>
+                <InputWrap error={errors.password}>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400 pointer-events-none" />
+                    <input name="password" type={showPwd ? 'text' : 'password'} required autoComplete="new-password"
+                      value={formData.password} onChange={handleChange} placeholder="Minimum 4 caractères"
+                      className={`${inp} pl-10 pr-11 py-3`} />
+                    <button type="button" onClick={() => setShowPwd(v => !v)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-500 transition-colors">
+                      {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </InputWrap>
                 {errors.password && <p className="mt-1 text-[11px] text-red-500 font-semibold">{errors.password}</p>}
               </div>
 
-              {/* Confirmer */}
               <div>
-                <label htmlFor="confirmPassword" className="block text-xs font-bold text-gray-600 mb-1.5">
-                  Confirmer le mot de passe <span className="text-emerald-500">*</span>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: '#059669' }}>
+                  Confirmer <span className="text-emerald-400">*</span>
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                  <input
-                    id="confirmPassword" name="confirmPassword" type={showConfirm ? 'text' : 'password'}
-                    required autoComplete="new-password"
-                    value={formData.confirmPassword} onChange={handleChange} placeholder="Répétez le mot de passe"
-                    className={inputCls('confirmPassword').replace('pr-4', 'pr-11')}
-                  />
-                  <button type="button" onClick={() => setShowConfirm(v => !v)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-500 transition-colors">
-                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                <InputWrap error={errors.confirmPassword}>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400 pointer-events-none" />
+                    <input name="confirmPassword" type={showConfirm ? 'text' : 'password'} required autoComplete="new-password"
+                      value={formData.confirmPassword} onChange={handleChange} placeholder="Répétez le mot de passe"
+                      className={`${inp} pl-10 pr-11 py-3`} />
+                    <button type="button" onClick={() => setShowConfirm(v => !v)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-500 transition-colors">
+                      {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </InputWrap>
                 {errors.confirmPassword && <p className="mt-1 text-[11px] text-red-500 font-semibold">{errors.confirmPassword}</p>}
               </div>
 
             </div>
 
-            {/* Bouton */}
             <div className="mt-6">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:-translate-y-px active:translate-y-0"
+                className="w-full py-3.5 text-white font-bold text-sm rounded-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0 animate-gradient-x"
+                style={{
+                  background: 'linear-gradient(90deg, #10b981, #0d9488, #0891b2, #0d9488, #10b981)',
+                  backgroundSize: '300% 300%',
+                  boxShadow: '0 8px 30px rgba(16,185,129,0.35)',
+                }}
               >
                 {loading ? (
                   <div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -397,17 +435,18 @@ const Register = () => {
             </div>
           </form>
 
-          {/* Pied */}
           <div className="mt-6 pt-5 border-t border-gray-100">
             <p className="text-center text-sm text-gray-500">
               Déjà un compte ?{' '}
-              <Link to="/login" className="font-bold text-emerald-600 hover:text-emerald-800 transition-colors">
+              <Link to="/login" className="font-bold transition-colors" style={{ color: '#10b981' }}
+                onMouseEnter={e => e.target.style.color = '#059669'}
+                onMouseLeave={e => e.target.style.color = '#10b981'}>
                 Se connecter
               </Link>
             </p>
-            <div className="mt-4 flex items-center justify-center gap-1.5 text-gray-400">
-              <ShieldCheck className="h-3.5 w-3.5 text-gray-300" />
-              <span className="text-[11px] font-medium">Vos données sont protégées · 100 % sécurisé</span>
+            <div className="mt-4 flex items-center justify-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+              <span className="text-[11px] font-medium text-gray-400">Vos données sont protégées · 100 % sécurisé</span>
             </div>
           </div>
         </div>
