@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
-import { Search, CreditCard, DollarSign, CheckCircle, History, Clock, User, CalendarDays, Filter, Receipt, Package } from 'lucide-react';
+import { Search, CreditCard, DollarSign, CheckCircle, History, Clock, User, CalendarDays, Filter, Receipt, Package, X } from 'lucide-react';
+import StripePaymentForm from '../../components/StripePaymentForm';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
@@ -36,7 +37,9 @@ const PaymentsPage = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [filterByDate, setFilterByDate] = useState(false);
+  const [filterByDate,  setFilterByDate]  = useState(false);
+  const [stripeModal,   setStripeModal]   = useState(null);   // { order, clientSecret }
+  const [stripeLoading, setStripeLoading] = useState(null);   // orderId en cours de création PI
 
   const { data: allOrders = [], isLoading } = useQuery({
     queryKey: ['orders', 'cashier', view, filterByDate && view === 'history' ? selectedDate : null],
@@ -60,6 +63,27 @@ const PaymentsPage = () => {
     } catch (error) {
       toast.error(error.response?.data?.message || 'Erreur lors du paiement');
     }
+  };
+
+  const handleCardPayment = async (order) => {
+    setStripeLoading(order.orderId);
+    try {
+      const { data } = await api.post(API_ENDPOINTS.STRIPE.CREATE_PAYMENT_INTENT, {
+        amountInCents: Math.round(order.totalAmount * 100),
+        currency: 'eur',
+      });
+      setStripeModal({ order, clientSecret: data.clientSecret });
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Impossible d\'initialiser le paiement par carte');
+    } finally {
+      setStripeLoading(null);
+    }
+  };
+
+  const handleStripeSuccess = async () => {
+    const order = stripeModal.order;
+    setStripeModal(null);
+    await handlePayment(order.orderId, PAYMENT_METHOD.CARD);
   };
 
   const q = searchTerm.toLowerCase();
@@ -235,11 +259,13 @@ const PaymentsPage = () => {
                         Espèces
                       </button>
                       <button
-                        onClick={() => handlePayment(order.orderId, PAYMENT_METHOD.CARD)}
-                        className="flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-bold text-sm"
+                        onClick={() => handleCardPayment(order)}
+                        disabled={stripeLoading === order.orderId}
+                        className="flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors font-bold text-sm"
                       >
-                        <CreditCard className="h-4 w-4" />
-                        Carte
+                        {stripeLoading === order.orderId
+                          ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                          : <><CreditCard className="h-4 w-4" />Carte</>}
                       </button>
                     </div>
                   </div>
@@ -313,10 +339,11 @@ const PaymentsPage = () => {
                               Espèces
                             </button>
                             <button
-                              onClick={() => handlePayment(order.orderId, PAYMENT_METHOD.CARD)}
-                              className="px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-[10px] font-black transition-colors"
+                              onClick={() => handleCardPayment(order)}
+                              disabled={stripeLoading === order.orderId}
+                              className="px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg text-[10px] font-black transition-colors"
                             >
-                              Carte
+                              {stripeLoading === order.orderId ? '...' : 'Carte'}
                             </button>
                           </div>
                         )}
@@ -329,6 +356,46 @@ const PaymentsPage = () => {
           )
         )}
       </div>
+
+      {/* ─── Modal paiement Stripe ─── */}
+      {stripeModal && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setStripeModal(null)}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-black text-gray-900 text-lg flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-blue-600" />
+                Paiement par carte
+              </h2>
+              <button
+                onClick={() => setStripeModal(null)}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex justify-between items-center mb-5 p-3 bg-blue-50 rounded-xl border border-blue-100">
+              <span className="text-sm text-gray-600 font-medium">
+                Commande #{stripeModal.order.orderId}
+                {stripeModal.order.tableId ? ` · Table #${stripeModal.order.tableId}` : ' · À emporter'}
+              </span>
+              <span className="text-xl font-black text-blue-600">
+                {stripeModal.order.totalAmount?.toFixed(2)} €
+              </span>
+            </div>
+
+            <StripePaymentForm
+              clientSecret={stripeModal.clientSecret}
+              amount={stripeModal.order.totalAmount}
+              onSuccess={handleStripeSuccess}
+              onCancel={() => setStripeModal(null)}
+            />
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, X, CheckCheck, Send, Megaphone, Users, Radio, Search, Loader2, Trash2 } from 'lucide-react';
+import { Bell, X, CheckCheck, Send, Megaphone, Users, Radio, Search, Loader2, Trash2, User, Briefcase } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../utils/constants';
@@ -35,11 +35,13 @@ const NotificationBell = () => {
   const [sendMode,    setSendMode]    = useState('all');
   const [msgTitle,    setMsgTitle]    = useState('');
   const [msgBody,     setMsgBody]     = useState('');
-  const [customers,   setCustomers]   = useState([]);
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [custSearch,  setCustSearch]  = useState('');
-  const [loadingCusts,setLoadingCusts]= useState(false);
-  const [sending,     setSending]     = useState(false);
+  const [customers,       setCustomers]       = useState([]);
+  const [employees,       setEmployees]       = useState([]);
+  const [selectedIds,     setSelectedIds]     = useState(new Set());
+  const [custSearch,      setCustSearch]      = useState('');
+  const [loadingCusts,    setLoadingCusts]    = useState(false);
+  const [loadingEmployees,setLoadingEmployees]= useState(false);
+  const [sending,         setSending]         = useState(false);
 
   const panelRef = useRef(null);
 
@@ -67,9 +69,22 @@ const NotificationBell = () => {
     }
   }, []);
 
+  const fetchEmployees = useCallback(async () => {
+    if (employees.length > 0) return;
+    setLoadingEmployees(true);
+    try {
+      const res = await api.get(API_ENDPOINTS.EMPLOYEES.BASE);
+      setEmployees(res.data || []);
+    } catch {
+      setEmployees([]);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  }, [employees.length]);
+
   const openForm = () => {
     setShowForm(true);
-    setSendMode('all');
+    setSendMode('broadcast');
     setMsgTitle('');
     setMsgBody('');
     setSelectedIds(new Set());
@@ -79,6 +94,7 @@ const NotificationBell = () => {
 
   const closeForm = () => {
     setShowForm(false);
+    setSendMode('broadcast');
     setMsgTitle('');
     setMsgBody('');
     setSelectedIds(new Set());
@@ -99,11 +115,29 @@ const NotificationBell = () => {
     setSending(true);
     const title   = msgTitle.trim() || 'Message de l\'administration';
     const message = msgBody.trim();
-    if (sendMode === 'all') {
-      broadcastNotification(message, title);
-    } else {
-      selectedIds.forEach(id => sendToUser(id, { title, message }));
+
+    if (sendMode === 'broadcast') {
+      await broadcastNotification(message, title);
+    } else if (sendMode === 'employees') {
+      await Promise.allSettled(
+        employees.map(emp => {
+          const id = emp.userId || emp.user?.userId || emp.id;
+          return id ? sendToUser(id, { title, message }) : Promise.resolve();
+        })
+      );
+    } else if (sendMode === 'clients') {
+      await Promise.allSettled(
+        customers.map(c => {
+          const id = c.customerId || c.userId;
+          return id ? sendToUser(id, { title, message }) : Promise.resolve();
+        })
+      );
+    } else if (sendMode === 'specific') {
+      await Promise.allSettled(
+        [...selectedIds].map(id => sendToUser(id, { title, message }))
+      );
     }
+
     setSending(false);
     closeForm();
   };
@@ -118,7 +152,12 @@ const NotificationBell = () => {
     return !q || (c.fullName || c.username || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q);
   });
 
-  const canSend = msgBody.trim() && (sendMode === 'all' || selectedIds.size > 0);
+  const canSend = msgBody.trim() && (
+    sendMode === 'broadcast' ||
+    (sendMode === 'employees' && employees.length > 0) ||
+    (sendMode === 'clients'   && customers.length > 0) ||
+    (sendMode === 'specific'  && selectedIds.size > 0)
+  );
 
   return (
     <div className="relative" ref={panelRef}>
@@ -280,25 +319,58 @@ const NotificationBell = () => {
                       className="w-full text-sm text-gray-900 placeholder-gray-400 px-3 py-2 bg-white border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
                     />
 
-                    {/* Toggle destinataires */}
-                    <div className="flex rounded-xl overflow-hidden border border-gray-300 bg-white">
-                      <button
-                        onClick={() => setSendMode('all')}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors ${sendMode === 'all' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        <Radio className="h-3.5 w-3.5" />
-                        Tous les clients
-                      </button>
-                      <button
-                        onClick={() => setSendMode('specific')}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors border-l border-gray-300 ${sendMode === 'specific' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        <Users className="h-3.5 w-3.5" />
-                        Sélection
-                      </button>
+                    {/* Sélection du mode d'envoi — 4 options */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { key: 'broadcast', icon: <Radio    className="h-3.5 w-3.5" />, label: 'Diffusion',         desc: 'Tous les utilisateurs' },
+                        { key: 'employees', icon: <Briefcase className="h-3.5 w-3.5" />, label: 'Employés',         desc: 'Uniquement les employés' },
+                        { key: 'clients',   icon: <Users    className="h-3.5 w-3.5" />, label: 'Clients',           desc: 'Tous les clients' },
+                        { key: 'specific',  icon: <User     className="h-3.5 w-3.5" />, label: 'Client particulier', desc: 'Choisir un client' },
+                      ].map(({ key, icon, label }) => (
+                        <button
+                          key={key}
+                          onClick={() => {
+                            setSendMode(key);
+                            if (key === 'employees') fetchEmployees();
+                          }}
+                          className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold border transition-colors ${
+                            sendMode === key
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {icon}
+                          {label}
+                        </button>
+                      ))}
                     </div>
 
-                    {/* Sélection de clients */}
+                    {/* Récapitulatif selon le mode */}
+                    {sendMode === 'broadcast' && (
+                      <p className="text-[10px] text-gray-500 text-center py-1">
+                        📡 Tous les utilisateurs connectés recevront ce message.
+                      </p>
+                    )}
+
+                    {sendMode === 'employees' && (
+                      <div className="text-center py-1">
+                        {loadingEmployees
+                          ? <Loader2 className="h-4 w-4 text-blue-500 animate-spin mx-auto" />
+                          : <p className="text-[10px] text-gray-500">
+                              👷 {employees.length} employé{employees.length > 1 ? 's' : ''} ciblé{employees.length > 1 ? 's' : ''}
+                            </p>
+                        }
+                      </div>
+                    )}
+
+                    {sendMode === 'clients' && (
+                      <p className="text-[10px] text-gray-500 text-center py-1">
+                        👥 {customers.length} client{customers.length > 1 ? 's' : ''} ciblé{customers.length > 1 ? 's' : ''}
+                        {loadingCusts && <Loader2 className="h-3 w-3 text-blue-400 animate-spin inline ml-1" />}
+                      </p>
+                    )}
+
+                    {/* Sélection d'un client particulier */}
                     {sendMode === 'specific' && (
                       <div className="border border-gray-300 rounded-xl bg-white overflow-hidden">
                         <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200">
