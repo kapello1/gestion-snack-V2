@@ -6,7 +6,9 @@ import { useLanguage } from '../context/LanguageContext';
 // ── Constantes ────────────────────────────────────────────────────────────────
 const S = { LISTENING: 'listening', PROCESSING: 'processing', SPEAKING: 'speaking' };
 const LANG_MAP = { fr: 'fr-FR', nl: 'nl-NL', de: 'de-DE' };
-const VOICE_ID = 'pNInz6obpgDQGcFmaJgB'; // ElevenLabs — Adam (fr)
+const VOICE_ID    = 'pNInz6obpgDQGcFmaJgB'; // ElevenLabs — Adam
+const EL_MODEL    = 'eleven_turbo_v2_5';    // modèle rapide (~2x plus vite que multilingual_v2)
+const EL_LATENCY  = 4;                      // optimize_streaming_latency (0-4, 4 = minimum latency)
 
 const IS_IOS    = /iPhone|iPad|iPod/i.test(navigator.userAgent)
   || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
@@ -17,9 +19,9 @@ const IS_MOBILE = IS_IOS || /android/i.test(navigator.userAgent);
 const USE_CONTINUOUS = !(IS_IOS || IS_SAFARI);
 
 // Garde anti-écho : bloque les résultats du micro juste après le TTS
-const ECHO_GUARD_MS  = IS_MOBILE ? 900 : 400;
+const ECHO_GUARD_MS  = IS_MOBILE ? 700 : 300;
 // Délai avant de rouvrir le micro (laisse l'audio se dissiper)
-const POST_TTS_MS    = IS_MOBILE ? 180 : 60;
+const POST_TTS_MS    = IS_MOBILE ? 150 : 50;
 
 const WELCOME = {
   fr: 'Bonjour et bienvenue au Snack Tiegni Bernard ! Je suis votre assistant vocal. En quoi puis-je vous aider ?',
@@ -193,8 +195,9 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
           headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text,
-            model_id: 'eleven_multilingual_v2',
+            model_id: EL_MODEL,
             voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+            optimize_streaming_latency: EL_LATENCY,
           }),
         }
       );
@@ -365,10 +368,18 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       }
       if (mountedRef.current) setTranscript((txRef.current + interim).trim());
 
-      if (txRef.current.trim()) {
+      // Démarrer le timer dès qu'une parole est détectée (finale OU intermédiaire).
+      // Sur iOS, les résultats finaux peuvent arriver tard — on ne bloque pas sur eux.
+      const anyText = txRef.current.trim() || interim.trim();
+      if (anyText) {
         silTimerRef.current = setTimeout(() => {
-          if (mountedRef.current && vsRef.current === S.LISTENING) sendRef.current?.();
-        }, 2000);
+          if (!mountedRef.current || vsRef.current !== S.LISTENING) return;
+          // Si pas de résultat final encore, utiliser l'intérimaire comme texte
+          if (!txRef.current.trim() && interim.trim()) {
+            txRef.current = interim.trim() + ' ';
+          }
+          sendRef.current?.();
+        }, 1200);
       }
     };
 
@@ -394,7 +405,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       if (vsRef.current === S.LISTENING) {
         rstTimerRef.current = setTimeout(() => {
           if (mountedRef.current && vsRef.current === S.LISTENING) startRec();
-        }, 500);
+        }, 250);
       }
     };
 
