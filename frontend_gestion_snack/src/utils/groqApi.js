@@ -31,7 +31,7 @@ export const sendChatMessage = async (messages, products = [], voiceMode = false
         model: MODEL_NAME,
         messages: formattedMessages,
         temperature: 0.5,
-        max_tokens: 512
+        max_tokens: voiceMode ? 180 : 512
       })
     });
 
