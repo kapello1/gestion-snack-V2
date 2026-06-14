@@ -31,8 +31,9 @@ const Chatbot = () => {
   const messagesEndRef = useRef(null);
   const inputRef       = useRef(null);
 
-  const SR         = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const isFirefox  = navigator.userAgent.toLowerCase().includes('firefox');
+  // Évalué une seule fois à la création du composant
+  const SR             = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const isFirefox      = /firefox/i.test(navigator.userAgent);
   const voiceSupported = !!SR;
 
   // ── Reconnaissance vocale ──────────────────────────────────────────────────
@@ -56,11 +57,17 @@ const Chatbot = () => {
     };
     recognition.onerror = (event) => {
       setIsListening(false);
-      if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+      const err = event.error;
+      if (err === 'no-speech' || err === 'aborted') return; // erreurs normales, ignorer
+      if (err === 'not-allowed' || err === 'permission-denied') {
         setVoiceError(t('chatbot.voiceMicDenied'));
-      } else if (event.error === 'audio-capture') {
+      } else if (err === 'audio-capture') {
         setVoiceError(t('chatbot.voiceMicNotFound'));
-      } else if (event.error !== 'aborted' && event.error !== 'no-speech') {
+      } else if (err === 'network') {
+        setVoiceError('Connexion réseau perdue. Vérifiez votre connexion.');
+      } else if (err === 'service-not-allowed') {
+        setVoiceError('Service vocal non autorisé sur ce navigateur.');
+      } else {
         setVoiceError(t('chatbot.voiceError'));
       }
     };
@@ -86,7 +93,7 @@ const Chatbot = () => {
 
     if (!window.isSecureContext) {
       setVoiceStatus('error');
-      setVoiceError('Connexion HTTPS requise pour accéder au microphone sur cet appareil.');
+      setVoiceError('HTTPS requis pour accéder au microphone sur mobile.');
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -94,21 +101,52 @@ const Chatbot = () => {
       setVoiceError(t('chatbot.voiceMicNotFound'));
       return;
     }
+    if (!navigator.onLine) {
+      setVoiceStatus('error');
+      setVoiceError('Connexion internet requise pour la reconnaissance vocale.');
+      return;
+    }
+    // Pré-demande de permission micro (doit être dans la chaîne du geste utilisateur)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       stream.getTracks().forEach(track => track.stop());
       setVoiceStatus('idle');
     } catch (err) {
       setVoiceStatus('error');
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      const n = err.name;
+      if (n === 'NotAllowedError' || n === 'PermissionDeniedError') {
         setVoiceError(t('chatbot.voiceMicDenied'));
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      } else if (n === 'NotFoundError' || n === 'DevicesNotFoundError') {
         setVoiceError(t('chatbot.voiceMicNotFound'));
+      } else if (n === 'NotReadableError' || n === 'TrackStartError') {
+        setVoiceError('Microphone utilisé par une autre app. Fermez-la et réessayez.');
       } else {
         setVoiceError(t('chatbot.voiceError'));
       }
       return;
     }
+
+    // Recréation lazy si la reconnaissance a été détruite (ex: changement de page)
+    if (!recognitionRef.current && SR) {
+      const rec = new SR();
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+      const langMap = { fr: 'fr-FR', nl: 'nl-NL', de: 'de-DE' };
+      rec.lang = langMap[language] || 'fr-FR';
+      rec.onstart  = () => { setIsListening(true);  setVoiceError(null); };
+      rec.onresult = recognitionRef.current?.onresult;
+      rec.onerror  = recognitionRef.current?.onerror;
+      rec.onend    = () => setIsListening(false);
+      recognitionRef.current = rec;
+    }
+
+    // Forcer la langue à jour avant de démarrer
+    if (recognitionRef.current) {
+      const langMap = { fr: 'fr-FR', nl: 'nl-NL', de: 'de-DE' };
+      recognitionRef.current.lang = langMap[language] || 'fr-FR';
+    }
+
     existingTextRef.current = inputValue;
     try {
       recognitionRef.current.start();
@@ -116,7 +154,7 @@ const Chatbot = () => {
       if (err.name !== 'InvalidStateError') setVoiceError(t('chatbot.voiceError'));
       setVoiceStatus('idle');
     }
-  }, [isListening, inputValue, t]);
+  }, [isListening, inputValue, t, language, SR]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chargement produits + historique ──────────────────────────────────────
   useEffect(() => {
