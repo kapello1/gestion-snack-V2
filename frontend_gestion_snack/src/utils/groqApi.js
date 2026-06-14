@@ -3,7 +3,7 @@ import { generateSystemPrompt } from './chatbotContext';
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL_NAME = 'llama-3.1-8b-instant'; // Modèle mis à jour et supporté
 
-export const sendChatMessage = async (messages, products = []) => {
+export const sendChatMessage = async (messages, products = [], voiceMode = false) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
   if (!apiKey) {
@@ -11,7 +11,7 @@ export const sendChatMessage = async (messages, products = []) => {
   }
 
   // Préparer le tableau de messages avec le prompt système généré dynamiquement
-  const systemPrompt = generateSystemPrompt(products);
+  const systemPrompt = generateSystemPrompt(products, voiceMode);
   const formattedMessages = [
     { role: 'system', content: systemPrompt },
     ...messages.map(msg => ({

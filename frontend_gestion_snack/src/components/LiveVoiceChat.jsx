@@ -172,7 +172,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     const userMsg = { id: Date.now(), text, sender: 'user', timestamp: new Date() };
 
     try {
-      const botText = await sendChatMessage([...historyRef.current, userMsg], productsRef.current);
+      const botText = await sendChatMessage([...historyRef.current, userMsg], productsRef.current, true);
       if (!mountedRef.current) return;
 
       setBotSnippet(botText.slice(0, 120) + (botText.length > 120 ? '…' : ''));
