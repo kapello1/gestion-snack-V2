@@ -60,6 +60,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const echoGuardTimerRef = useRef(null); // bloque les onresult après fin du TTS
   const animFrameRef      = useRef(null);
   const speakSessionRef   = useRef(0);   // session id pour annuler les chunks TTS en cours
+  const audioRef          = useRef(null); // élément <Audio> ElevenLabs en cours
   const orbRef            = useRef(null);
   const ring1Ref          = useRef(null);
   const ring2Ref          = useRef(null);
@@ -205,9 +206,111 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     speakNext();
   };
 
-  // Annuler le TTS en cours (proprement)
+  // ── ElevenLabs TTS (voix principale) ─────────────────────────────────────
+  //
+  // Envoie le texte à l'API ElevenLabs, joue le fichier audio retourné via un
+  // élément <Audio> HTML, puis appelle onDone. En cas d'erreur réseau ou de clé
+  // manquante, bascule automatiquement sur speak() (speechSynthesis, fallback).
+  //
+  // L'audio HTML contourne tous les bugs Android/iOS de speechSynthesis :
+  //   - pas de coupure après 10-15 s
+  //   - onended fiable (pas de prématuré)
+  //   - qualité vocale nettement supérieure
+  //
+  const speakElevenLabs = async (text, onDone) => {
+    if (isMutedRef.current) { onDone?.(); return; }
+
+    const apiKey  = import.meta.env.VITE_ELEVENLABS_API_KEY;
+    const VOICE_ID = 'pNInz6obpgDQGcFmaJgB'; // Adam — voix masculine française
+
+    // Nouvelle session → invalide tous les callbacks de la session précédente
+    speakSessionRef.current += 1;
+    const mySession = speakSessionRef.current;
+
+    // Couper tout audio en cours
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    window.speechSynthesis?.cancel();
+    clearTimeout(silenceTimerRef.current);
+
+    // Pas de clé configurée → fallback immédiat
+    if (!apiKey) {
+      speak(text, onDone);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
+        {
+          method: 'POST',
+          headers: {
+            'xi-api-key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text,
+            model_id: 'eleven_multilingual_v2',
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+          }),
+        }
+      );
+
+      // Vérifier que la session est toujours valide après la fetch (peut prendre 1-2 s)
+      if (!mountedRef.current || mySession !== speakSessionRef.current) return;
+
+      if (!response.ok) {
+        throw new Error(`ElevenLabs HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      if (!mountedRef.current || mySession !== speakSessionRef.current) return;
+
+      const url   = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+        if (audioRef.current === audio) audioRef.current = null;
+      };
+
+      audio.onended = () => {
+        cleanup();
+        if (!mountedRef.current || mySession !== speakSessionRef.current) return;
+        setTimeout(() => {
+          if (!mountedRef.current || mySession !== speakSessionRef.current) return;
+          onDone?.();
+        }, POST_TTS_DELAY_MS);
+      };
+
+      audio.onerror = () => {
+        cleanup();
+        if (!mountedRef.current || mySession !== speakSessionRef.current) return;
+        // Erreur de lecture → fallback speechSynthesis
+        speak(text, onDone);
+      };
+
+      await audio.play();
+
+    } catch (err) {
+      if (!mountedRef.current || mySession !== speakSessionRef.current) return;
+      console.warn('ElevenLabs erreur, fallback speechSynthesis :', err.message);
+      speak(text, onDone);
+    }
+  };
+
+  // Annuler tout TTS en cours (ElevenLabs ou fallback speechSynthesis)
   const cancelSpeak = () => {
     speakSessionRef.current += 1; // invalide tous les callbacks en attente
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
     window.speechSynthesis?.cancel();
   };
 
@@ -254,7 +357,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
       if (!isMutedRef.current) {
         safeSetState(S.SPEAKING);
-        speak(botText, () => {
+        speakElevenLabs(botText, () => {
           if (!mountedRef.current) return;
           setBotSnippet('');
           fullTranscriptRef.current = ''; // ardoise vierge
@@ -436,7 +539,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     safeSetState(S.SPEAKING);
     setBotSnippet(welcomeText);
 
-    speak(welcomeText, () => {
+    speakElevenLabs(welcomeText, () => {
       if (!mountedRef.current) return;
       setBotSnippet('');
       fullTranscriptRef.current = '';
