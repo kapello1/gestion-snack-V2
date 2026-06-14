@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Mic, Volume2, VolumeX, PhoneOff } from 'lucide-react';
+import { X, Mic, MicOff, Volume2, VolumeX, PhoneOff } from 'lucide-react';
 import { sendChatMessage } from '../utils/groqApi';
 import { useLanguage } from '../context/LanguageContext';
 
 // ── États ────────────────────────────────────────────────────────────────────
 const S = {
-  IDLE:       'idle',
-  STARTING:   'starting',
   LISTENING:  'listening',
   PROCESSING: 'processing',
   SPEAKING:   'speaking',
@@ -14,39 +12,33 @@ const S = {
 
 const LANG_MAP = { fr: 'fr-FR', nl: 'nl-NL', de: 'de-DE' };
 
-const WELCOME = {
-  fr: 'Bonjour ! Je suis votre assistant vocal du Snack Tiegni Bernard. Vous pouvez commencer à parler.',
-  nl: 'Hallo! Ik ben uw spraakassistent van Snack Tiegni Bernard. U kunt beginnen met spreken.',
-  de: 'Hallo! Ich bin Ihr Sprachassistent vom Snack Tiegni Bernard. Sie können jetzt sprechen.',
-};
-
-// ── Détections navigateur ─────────────────────────────────────────────────────
-// iOS classique (iPhone/iPod/iPad pré-13)
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-// iPadOS 13+ se présente comme MacIntel mais est tactile
-const IS_IPAD_OS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-// Safari (toutes versions) — exclu Android
+// Détection plateforme (évaluée une seule fois au chargement)
+const IS_IOS    = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+  || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-// Android natif
-const IS_ANDROID = /android/i.test(navigator.userAgent);
 
-// Sur iOS, iPadOS et Safari : continuous=true est instable → false + redémarrage via onend
-const USE_CONTINUOUS = !(IS_IOS || IS_IPAD_OS || IS_SAFARI);
+// iOS/Safari : continuous=true instable → false + redémarrage via onend
+const USE_CONTINUOUS = !(IS_IOS || IS_SAFARI);
+
+const WELCOME = {
+  fr: 'Bonjour ! Je vous écoute, posez-moi vos questions.',
+  nl: 'Hallo! Ik luister. Stel gerust uw vragen.',
+  de: 'Hallo! Ich höre Ihnen zu. Stellen Sie Ihre Fragen.',
+};
 
 // ── Composant ────────────────────────────────────────────────────────────────
 const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = [] }) => {
   const { language } = useLanguage();
 
   const [started,    setStarted]    = useState(false);
-  const [state,      setState]      = useState(S.IDLE);
+  const [state,      setState]      = useState(S.LISTENING);
   const [isMuted,    setIsMuted]    = useState(false);
   const [transcript, setTranscript] = useState('');
   const [botSnippet, setBotSnippet] = useState('');
   const [errorMsg,   setErrorMsg]   = useState('');
 
-  // Refs stables (évitent les captures de state périmé)
   const mountedRef        = useRef(false);
-  const stateRef          = useRef(S.IDLE);
+  const stateRef          = useRef(S.LISTENING);
   const isMutedRef        = useRef(false);
   const errorCountRef     = useRef(0);
   const fullTranscriptRef = useRef('');
@@ -59,51 +51,42 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const silenceTimerRef  = useRef(null);
   const restartTimerRef  = useRef(null);
   const keepAliveRef     = useRef(null);
-  const fallbackTimerRef = useRef(null); // fallback Android onend TTS
-  const streamRef        = useRef(null);
-  const audioCtxRef      = useRef(null);
-  const analyserRef      = useRef(null);
+  const fallbackTimerRef = useRef(null);
   const animFrameRef     = useRef(null);
   const orbRef           = useRef(null);
   const ring1Ref         = useRef(null);
   const ring2Ref         = useRef(null);
   const ring3Ref         = useRef(null);
 
-  // Synchronisation props → refs
+  // Synchronisation props → refs (évite les captures périmées dans les callbacks)
   useEffect(() => { historyRef.current       = chatHistory;   }, [chatHistory]);
   useEffect(() => { productsRef.current      = products;      }, [products]);
   useEffect(() => { onMessagePairRef.current = onMessagePair; }, [onMessagePair]);
   useEffect(() => { languageRef.current      = language;      }, [language]);
   useEffect(() => { isMutedRef.current       = isMuted;       }, [isMuted]);
 
-  // Setter sécurisé (no-op après démontage)
   const safeSetState = (s) => {
     if (!mountedRef.current) return;
     stateRef.current = s;
     setState(s);
   };
 
-  // ── Animation orbe (RAF direct DOM, aucun re-render) ─────────────────────
-  const startAudioLoop = () => {
+  // ── Animation orbe (RAF sans AudioContext — pas de conflit micro) ─────────
+  const startOrbAnimation = () => {
+    let t = 0;
     const loop = () => {
       if (!mountedRef.current) return;
       animFrameRef.current = requestAnimationFrame(loop);
-      if (!analyserRef.current || !orbRef.current) return;
-
-      const data = new Uint8Array(analyserRef.current.frequencyBinCount);
-      analyserRef.current.getByteFrequencyData(data);
-      const level = data.reduce((a, b) => a + b, 0) / data.length / 128;
-
+      t += 0.016;
+      if (!orbRef.current) return;
       const s = stateRef.current;
       if (s === S.LISTENING) {
-        orbRef.current.style.transform = `scale(${1 + level * 0.55})`;
-        const a = 0.1 + level * 0.3;
-        if (ring1Ref.current) ring1Ref.current.style.opacity = a;
-        if (ring2Ref.current) ring2Ref.current.style.opacity = a * 0.6;
-        if (ring3Ref.current) ring3Ref.current.style.opacity = a * 0.35;
+        orbRef.current.style.transform = `scale(${1 + Math.sin(t * 1.5) * 0.04})`;
+        if (ring1Ref.current) ring1Ref.current.style.opacity = (0.18 + Math.sin(t * 1.5) * 0.06).toFixed(2);
+        if (ring2Ref.current) ring2Ref.current.style.opacity = (0.10 + Math.sin(t * 1.2) * 0.04).toFixed(2);
+        if (ring3Ref.current) ring3Ref.current.style.opacity = (0.05 + Math.sin(t * 0.9) * 0.02).toFixed(2);
       } else if (s === S.SPEAKING) {
-        const scale = 1.05 + Math.sin(Date.now() / 700) * 0.08;
-        orbRef.current.style.transform = `scale(${scale})`;
+        orbRef.current.style.transform = `scale(${1.05 + Math.sin(t * 2.5) * 0.08})`;
         if (ring1Ref.current) ring1Ref.current.style.opacity = '0.12';
         if (ring2Ref.current) ring2Ref.current.style.opacity = '0.07';
         if (ring3Ref.current) ring3Ref.current.style.opacity = '0.04';
@@ -120,17 +103,17 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   // ── TTS avec fallback onend (bug Android Chrome) ─────────────────────────
   const speak = (text, onEnd) => {
     const synth = window.speechSynthesis;
-    if (!synth) { onEnd?.(); return; }
+    if (!synth || isMutedRef.current) { onEnd?.(); return; }
 
     clearInterval(keepAliveRef.current);
     clearTimeout(fallbackTimerRef.current);
-    synth.cancel();
+    synth.cancel(); // annule aussi le préchauffage silencieux iOS
 
-    const utter       = new SpeechSynthesisUtterance(text);
-    utter.lang        = LANG_MAP[languageRef.current] || 'fr-FR';
-    utter.rate        = 1.0;
-    utter.pitch       = 1;
-    utter.volume      = 1;
+    const utter  = new SpeechSynthesisUtterance(text);
+    utter.lang   = LANG_MAP[languageRef.current] || 'fr-FR';
+    utter.rate   = 1.0;
+    utter.pitch  = 1;
+    utter.volume = 1;
 
     let called = false;
     const done = () => {
@@ -142,17 +125,14 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     utter.onend   = done;
     utter.onerror = (e) => { if (e.error !== 'interrupted') console.warn('TTS:', e.error); done(); };
 
-    // Android Chrome : onend ne se déclenche parfois jamais.
-    // On estime la durée (~80 ms/caractère à rate 1.0) + 3 s de marge.
-    const estimatedMs = Math.max(5000, text.length * 80 + 3000);
+    // Android Chrome : onend ne se déclenche parfois pas → timer de sécurité
+    const wordCount   = text.split(/\s+/).length;
+    const estimatedMs = Math.max(4000, wordCount * 500 + 2000);
     fallbackTimerRef.current = setTimeout(() => {
-      if (!called) {
-        console.warn('TTS: fallback onend déclenché (Android)');
-        done();
-      }
+      if (!called) { console.warn('TTS fallback fired'); done(); }
     }, estimatedMs);
 
-    // Chrome desktop : keep-alive toutes les 10 s (bug d'arrêt silencieux)
+    // Chrome desktop : pause/resume pour éviter l'arrêt silencieux après ~15 s
     keepAliveRef.current = setInterval(() => {
       if (!mountedRef.current || !synth.speaking) { clearInterval(keepAliveRef.current); return; }
       synth.pause();
@@ -162,19 +142,23 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     synth.speak(utter);
   };
 
-  // ── Démarrage reconnaissance ──────────────────────────────────────────────
+  // ── Démarrer la reconnaissance ────────────────────────────────────────────
   const startRecognition = () => {
     if (!mountedRef.current || !recognitionRef.current) return;
     if (errorCountRef.current >= 5) {
-      if (mountedRef.current) setErrorMsg('Trop d\'erreurs consécutives. Fermez et réessayez.');
-      safeSetState(S.IDLE);
+      if (mountedRef.current) setErrorMsg('Trop d\'erreurs consécutives. Fermez et réouvrez le chat vocal.');
       return;
     }
     clearTimeout(restartTimerRef.current);
-    try { recognitionRef.current.start(); } catch { /* InvalidStateError : déjà démarré */ }
+    try {
+      recognitionRef.current.start();
+    } catch (e) {
+      // InvalidStateError = déjà démarré → ignorer
+      if (e.name !== 'InvalidStateError') console.warn('Recognition start:', e.name, e.message);
+    }
   };
 
-  // ── Envoi au bot ──────────────────────────────────────────────────────────
+  // ── Envoyer la transcription au bot ──────────────────────────────────────
   const sendToBot = async () => {
     const text = fullTranscriptRef.current.trim();
     if (!text || !mountedRef.current) return;
@@ -182,7 +166,6 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     fullTranscriptRef.current = '';
     if (mountedRef.current) setTranscript('');
     clearTimeout(silenceTimerRef.current);
-
     safeSetState(S.PROCESSING);
     try { recognitionRef.current?.stop(); } catch {}
 
@@ -192,7 +175,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       const botText = await sendChatMessage([...historyRef.current, userMsg], productsRef.current);
       if (!mountedRef.current) return;
 
-      setBotSnippet(botText.slice(0, 100) + (botText.length > 100 ? '…' : ''));
+      setBotSnippet(botText.slice(0, 120) + (botText.length > 120 ? '…' : ''));
       onMessagePairRef.current?.(userMsg, {
         id: Date.now() + 1, text: botText, sender: 'bot', timestamp: new Date(),
       });
@@ -202,13 +185,11 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
         speak(botText, () => {
           if (!mountedRef.current) return;
           setBotSnippet('');
-          if (stateRef.current === S.SPEAKING) {
-            safeSetState(S.LISTENING);
-            startRecognition();
-          }
+          safeSetState(S.LISTENING);
+          startRecognition();
         });
       } else {
-        if (mountedRef.current) setBotSnippet('');
+        setBotSnippet('');
         safeSetState(S.LISTENING);
         startRecognition();
       }
@@ -223,15 +204,15 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const sendToBotRef = useRef(sendToBot);
   useEffect(() => { sendToBotRef.current = sendToBot; });
 
-  // ── Setup SpeechRecognition ───────────────────────────────────────────────
+  // ── Configurer SpeechRecognition ──────────────────────────────────────────
   const setupRecognition = (SR) => {
-    if (!SR) return false;
-
     const rec = new SR();
     rec.continuous      = USE_CONTINUOUS;
     rec.interimResults  = true;
     rec.maxAlternatives = 1;
     rec.lang            = LANG_MAP[languageRef.current] || 'fr-FR';
+
+    rec.onstart = () => { errorCountRef.current = 0; };
 
     rec.onresult = (event) => {
       if (!mountedRef.current) return;
@@ -257,7 +238,6 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       }
       if (mountedRef.current) setTranscript((fullTranscriptRef.current + interim).trim());
 
-      // Envoyer après 2 s de silence
       if (fullTranscriptRef.current.trim()) {
         silenceTimerRef.current = setTimeout(() => {
           if (mountedRef.current && stateRef.current === S.LISTENING) {
@@ -269,34 +249,33 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
     rec.onerror = (e) => {
       if (!mountedRef.current) return;
+      // Erreurs normales et non critiques → ignorer
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       errorCountRef.current++;
 
       if (e.error === 'not-allowed' || e.error === 'permission-denied') {
-        setErrorMsg('Microphone refusé. Autorisez l\'accès dans les paramètres du navigateur.');
-        safeSetState(S.IDLE);
+        mountedRef.current = false;
+        setErrorMsg('Microphone refusé. Autorisez-le dans les paramètres de votre navigateur puis réessayez.');
+        setStarted(false);
       } else if (e.error === 'audio-capture') {
-        setErrorMsg('Microphone indisponible. Vérifiez qu\'aucune autre app ne l\'utilise.');
-        safeSetState(S.IDLE);
+        mountedRef.current = false;
+        setErrorMsg('Microphone indisponible. Vérifiez qu\'aucune autre application ne l\'utilise.');
+        setStarted(false);
       } else if (e.error === 'network') {
-        setErrorMsg('Connexion perdue. Vérifiez votre réseau et réessayez.');
-        safeSetState(S.IDLE);
+        // Ne pas quitter — onend redémarre automatiquement
+        if (mountedRef.current) setErrorMsg('Connexion perdue. La reconnaissance reprendra automatiquement.');
       } else if (e.error === 'service-not-allowed') {
-        setErrorMsg('Service vocal non autorisé sur ce navigateur ou ce contexte.');
-        safeSetState(S.IDLE);
-      } else if (e.error === 'language-not-supported') {
-        setErrorMsg('Langue non supportée par votre navigateur.');
-        safeSetState(S.IDLE);
+        mountedRef.current = false;
+        setErrorMsg('Service vocal non autorisé. Utilisez Chrome ou Safari sur HTTPS.');
+        setStarted(false);
       }
-      // Autres : onend se chargera du redémarrage
+      // Autres erreurs : onend gère le redémarrage
     };
 
-    // Redémarrage automatique (iOS/Safari et Android : onend toujours déclenché)
     rec.onend = () => {
       if (!mountedRef.current) return;
       const s = stateRef.current;
       if (s === S.LISTENING || s === S.SPEAKING) {
-        // 500 ms : délai augmenté pour les appareils Android lents
         restartTimerRef.current = setTimeout(() => {
           if (mountedRef.current && (stateRef.current === S.LISTENING || stateRef.current === S.SPEAKING)) {
             startRecognition();
@@ -306,150 +285,103 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     };
 
     recognitionRef.current = rec;
-    return true;
   };
 
-  // Synchronisation langue en cours de session
+  // Synchronisation langue pendant la session
   useEffect(() => {
     if (recognitionRef.current) {
       recognitionRef.current.lang = LANG_MAP[language] || 'fr-FR';
     }
   }, [language]);
 
-  // ── handleStart — appelé DIRECTEMENT depuis onClick ───────────────────────
-  // CRITIQUE : getUserMedia() et AudioContext() doivent impérativement être
-  // dans la chaîne synchrone du geste utilisateur pour iOS Safari et Android.
-  // Appeler ces APIs depuis useEffect() (asynchrone après le rendu) fait échouer
-  // la demande de permission sur iOS 14+ et certains Android.
-  const handleStart = async () => {
-    mountedRef.current = true;
-    safeSetState(S.STARTING);
-    setErrorMsg('');
-
-    // 1 — Contexte sécurisé (HTTPS obligatoire sur mobile)
+  // ── handleStart — SYNCHRONE, appelé directement depuis onClick ────────────
+  //
+  // CORRECTIF DÉFINITIF — 3 causes racines éliminées :
+  //
+  // ① Plus de getUserMedia / AudioContext :
+  //    Deux captures audio simultanées (getUserMedia + SpeechRecognition)
+  //    bloquent l'une d'elles silencieusement sur iOS et certains Android.
+  //
+  // ② handleStart est SYNCHRONE (pas d'async/await) :
+  //    Sur iOS Safari, l'activation utilisateur expire dès le premier await.
+  //    En restant synchrone, tout le code s'exécute dans la fenêtre du geste.
+  //
+  // ③ TTS préchauffé + reconnaissance démarrée dans le geste clic :
+  //    iOS Safari bloque speechSynthesis.speak() et recognition.start()
+  //    appelés hors d'un geste utilisateur (ex: depuis useEffect).
+  //
+  const handleStart = () => {
     if (!window.isSecureContext) {
-      setErrorMsg('HTTPS requis pour accéder au microphone sur mobile.');
-      safeSetState(S.IDLE);
+      setErrorMsg('HTTPS requis pour utiliser le microphone sur mobile.');
       return;
     }
-
-    // 2 — API MediaDevices disponible
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setErrorMsg('Microphone non accessible. Essayez Chrome ou Safari sur HTTPS.');
-      safeSetState(S.IDLE);
-      return;
-    }
-
-    // 3 — Réseau disponible (SpeechRecognition requiert internet)
     if (!navigator.onLine) {
       setErrorMsg('Connexion internet requise pour la reconnaissance vocale.');
-      safeSetState(S.IDLE);
       return;
     }
 
-    // 4 — SpeechRecognition supporté
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      setErrorMsg('Reconnaissance vocale non supportée. Utilisez Chrome, Edge ou Safari.');
-      safeSetState(S.IDLE);
+      setErrorMsg('Reconnaissance vocale non supportée. Utilisez Chrome, Edge ou Safari récent.');
       return;
     }
 
-    // 5 — getUserMedia (DOIT être dans la chaîne du geste utilisateur)
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl:  true,
-          channelCount: 1,
-        },
-        video: false,
-      });
-    } catch (firstErr) {
-      if (firstErr.name === 'OverconstrainedError' || firstErr.name === 'ConstraintNotSatisfiedError') {
-        // Certains Android refusent les contraintes avancées → fallback basique
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        } catch (fallbackErr) {
-          firstErr = fallbackErr;
-        }
-      }
+    setErrorMsg('');
+    mountedRef.current = true;
+    stateRef.current   = S.LISTENING;
 
-      if (!stream) {
-        if (!mountedRef.current) return;
-        const n = firstErr.name;
-        if (n === 'NotAllowedError' || n === 'PermissionDeniedError') {
-          setErrorMsg('Accès micro refusé. Autorisez-le dans les paramètres de votre navigateur.');
-        } else if (n === 'NotFoundError' || n === 'DevicesNotFoundError') {
-          setErrorMsg('Aucun microphone détecté sur cet appareil.');
-        } else if (n === 'NotReadableError' || n === 'TrackStartError') {
-          setErrorMsg('Microphone occupé par une autre application. Fermez-la et réessayez.');
-        } else if (n === 'SecurityError') {
-          setErrorMsg('Accès micro bloqué par la politique de sécurité. Vérifiez les permissions du site.');
+    // ① Préchauffage TTS dans le geste clic (iOS Safari l'exige pour les appels ultérieurs)
+    if (window.speechSynthesis) {
+      try {
+        const warmup  = new SpeechSynthesisUtterance(' ');
+        warmup.volume = 0;   // silencieux
+        warmup.rate   = 10;  // instantané
+        window.speechSynthesis.speak(warmup);
+        // Sera annulé automatiquement par synth.cancel() dans speak()
+      } catch {}
+    }
+
+    // ② Configurer SpeechRecognition
+    setupRecognition(SR);
+
+    // ③ Démarrer la reconnaissance DANS le geste clic
+    //    → déclenche la dialog de permission microphone sur iOS/Android
+    try {
+      recognitionRef.current.start();
+    } catch (e) {
+      if (e.name === 'InvalidStateError') {
+        // Déjà démarré → continuer normalement
+      } else {
+        mountedRef.current = false;
+        if (e.name === 'SecurityError' || e.name === 'NotAllowedError') {
+          setErrorMsg('Accès au microphone bloqué. Autorisez-le dans les paramètres du navigateur.');
         } else {
-          setErrorMsg(`Impossible d'accéder au microphone (${n || firstErr.message || 'erreur inconnue'}).`);
+          setErrorMsg(`Impossible de démarrer (${e.name}). Réessayez.`);
         }
-        safeSetState(S.IDLE);
+        recognitionRef.current = null;
         return;
       }
     }
 
-    if (!mountedRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
-    streamRef.current = stream;
-
-    // 6 — AudioContext (aussi dans la chaîne du geste → iOS Safari)
-    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-    if (AudioCtxClass) {
-      try {
-        const ctx = new AudioCtxClass();
-        // iOS Safari crée systématiquement le contexte en état "suspended"
-        if (ctx.state === 'suspended') {
-          await ctx.resume();
-        }
-        audioCtxRef.current = ctx;
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        analyserRef.current = analyser;
-        ctx.createMediaStreamSource(stream).connect(analyser);
-      } catch (e) {
-        // Non bloquant : la reconnaissance vocale fonctionnera sans visualisation
-        console.warn('AudioContext non disponible :', e.message);
-      }
-    }
-
-    // 7 — Setup SpeechRecognition
-    if (!setupRecognition(SR)) {
-      if (!mountedRef.current) return;
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      audioCtxRef.current?.close().catch(() => {});
-      setErrorMsg('Reconnaissance vocale non supportée sur ce navigateur.');
-      safeSetState(S.IDLE);
-      return;
-    }
-
-    // 8 — Tout est prêt : basculer vers l'interface principale
-    if (mountedRef.current) setStarted(true);
+    // ④ Afficher l'interface principale (reconnue comme démarrée)
+    setStarted(true);
   };
 
-  // ── Démarrage session (après setStarted) ─────────────────────────────────
-  // getUserMedia + AudioContext sont déjà initialisés dans handleStart.
-  // useEffect gère uniquement l'animation, le message de bienvenue et l'écoute.
+  // ── Initialisation après démarrage ───────────────────────────────────────
   useEffect(() => {
     if (!started) return;
 
-    startAudioLoop();
+    startOrbAnimation();
 
-    safeSetState(S.SPEAKING);
-    speak(WELCOME[languageRef.current] || WELCOME.fr, () => {
-      if (!mountedRef.current) return;
-      safeSetState(S.LISTENING);
-      startRecognition();
-    });
+    // Message de bienvenue en texte (pas de TTS welcome — écoute immédiate)
+    setBotSnippet(WELCOME[languageRef.current] || WELCOME.fr);
+    const welcomeTimer = setTimeout(() => {
+      if (mountedRef.current) setBotSnippet('');
+    }, 4000);
 
     return () => {
       mountedRef.current = false;
+      clearTimeout(welcomeTimer);
       clearTimeout(silenceTimerRef.current);
       clearTimeout(restartTimerRef.current);
       clearTimeout(fallbackTimerRef.current);
@@ -457,41 +389,37 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       cancelAnimationFrame(animFrameRef.current);
       window.speechSynthesis?.cancel();
       try { recognitionRef.current?.abort(); } catch {}
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      audioCtxRef.current?.close().catch?.(() => {});
     };
   }, [started]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Interrompre le TTS en touchant l'orbe
   const interrupt = () => {
-    if (stateRef.current === S.SPEAKING) {
-      clearInterval(keepAliveRef.current);
-      clearTimeout(fallbackTimerRef.current);
-      window.speechSynthesis?.cancel();
-      if (mountedRef.current) setBotSnippet('');
-      safeSetState(S.LISTENING);
-      startRecognition();
-    }
+    if (stateRef.current !== S.SPEAKING) return;
+    clearInterval(keepAliveRef.current);
+    clearTimeout(fallbackTimerRef.current);
+    window.speechSynthesis?.cancel();
+    if (mountedRef.current) setBotSnippet('');
+    safeSetState(S.LISTENING);
+    startRecognition();
   };
 
   const orbGradient = {
-    [S.IDLE]:       'from-gray-500 to-gray-700',
-    [S.STARTING]:   'from-blue-400 to-blue-600',
     [S.LISTENING]:  'from-violet-500 to-blue-600',
     [S.PROCESSING]: 'from-amber-400 to-orange-500',
     [S.SPEAKING]:   'from-emerald-400 to-green-600',
-  }[state] ?? 'from-gray-500 to-gray-700';
+  }[state] ?? 'from-violet-500 to-blue-600';
 
   const statusLabel = {
-    [S.IDLE]:       '',
-    [S.STARTING]:   'Initialisation...',
     [S.LISTENING]:  'Je vous écoute...',
-    [S.PROCESSING]: 'Réflexion en cours...',
-    [S.SPEAKING]:   'Réponse vocale...',
+    [S.PROCESSING]: 'Réflexion...',
+    [S.SPEAKING]:   'Réponse en cours...',
   }[state] ?? '';
 
   // ── Écran de démarrage ────────────────────────────────────────────────────
   if (!started) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const isSupported = !!SR && window.isSecureContext;
+
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/98 backdrop-blur-xl">
         <div className="relative flex flex-col items-center gap-7 w-full max-w-sm px-6 text-center select-none">
@@ -509,38 +437,54 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
             <p className="text-gray-400 text-sm mt-1">IA · Snack Tiegni Bernard</p>
           </div>
 
-          <div className="w-36 h-36 rounded-full bg-gradient-to-br from-violet-500 to-blue-600 shadow-2xl flex items-center justify-center">
-            <Mic className="h-14 w-14 text-white drop-shadow-lg" />
+          <div className={`w-36 h-36 rounded-full bg-gradient-to-br shadow-2xl flex items-center justify-center
+            ${isSupported ? 'from-violet-500 to-blue-600' : 'from-gray-600 to-gray-800'}`}>
+            {isSupported
+              ? <Mic className="h-14 w-14 text-white drop-shadow-lg" />
+              : <MicOff className="h-14 w-14 text-white/60 drop-shadow-lg" />
+            }
           </div>
 
-          <div className="space-y-2">
+          {isSupported ? (
             <p className="text-gray-300 text-sm leading-relaxed max-w-xs">
-              L'assistant utilisera votre microphone pour converser en temps réel.
-              Appuyez sur <strong className="text-white">Démarrer</strong> pour autoriser l'accès.
+              Appuyez sur <strong className="text-white">Démarrer</strong>. Le navigateur
+              demandera la permission d'utiliser votre microphone.
             </p>
-            <p className="text-gray-500 text-xs">Chrome · Edge · Safari requis</p>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-amber-300 text-sm leading-relaxed max-w-xs">
+                Votre navigateur ne supporte pas la reconnaissance vocale.
+              </p>
+              <p className="text-gray-400 text-sm">
+                Utilisez <strong className="text-white">Chrome</strong> ou{' '}
+                <strong className="text-white">Safari</strong> sur ce téléphone.
+              </p>
+            </div>
+          )}
 
-          {/* Erreur affichée sur l'écran de démarrage */}
           {errorMsg && (
             <div className="w-full bg-red-900/40 border border-red-700/50 rounded-xl px-4 py-3">
               <p className="text-red-300 text-sm leading-relaxed">{errorMsg}</p>
             </div>
           )}
 
-          {state === S.STARTING ? (
-            <div className="w-full max-w-xs py-4 bg-violet-800/80 rounded-2xl flex items-center justify-center gap-3 text-white font-bold">
-              <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-              Initialisation...
-            </div>
-          ) : (
+          {isSupported ? (
             <button
               onClick={handleStart}
               className="w-full max-w-xs py-4 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-black text-lg rounded-2xl transition-all shadow-xl hover:shadow-violet-500/30"
             >
               {errorMsg ? 'Réessayer' : 'Démarrer'}
             </button>
+          ) : (
+            <button
+              onClick={onClose}
+              className="w-full max-w-xs py-4 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-2xl transition-all"
+            >
+              Fermer
+            </button>
           )}
+
+          <p className="text-gray-600 text-xs">Chrome · Edge · Safari · HTTPS requis</p>
         </div>
       </div>
     );
@@ -564,15 +508,11 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
           <p className="text-gray-400 text-sm mt-1">IA · Snack Tiegni Bernard</p>
         </div>
 
-        {/* Orbe + anneaux */}
+        {/* Orbe + anneaux réactifs */}
         <div className="relative flex items-center justify-center w-64 h-64" onClick={interrupt}>
           <div ref={ring1Ref} className="absolute w-48 h-48 rounded-full border border-violet-400/30" style={{ opacity: 0, transition: 'opacity 0.2s' }} />
           <div ref={ring2Ref} className="absolute w-56 h-56 rounded-full border border-blue-400/20"   style={{ opacity: 0, transition: 'opacity 0.2s' }} />
           <div ref={ring3Ref} className="absolute w-64 h-64 rounded-full border border-blue-300/10"   style={{ opacity: 0, transition: 'opacity 0.2s' }} />
-
-          {state === S.STARTING && (
-            <div className="absolute w-44 h-44 rounded-full bg-blue-500/15 animate-pulse" />
-          )}
 
           <div
             ref={orbRef}
@@ -593,15 +533,15 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
           </div>
         </div>
 
-        {/* Statuts */}
-        <div className="text-center min-h-[72px]">
+        {/* Statut + transcript */}
+        <div className="text-center min-h-[80px] px-4">
           <p className="text-white font-bold text-base">{statusLabel}</p>
           {transcript && (
             <p className="text-violet-300 text-sm mt-1.5 italic leading-relaxed max-w-xs">
-              «{transcript.slice(-80)}»
+              «{transcript.slice(-100)}»
             </p>
           )}
-          {botSnippet && state === S.SPEAKING && (
+          {botSnippet && (
             <p className="text-emerald-400 text-sm mt-1.5 leading-relaxed max-w-xs">{botSnippet}</p>
           )}
           {state === S.SPEAKING && !botSnippet && (
