@@ -3,29 +3,23 @@ import { X, Mic, MicOff, Volume2, VolumeX, PhoneOff } from 'lucide-react';
 import { sendChatMessage } from '../utils/groqApi';
 import { useLanguage } from '../context/LanguageContext';
 
-// ── États ────────────────────────────────────────────────────────────────────
-const S = {
-  LISTENING:  'listening',
-  PROCESSING: 'processing',
-  SPEAKING:   'speaking',
-};
-
+// ── Constantes ────────────────────────────────────────────────────────────────
+const S = { LISTENING: 'listening', PROCESSING: 'processing', SPEAKING: 'speaking' };
 const LANG_MAP = { fr: 'fr-FR', nl: 'nl-NL', de: 'de-DE' };
+const VOICE_ID = 'pNInz6obpgDQGcFmaJgB'; // ElevenLabs — Adam (fr)
 
-// Détection plateforme
-const IS_IOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+const IS_IOS    = /iPhone|iPad|iPod/i.test(navigator.userAgent)
   || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-const IS_SAFARI  = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-const IS_ANDROID = /android/i.test(navigator.userAgent);
-const IS_MOBILE  = IS_IOS || IS_ANDROID;
+const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+const IS_MOBILE = IS_IOS || /android/i.test(navigator.userAgent);
 
-// iOS/Safari : continuous=true instable → false + redémarrage via onend
+// iOS/Safari : continuous=true instable → false + relance via onend
 const USE_CONTINUOUS = !(IS_IOS || IS_SAFARI);
 
-// Sur mobile le speaker est collé au micro — garde anti-écho plus longue
-const ECHO_GUARD_MS = IS_MOBILE ? 1000 : 500;
-// Délai entre fin du dernier chunk TTS et appel de onDone (audio dissipation)
-const POST_TTS_DELAY_MS = IS_MOBILE ? 200 : 80;
+// Garde anti-écho : bloque les résultats du micro juste après le TTS
+const ECHO_GUARD_MS  = IS_MOBILE ? 900 : 400;
+// Délai avant de rouvrir le micro (laisse l'audio se dissiper)
+const POST_TTS_MS    = IS_MOBILE ? 180 : 60;
 
 const WELCOME = {
   fr: 'Bonjour et bienvenue au Snack Tiegni Bernard ! Je suis votre assistant vocal. En quoi puis-je vous aider ?',
@@ -33,224 +27,170 @@ const WELCOME = {
   de: 'Hallo und willkommen beim Snack Tiegni Bernard! Ich bin Ihr Sprachassistent. Wie kann ich Ihnen helfen?',
 };
 
-// ── Composant ────────────────────────────────────────────────────────────────
+// ── Composant ─────────────────────────────────────────────────────────────────
 const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = [] }) => {
   const { language } = useLanguage();
 
   const [started,    setStarted]    = useState(false);
-  const [state,      setState]      = useState(S.LISTENING);
+  const [vsState,    setVsState]    = useState(S.LISTENING); // pour le rendu
   const [isMuted,    setIsMuted]    = useState(false);
   const [transcript, setTranscript] = useState('');
   const [botSnippet, setBotSnippet] = useState('');
   const [errorMsg,   setErrorMsg]   = useState('');
 
-  const mountedRef        = useRef(false);
-  const stateRef          = useRef(S.LISTENING);
-  const isMutedRef        = useRef(false);
-  const errorCountRef     = useRef(0);
-  const fullTranscriptRef = useRef('');
-  const historyRef        = useRef(chatHistory);
-  const productsRef       = useRef(products);
-  const onMessagePairRef  = useRef(onMessagePair);
-  const languageRef       = useRef(language);
+  // ── Refs (accès synchrone dans les callbacks) ─────────────────────────────
+  const mountedRef   = useRef(false);
+  const vsRef        = useRef(S.LISTENING); // état courant (synchrone)
+  const mutedRef     = useRef(false);
+  const errCountRef  = useRef(0);
+  const txRef        = useRef('');          // transcription accumulée
+  const histRef      = useRef(chatHistory);
+  const prodsRef     = useRef(products);
+  const pairRef      = useRef(onMessagePair);
+  const langRef      = useRef(language);
 
-  const recognitionRef    = useRef(null);
-  const silenceTimerRef   = useRef(null);
-  const restartTimerRef   = useRef(null);
-  const echoGuardTimerRef = useRef(null); // bloque les onresult après fin du TTS
-  const animFrameRef      = useRef(null);
-  const speakSessionRef   = useRef(0);   // session id pour annuler les chunks TTS en cours
-  const audioRef          = useRef(null); // élément <Audio> ElevenLabs en cours
-  const orbRef            = useRef(null);
-  const ring1Ref          = useRef(null);
-  const ring2Ref          = useRef(null);
-  const ring3Ref          = useRef(null);
-  const echoActiveRef     = useRef(false); // true pendant la fenêtre anti-écho
+  const recRef       = useRef(null);  // SpeechRecognition
+  const audioRef     = useRef(null);  // <Audio> ElevenLabs en cours
+  const ttsIdRef     = useRef(0);     // session TTS — incrémenté à chaque cancel/start
 
-  useEffect(() => { historyRef.current       = chatHistory;   }, [chatHistory]);
-  useEffect(() => { productsRef.current      = products;      }, [products]);
-  useEffect(() => { onMessagePairRef.current = onMessagePair; }, [onMessagePair]);
-  useEffect(() => { languageRef.current      = language;      }, [language]);
-  useEffect(() => { isMutedRef.current       = isMuted;       }, [isMuted]);
+  const silTimerRef  = useRef(null);  // timer silence → sendToBot
+  const rstTimerRef  = useRef(null);  // timer relance reconnaissance
+  const echoTimerRef = useRef(null);  // timer fin de garde anti-écho
+  const echoRef      = useRef(false); // true = ignorer onresult
+  const safetyRef    = useRef(null);  // timer sécurité anti-blocage
 
-  const safeSetState = (s) => {
+  const orbRef  = useRef(null);
+  const r1Ref   = useRef(null);
+  const r2Ref   = useRef(null);
+  const r3Ref   = useRef(null);
+  const rafRef  = useRef(null);
+  const sendRef = useRef(null); // sendToBot (mis à jour chaque render)
+
+  // Sync refs → state/props
+  useEffect(() => { histRef.current  = chatHistory;   }, [chatHistory]);
+  useEffect(() => { prodsRef.current = products;      }, [products]);
+  useEffect(() => { pairRef.current  = onMessagePair; }, [onMessagePair]);
+  useEffect(() => { langRef.current  = language;      }, [language]);
+  useEffect(() => { mutedRef.current = isMuted;       }, [isMuted]);
+
+  // ── Setter d'état synchrone + React ──────────────────────────────────────
+  const setVS = (s) => {
     if (!mountedRef.current) return;
-    stateRef.current = s;
-    setState(s);
+    vsRef.current = s;
+    setVsState(s);
   };
 
-  // ── Animation orbe (RAF pur, pas d'AudioContext) ─────────────────────────
-  const startOrbAnimation = () => {
+  // ── Orb animation (RAF) ───────────────────────────────────────────────────
+  const startAnim = () => {
     let t = 0;
     const loop = () => {
       if (!mountedRef.current) return;
-      animFrameRef.current = requestAnimationFrame(loop);
+      rafRef.current = requestAnimationFrame(loop);
       t += 0.016;
-      if (!orbRef.current) return;
-      const s = stateRef.current;
+      const orb = orbRef.current;
+      if (!orb) return;
+      const s = vsRef.current;
       if (s === S.LISTENING) {
-        orbRef.current.style.transform = `scale(${1 + Math.sin(t * 1.5) * 0.04})`;
-        if (ring1Ref.current) ring1Ref.current.style.opacity = (0.18 + Math.sin(t * 1.5) * 0.06).toFixed(2);
-        if (ring2Ref.current) ring2Ref.current.style.opacity = (0.10 + Math.sin(t * 1.2) * 0.04).toFixed(2);
-        if (ring3Ref.current) ring3Ref.current.style.opacity = (0.05 + Math.sin(t * 0.9) * 0.02).toFixed(2);
+        orb.style.transform = `scale(${1 + Math.sin(t * 1.5) * 0.04})`;
+        if (r1Ref.current) r1Ref.current.style.opacity = (0.18 + Math.sin(t * 1.5) * 0.06).toFixed(2);
+        if (r2Ref.current) r2Ref.current.style.opacity = (0.10 + Math.sin(t * 1.2) * 0.04).toFixed(2);
+        if (r3Ref.current) r3Ref.current.style.opacity = (0.05 + Math.sin(t * 0.9) * 0.02).toFixed(2);
       } else if (s === S.SPEAKING) {
-        orbRef.current.style.transform = `scale(${1.05 + Math.sin(t * 2.5) * 0.08})`;
-        if (ring1Ref.current) ring1Ref.current.style.opacity = '0.12';
-        if (ring2Ref.current) ring2Ref.current.style.opacity = '0.07';
-        if (ring3Ref.current) ring3Ref.current.style.opacity = '0.04';
+        orb.style.transform = `scale(${1.05 + Math.sin(t * 2.5) * 0.08})`;
+        if (r1Ref.current) r1Ref.current.style.opacity = '0.10';
+        if (r2Ref.current) r2Ref.current.style.opacity = '0.06';
+        if (r3Ref.current) r3Ref.current.style.opacity = '0.03';
       } else {
-        orbRef.current.style.transform = 'scale(1)';
-        if (ring1Ref.current) ring1Ref.current.style.opacity = '0';
-        if (ring2Ref.current) ring2Ref.current.style.opacity = '0';
-        if (ring3Ref.current) ring3Ref.current.style.opacity = '0';
+        orb.style.transform = 'scale(1)';
+        if (r1Ref.current) r1Ref.current.style.opacity = '0';
+        if (r2Ref.current) r2Ref.current.style.opacity = '0';
+        if (r3Ref.current) r3Ref.current.style.opacity = '0';
       }
     };
     loop();
   };
 
-  // ── Activer la garde anti-écho ────────────────────────────────────────────
-  // Appelé dès qu'on sait que le TTS vient de se terminer (ou va se terminer).
-  // Bloque tout onresult pendant ECHO_GUARD_MS pour éviter de capter l'écho
-  // du haut-parleur du téléphone dans le microphone.
-  const activateEchoGuard = () => {
-    echoActiveRef.current = true;
-    clearTimeout(echoGuardTimerRef.current);
-    echoGuardTimerRef.current = setTimeout(() => {
-      echoActiveRef.current = false;
-    }, ECHO_GUARD_MS);
+  // ── Garde anti-écho ───────────────────────────────────────────────────────
+  const activateEcho = () => {
+    echoRef.current = true;
+    clearTimeout(echoTimerRef.current);
+    echoTimerRef.current = setTimeout(() => { echoRef.current = false; }, ECHO_GUARD_MS);
   };
 
-  // ── TTS découpée en phrases courtes (anti-coupure Android) ───────────────
-  //
-  // Sur Android Chrome, speechSynthesis se coupe silencieusement après ~10-15 s
-  // et onend se déclenche prématurément. En découpant le texte en phrases courtes
-  // (chacune < 5 s), chaque segment se termine proprement avant la limite.
-  //
-  // La fonction sépare le texte aux points/!/?/virgules longues, puis parle
-  // chaque fragment séquentiellement. Le callback onDone est appelé quand
-  // TOUS les fragments sont terminés ou annulés.
-  //
-  const speak = (text, onDone) => {
-    const synth = window.speechSynthesis;
-    if (!synth || isMutedRef.current) { onDone?.(); return; }
-
-    // Annuler tout TTS précédent (y compris le préchauffage iOS)
-    synth.cancel();
-    clearTimeout(silenceTimerRef.current);
-
-    // Découper en phrases pour éviter les coupures Android
-    const chunks = text
-      .replace(/([.!?])\s+/g, '$1|')
-      .replace(/,\s+(?=\S{10})/g, ',|') // virgules avant segments > 10 chars
-      .split('|')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
-
-    if (chunks.length === 0) { onDone?.(); return; }
-
-    // Chaque appel à speak() obtient un id de session unique.
-    // Si speak() est rappelé (ex: synth.cancel() puis nouveau speak()),
-    // l'ancienne session voit mySession !== speakSessionRef.current et s'arrête.
-    speakSessionRef.current += 1;
-    const mySession = speakSessionRef.current;
-
-    let chunkIdx = 0;
-
-    const speakNext = () => {
-      if (!mountedRef.current || mySession !== speakSessionRef.current) return;
-      if (chunkIdx >= chunks.length) {
-        // Tous les fragments terminés — attendre que le système audio
-        // ait vraiment libéré le speaker avant de rouvrir le micro
-        setTimeout(() => {
-          if (!mountedRef.current || mySession !== speakSessionRef.current) return;
-          onDone?.();
-        }, POST_TTS_DELAY_MS);
-        return;
-      }
-
-      const chunk = chunks[chunkIdx++];
-      const utter = new SpeechSynthesisUtterance(chunk);
-      utter.lang   = LANG_MAP[languageRef.current] || 'fr-FR';
-      utter.rate   = 1.0;
-      utter.pitch  = 1;
-      utter.volume = 1;
-
-      // Fallback par fragment : si onend ne se déclenche pas dans les temps
-      const words     = chunk.split(/\s+/).length;
-      const limitMs   = Math.max(2500, words * 380 + 800);
-      const chunkTimer = setTimeout(() => {
-        if (mySession === speakSessionRef.current && mountedRef.current) {
-          console.warn('TTS chunk fallback:', chunk.slice(0, 30));
-          speakNext();
-        }
-      }, limitMs);
-
-      utter.onend = () => {
-        clearTimeout(chunkTimer);
-        if (mySession !== speakSessionRef.current || !mountedRef.current) return;
-        // Petite pause naturelle entre les phrases (aussi évite les coupures Android)
-        setTimeout(speakNext, IS_MOBILE ? 180 : 80);
-      };
-
-      utter.onerror = (e) => {
-        clearTimeout(chunkTimer);
-        // 'interrupted' = synth.cancel() appelé volontairement → stop propre
-        if (e.error === 'interrupted' || mySession !== speakSessionRef.current) return;
-        // Autre erreur → passer au fragment suivant
-        setTimeout(speakNext, 80);
-      };
-
-      synth.speak(utter);
-    };
-
-    speakNext();
-  };
-
-  // ── ElevenLabs TTS (voix principale) ─────────────────────────────────────
-  //
-  // Envoie le texte à l'API ElevenLabs, joue le fichier audio retourné via un
-  // élément <Audio> HTML, puis appelle onDone. En cas d'erreur réseau ou de clé
-  // manquante, bascule automatiquement sur speak() (speechSynthesis, fallback).
-  //
-  // L'audio HTML contourne tous les bugs Android/iOS de speechSynthesis :
-  //   - pas de coupure après 10-15 s
-  //   - onended fiable (pas de prématuré)
-  //   - qualité vocale nettement supérieure
-  //
-  const speakElevenLabs = async (text, onDone) => {
-    if (isMutedRef.current) { onDone?.(); return; }
-
-    const apiKey  = import.meta.env.VITE_ELEVENLABS_API_KEY;
-    const VOICE_ID = 'pNInz6obpgDQGcFmaJgB'; // Adam — voix masculine française
-
-    // Nouvelle session → invalide tous les callbacks de la session précédente
-    speakSessionRef.current += 1;
-    const mySession = speakSessionRef.current;
-
-    // Couper tout audio en cours
+  // ── Annuler tout TTS en cours ─────────────────────────────────────────────
+  const cancelTTS = () => {
+    ttsIdRef.current += 1;
     if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
+      try { audioRef.current.pause(); } catch {}
       audioRef.current = null;
     }
-    window.speechSynthesis?.cancel();
-    clearTimeout(silenceTimerRef.current);
+    try { window.speechSynthesis?.cancel(); } catch {}
+  };
 
-    // Pas de clé configurée → fallback immédiat
-    if (!apiKey) {
-      speak(text, onDone);
-      return;
-    }
+  // ── TTS fallback : speechSynthesis découpé en phrases (anti-coupure Android)
+  const speakSynth = (text, sessionId, onEnd) => {
+    const synth = window.speechSynthesis;
+    if (!synth) { onEnd(); return; }
+    synth.cancel();
+
+    const chunks = text
+      .replace(/([.!?])\s+/g, '$1')
+      .split('')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    if (!chunks.length) { onEnd(); return; }
+
+    let idx = 0;
+    const next = () => {
+      if (ttsIdRef.current !== sessionId || !mountedRef.current) return;
+      if (idx >= chunks.length) {
+        setTimeout(() => {
+          if (ttsIdRef.current === sessionId && mountedRef.current) onEnd();
+        }, POST_TTS_MS);
+        return;
+      }
+      const chunk = chunks[idx++];
+      const u = new SpeechSynthesisUtterance(chunk);
+      u.lang  = LANG_MAP[langRef.current] || 'fr-FR';
+      u.rate  = 1.0;
+      const words  = chunk.split(/\s+/).length;
+      const limit  = Math.max(2500, words * 380 + 800);
+      const timer  = setTimeout(() => {
+        if (ttsIdRef.current === sessionId && mountedRef.current) next();
+      }, limit);
+      u.onend   = () => { clearTimeout(timer); if (ttsIdRef.current === sessionId) setTimeout(next, IS_MOBILE ? 160 : 60); };
+      u.onerror = (e) => { clearTimeout(timer); if (e.error !== 'interrupted' && ttsIdRef.current === sessionId) setTimeout(next, 60); };
+      synth.speak(u);
+    };
+    next();
+  };
+
+  // ── TTS principal : ElevenLabs → Audio HTML, fallback → speechSynthesis ──
+  //
+  // Appeler sans await — le callback onEnd signale la fin.
+  // L'état SPEAKING doit être setté AVANT d'appeler speakText.
+  //
+  const speakText = async (text, onEnd) => {
+    if (mutedRef.current) { onEnd(); return; }
+
+    cancelTTS();
+    const myId = ttsIdRef.current; // id de session capturé après cancel
+
+    const fallback = () => {
+      if (ttsIdRef.current !== myId || !mountedRef.current) return;
+      speakSynth(text, myId, onEnd);
+    };
+
+    const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+    if (!apiKey) { fallback(); return; }
 
     try {
-      const response = await fetch(
+      const res = await fetch(
         `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
         {
           method: 'POST',
-          headers: {
-            'xi-api-key': apiKey,
-            'Content-Type': 'application/json',
-          },
+          headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text,
             model_id: 'eleven_multilingual_v2',
@@ -259,264 +199,248 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
         }
       );
 
-      // Vérifier que la session est toujours valide après la fetch (peut prendre 1-2 s)
-      if (!mountedRef.current || mySession !== speakSessionRef.current) return;
+      if (ttsIdRef.current !== myId || !mountedRef.current) return;
 
-      if (!response.ok) {
-        throw new Error(`ElevenLabs HTTP ${response.status}`);
+      if (!res.ok) {
+        console.warn(`ElevenLabs ${res.status} → fallback`);
+        fallback();
+        return;
       }
 
-      const blob = await response.blob();
-      if (!mountedRef.current || mySession !== speakSessionRef.current) return;
+      const blob = await res.blob();
+      if (ttsIdRef.current !== myId || !mountedRef.current) return;
 
       const url   = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
 
-      const cleanup = () => {
+      const done = () => {
         URL.revokeObjectURL(url);
         if (audioRef.current === audio) audioRef.current = null;
-      };
-
-      audio.onended = () => {
-        cleanup();
-        if (!mountedRef.current || mySession !== speakSessionRef.current) return;
+        if (ttsIdRef.current !== myId || !mountedRef.current) return;
         setTimeout(() => {
-          if (!mountedRef.current || mySession !== speakSessionRef.current) return;
-          onDone?.();
-        }, POST_TTS_DELAY_MS);
+          if (ttsIdRef.current === myId && mountedRef.current) onEnd();
+        }, POST_TTS_MS);
       };
 
+      audio.onended = done;
       audio.onerror = () => {
-        cleanup();
-        if (!mountedRef.current || mySession !== speakSessionRef.current) return;
-        // Erreur de lecture → fallback speechSynthesis
-        speak(text, onDone);
+        URL.revokeObjectURL(url);
+        if (audioRef.current === audio) audioRef.current = null;
+        if (ttsIdRef.current !== myId || !mountedRef.current) return;
+        fallback();
       };
 
-      await audio.play();
-
-    } catch (err) {
-      if (!mountedRef.current || mySession !== speakSessionRef.current) return;
-      console.warn('ElevenLabs erreur, fallback speechSynthesis :', err.message);
-      speak(text, onDone);
+      try {
+        await audio.play();
+      } catch (playErr) {
+        // autoplay bloqué ou autre erreur → fallback
+        console.warn('Audio.play():', playErr.name, '→ fallback');
+        URL.revokeObjectURL(url);
+        if (audioRef.current === audio) audioRef.current = null;
+        if (ttsIdRef.current !== myId || !mountedRef.current) return;
+        fallback();
+      }
+    } catch (fetchErr) {
+      if (ttsIdRef.current !== myId || !mountedRef.current) return;
+      console.warn('ElevenLabs fetch:', fetchErr.message, '→ fallback');
+      fallback();
     }
-  };
-
-  // Annuler tout TTS en cours (ElevenLabs ou fallback speechSynthesis)
-  const cancelSpeak = () => {
-    speakSessionRef.current += 1; // invalide tous les callbacks en attente
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-      audioRef.current = null;
-    }
-    window.speechSynthesis?.cancel();
   };
 
   // ── Démarrer la reconnaissance ────────────────────────────────────────────
-  const startRecognition = () => {
-    if (!mountedRef.current || !recognitionRef.current) return;
-    if (errorCountRef.current >= 5) {
-      if (mountedRef.current) setErrorMsg('Trop d\'erreurs. Fermez et réouvrez le chat vocal.');
-      return;
-    }
-    clearTimeout(restartTimerRef.current);
+  const startRec = () => {
+    if (!mountedRef.current || !recRef.current) return;
+    clearTimeout(rstTimerRef.current);
     try {
-      recognitionRef.current.start();
+      recRef.current.start();
     } catch (e) {
-      if (e.name !== 'InvalidStateError') console.warn('Recognition start:', e.name);
+      if (e.name !== 'InvalidStateError') console.warn('rec.start:', e.name);
     }
+  };
+
+  // ── Transition propre vers LISTENING ─────────────────────────────────────
+  const goListening = () => {
+    clearTimeout(safetyRef.current);
+    clearTimeout(silTimerRef.current);
+    txRef.current = '';
+    activateEcho();
+    setVS(S.LISTENING);
+    startRec();
   };
 
   // ── Envoyer la transcription au bot ──────────────────────────────────────
   const sendToBot = async () => {
-    const text = fullTranscriptRef.current.trim();
+    const text = txRef.current.trim();
     if (!text || !mountedRef.current) return;
 
-    fullTranscriptRef.current = '';
-    if (mountedRef.current) setTranscript('');
-    clearTimeout(silenceTimerRef.current);
-    safeSetState(S.PROCESSING);
-    try { recognitionRef.current?.stop(); } catch {}
+    txRef.current = '';
+    setTranscript('');
+    clearTimeout(silTimerRef.current);
+    setVS(S.PROCESSING);
+    try { recRef.current?.stop(); } catch {}
+
+    // Sécurité : si bloqué en PROCESSING >15 s, on reprend l'écoute
+    safetyRef.current = setTimeout(() => {
+      if (vsRef.current === S.PROCESSING && mountedRef.current) {
+        console.warn('Safety timeout PROCESSING → LISTENING');
+        setBotSnippet('');
+        goListening();
+      }
+    }, 15000);
 
     const userMsg = { id: Date.now(), text, sender: 'user', timestamp: new Date() };
 
     try {
       const botText = await sendChatMessage(
-        [...historyRef.current, userMsg],
-        productsRef.current,
-        true // voiceMode : réponses sans emoji ni markdown
+        [...histRef.current, userMsg],
+        prodsRef.current,
+        true // voiceMode : pas d'emoji, pas de markdown
       );
+      clearTimeout(safetyRef.current);
       if (!mountedRef.current) return;
 
       setBotSnippet(botText.slice(0, 120) + (botText.length > 120 ? '…' : ''));
-      onMessagePairRef.current?.(userMsg, {
+      pairRef.current?.(userMsg, {
         id: Date.now() + 1, text: botText, sender: 'bot', timestamp: new Date(),
       });
 
-      if (!isMutedRef.current) {
-        safeSetState(S.SPEAKING);
-        speakElevenLabs(botText, () => {
-          if (!mountedRef.current) return;
-          setBotSnippet('');
-          fullTranscriptRef.current = ''; // ardoise vierge
-          activateEchoGuard();            // bloquer l'écho pendant ECHO_GUARD_MS
-          safeSetState(S.LISTENING);
-          startRecognition();
-        });
-      } else {
+      if (mutedRef.current) {
         setBotSnippet('');
-        safeSetState(S.LISTENING);
-        startRecognition();
+        goListening();
+        return;
       }
-    } catch {
+
+      setVS(S.SPEAKING);
+
+      // Sécurité : si bloqué en SPEAKING >30 s (réponse très longue), on reprend l'écoute
+      safetyRef.current = setTimeout(() => {
+        if (vsRef.current === S.SPEAKING && mountedRef.current) {
+          console.warn('Safety timeout SPEAKING → LISTENING');
+          cancelTTS();
+          setBotSnippet('');
+          goListening();
+        }
+      }, 30000);
+
+      speakText(botText, () => {
+        clearTimeout(safetyRef.current);
+        if (!mountedRef.current) return;
+        setBotSnippet('');
+        goListening();
+      });
+
+    } catch (err) {
+      clearTimeout(safetyRef.current);
       if (!mountedRef.current) return;
+      console.error('sendToBot:', err);
       setBotSnippet('');
-      safeSetState(S.LISTENING);
-      startRecognition();
+      goListening();
     }
   };
 
-  const sendToBotRef = useRef(sendToBot);
-  useEffect(() => { sendToBotRef.current = sendToBot; });
+  useEffect(() => { sendRef.current = sendToBot; });
 
   // ── Configurer SpeechRecognition ──────────────────────────────────────────
-  const setupRecognition = (SR) => {
+  const setupRec = (SR) => {
     const rec = new SR();
-    rec.continuous      = USE_CONTINUOUS;
-    rec.interimResults  = true;
-    rec.maxAlternatives = 1;
-    rec.lang            = LANG_MAP[languageRef.current] || 'fr-FR';
+    rec.continuous     = USE_CONTINUOUS;
+    rec.interimResults = true;
+    rec.lang           = LANG_MAP[langRef.current] || 'fr-FR';
 
-    rec.onstart = () => { errorCountRef.current = 0; };
+    rec.onstart = () => { errCountRef.current = 0; };
 
     rec.onresult = (event) => {
       if (!mountedRef.current) return;
-      errorCountRef.current = 0;
+      if (vsRef.current !== S.LISTENING) return; // ignorer pendant PROCESSING/SPEAKING
+      if (echoRef.current) return;               // ignorer l'écho du TTS
 
-      // Ignorer si on n'est pas en mode écoute
-      if (stateRef.current !== S.LISTENING) return;
+      errCountRef.current = 0;
+      clearTimeout(silTimerRef.current);
 
-      // Garde anti-écho : ignorer les résultats juste après la fin du TTS
-      // (le speaker du téléphone envoie de l'écho dans le micro pendant ~1 s)
-      if (echoActiveRef.current) return;
-
-      clearTimeout(silenceTimerRef.current);
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          fullTranscriptRef.current += event.results[i][0].transcript + ' ';
-        } else {
-          interim += event.results[i][0].transcript;
-        }
+        if (event.results[i].isFinal) txRef.current += event.results[i][0].transcript + ' ';
+        else interim += event.results[i][0].transcript;
       }
-      if (mountedRef.current) setTranscript((fullTranscriptRef.current + interim).trim());
+      if (mountedRef.current) setTranscript((txRef.current + interim).trim());
 
-      if (fullTranscriptRef.current.trim()) {
-        silenceTimerRef.current = setTimeout(() => {
-          if (mountedRef.current && stateRef.current === S.LISTENING) {
-            sendToBotRef.current();
-          }
+      if (txRef.current.trim()) {
+        silTimerRef.current = setTimeout(() => {
+          if (mountedRef.current && vsRef.current === S.LISTENING) sendRef.current?.();
         }, 2000);
       }
     };
 
     rec.onerror = (e) => {
       if (!mountedRef.current) return;
-      // Erreurs transitoires → laisser onend redémarrer automatiquement
+      // Erreurs transitoires : laisser onend relancer automatiquement
       if (e.error === 'no-speech' || e.error === 'aborted' || e.error === 'network') return;
-      errorCountRef.current++;
-
+      errCountRef.current++;
       if (e.error === 'not-allowed' || e.error === 'permission-denied') {
         mountedRef.current = false;
-        setErrorMsg('Microphone refusé. Autorisez-le dans les paramètres de votre navigateur.');
+        setErrorMsg('Microphone refusé. Autorisez-le dans les paramètres du navigateur.');
         setStarted(false);
       } else if (e.error === 'audio-capture') {
         mountedRef.current = false;
         setErrorMsg('Microphone indisponible. Vérifiez qu\'aucune autre app ne l\'utilise.');
         setStarted(false);
-      } else if (e.error === 'service-not-allowed') {
-        mountedRef.current = false;
-        setErrorMsg('Service vocal non autorisé. Utilisez Chrome ou Safari sur HTTPS.');
-        setStarted(false);
       }
     };
 
-    // Redémarrer UNIQUEMENT quand on écoute — jamais pendant le TTS ou le traitement
+    // Relancer UNIQUEMENT en état LISTENING — jamais pendant SPEAKING/PROCESSING
     rec.onend = () => {
       if (!mountedRef.current) return;
-      if (stateRef.current === S.LISTENING) {
-        restartTimerRef.current = setTimeout(() => {
-          if (mountedRef.current && stateRef.current === S.LISTENING) {
-            startRecognition();
-          }
+      if (vsRef.current === S.LISTENING) {
+        rstTimerRef.current = setTimeout(() => {
+          if (mountedRef.current && vsRef.current === S.LISTENING) startRec();
         }, 500);
       }
     };
 
-    recognitionRef.current = rec;
+    recRef.current = rec;
   };
 
   useEffect(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.lang = LANG_MAP[language] || 'fr-FR';
-    }
+    if (recRef.current) recRef.current.lang = LANG_MAP[language] || 'fr-FR';
   }, [language]);
 
-  // ── handleStart — SYNCHRONE (critique iOS) ────────────────────────────────
+  // ── handleStart — DOIT ÊTRE SYNCHRONE (iOS Safari) ───────────────────────
   //
-  // Pas d'async/await, pas de getUserMedia, pas d'AudioContext :
-  // - Plus de conflit double-micro (getUserMedia + SpeechRecognition)
-  // - Toute la chaîne reste dans le geste utilisateur (iOS Safari)
-  // - TTS préchauffé + reconnaissance démarrée dans le même geste
+  // iOS exige que speechSynthesis.speak() et SpeechRecognition.start() soient
+  // appelés dans le même gestionnaire de clic (pas après un await).
   //
   const handleStart = () => {
     if (!window.isSecureContext) {
       setErrorMsg('HTTPS requis pour le microphone sur mobile.');
       return;
     }
-    if (!navigator.onLine) {
-      setErrorMsg('Connexion internet requise pour la reconnaissance vocale.');
-      return;
-    }
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      setErrorMsg('Reconnaissance vocale non supportée. Utilisez Chrome, Edge ou Safari récent.');
+      setErrorMsg('Reconnaissance vocale non supportée. Utilisez Chrome ou Safari récent.');
       return;
     }
 
     setErrorMsg('');
     mountedRef.current = true;
-    stateRef.current   = S.LISTENING;
+    vsRef.current = S.LISTENING;
 
-    // Préchauffage TTS dans le geste clic — iOS Safari exige que le premier
-    // appel à speechSynthesis.speak() soit dans un gestionnaire d'événement utilisateur.
-    // Ce préchauffe (volume 0) déverrouille les appels TTS futurs depuis useEffect.
-    if (window.speechSynthesis) {
-      try {
-        const w = new SpeechSynthesisUtterance(' ');
-        w.volume = 0;
-        w.rate   = 10;
-        window.speechSynthesis.speak(w);
-      } catch {}
-    }
-
-    setupRecognition(SR);
-
-    // Démarrer la reconnaissance DANS le geste → déclenche la dialog de permission
+    // Préchauffage TTS dans le geste → déverrouille speechSynthesis sur iOS
     try {
-      recognitionRef.current.start();
-    } catch (e) {
+      const w = new SpeechSynthesisUtterance(' ');
+      w.volume = 0; w.rate = 10;
+      window.speechSynthesis?.speak(w);
+    } catch {}
+
+    setupRec(SR);
+
+    // Démarrer immédiatement → déclenche la boîte de permission micro
+    try { recRef.current.start(); } catch (e) {
       if (e.name !== 'InvalidStateError') {
         mountedRef.current = false;
-        setErrorMsg(
-          e.name === 'SecurityError' || e.name === 'NotAllowedError'
-            ? 'Accès au microphone bloqué. Autorisez-le dans les paramètres du navigateur.'
-            : `Impossible de démarrer (${e.name}). Réessayez.`
-        );
-        recognitionRef.current = null;
+        setErrorMsg('Impossible de démarrer le microphone. Autorisez l\'accès et réessayez.');
+        recRef.current = null;
         return;
       }
     }
@@ -524,70 +448,64 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     setStarted(true);
   };
 
-  // ── Initialisation après démarrage ───────────────────────────────────────
+  // ── useEffect : démarrage → salut + relance reconnaissance ───────────────
   useEffect(() => {
     if (!started) return;
 
-    startOrbAnimation();
+    startAnim();
 
-    // La reconnaissance tournait depuis handleStart (pour la permission iOS).
-    // On l'arrête maintenant — elle redémarrera proprement après le salut TTS.
-    // IMPORTANT : arrêter AVANT speak() sinon le micro capte la voix du bot.
-    try { recognitionRef.current?.stop(); } catch {}
+    // Arrêter la reconnaissance ouverte dans handleStart (elle servait uniquement
+    // à déclencher la boîte de permission). Elle reprendra après le salut TTS.
+    try { recRef.current?.stop(); } catch {}
 
-    const welcomeText = WELCOME[languageRef.current] || WELCOME.fr;
-    safeSetState(S.SPEAKING);
-    setBotSnippet(welcomeText);
+    const welcome = WELCOME[langRef.current] || WELCOME.fr;
+    setVS(S.SPEAKING);
+    setBotSnippet(welcome);
 
-    speakElevenLabs(welcomeText, () => {
+    speakText(welcome, () => {
       if (!mountedRef.current) return;
       setBotSnippet('');
-      fullTranscriptRef.current = '';
-      activateEchoGuard(); // ignorer l'écho du salut pendant ECHO_GUARD_MS
-      safeSetState(S.LISTENING);
-      startRecognition();
+      goListening();
     });
 
     return () => {
       mountedRef.current = false;
-      clearTimeout(silenceTimerRef.current);
-      clearTimeout(restartTimerRef.current);
-      clearTimeout(echoGuardTimerRef.current);
-      cancelAnimationFrame(animFrameRef.current);
-      cancelSpeak();
-      try { recognitionRef.current?.abort(); } catch {}
+      clearTimeout(silTimerRef.current);
+      clearTimeout(rstTimerRef.current);
+      clearTimeout(echoTimerRef.current);
+      clearTimeout(safetyRef.current);
+      cancelAnimationFrame(rafRef.current);
+      cancelTTS();
+      try { recRef.current?.abort(); } catch {}
     };
   }, [started]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Interrompre le TTS en touchant l'orbe
+  // ── Interrompre le TTS en touchant l'orbe ────────────────────────────────
   const interrupt = () => {
-    if (stateRef.current !== S.SPEAKING) return;
-    cancelSpeak();
-    if (mountedRef.current) setBotSnippet('');
-    fullTranscriptRef.current = '';
-    activateEchoGuard();
-    clearTimeout(silenceTimerRef.current);
-    safeSetState(S.LISTENING);
-    startRecognition();
+    if (vsRef.current !== S.SPEAKING) return;
+    cancelTTS();
+    setBotSnippet('');
+    clearTimeout(safetyRef.current);
+    goListening();
   };
 
-  const orbGradient = {
+  // ── Rendu ─────────────────────────────────────────────────────────────────
+  const gradient = {
     [S.LISTENING]:  'from-violet-500 to-blue-600',
     [S.PROCESSING]: 'from-amber-400 to-orange-500',
     [S.SPEAKING]:   'from-emerald-400 to-green-600',
-  }[state] ?? 'from-violet-500 to-blue-600';
+  }[vsState] ?? 'from-violet-500 to-blue-600';
 
-  const statusLabel = {
+  const label = {
     [S.LISTENING]:  'Je vous écoute...',
     [S.PROCESSING]: 'Réflexion...',
-    [S.SPEAKING]:   'Réponse en cours...',
-  }[state] ?? '';
+    [S.SPEAKING]:   'En train de répondre...',
+  }[vsState] ?? '';
 
   // ── Écran de démarrage ────────────────────────────────────────────────────
   if (!started) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const isSupported = !!SR && window.isSecureContext;
-
+    const ok = !!SR && window.isSecureContext;
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/98 backdrop-blur-xl">
         <div className="relative flex flex-col items-center gap-7 w-full max-w-sm px-6 text-center select-none">
@@ -601,29 +519,20 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
             <p className="text-gray-400 text-sm mt-1">IA · Snack Tiegni Bernard</p>
           </div>
 
-          <div className={`w-36 h-36 rounded-full bg-gradient-to-br shadow-2xl flex items-center justify-center
-            ${isSupported ? 'from-violet-500 to-blue-600' : 'from-gray-600 to-gray-800'}`}>
-            {isSupported
-              ? <Mic className="h-14 w-14 text-white drop-shadow-lg" />
-              : <MicOff className="h-14 w-14 text-white/60 drop-shadow-lg" />
-            }
+          <div className={`w-36 h-36 rounded-full bg-gradient-to-br shadow-2xl flex items-center justify-center ${ok ? 'from-violet-500 to-blue-600' : 'from-gray-600 to-gray-800'}`}>
+            {ok ? <Mic className="h-14 w-14 text-white drop-shadow-lg" /> : <MicOff className="h-14 w-14 text-white/60" />}
           </div>
 
-          {isSupported ? (
+          {ok ? (
             <p className="text-gray-300 text-sm leading-relaxed max-w-xs">
               Appuyez sur <strong className="text-white">Démarrer</strong>. Le navigateur
               demandera la permission d'utiliser votre microphone.
             </p>
           ) : (
-            <div className="space-y-2">
-              <p className="text-amber-300 text-sm leading-relaxed max-w-xs">
-                Votre navigateur ne supporte pas la reconnaissance vocale.
-              </p>
-              <p className="text-gray-400 text-sm">
-                Utilisez <strong className="text-white">Chrome</strong> ou{' '}
-                <strong className="text-white">Safari</strong> sur ce téléphone.
-              </p>
-            </div>
+            <p className="text-amber-300 text-sm max-w-xs">
+              Utilisez <strong className="text-white">Chrome</strong> ou{' '}
+              <strong className="text-white">Safari</strong> sur HTTPS.
+            </p>
           )}
 
           {errorMsg && (
@@ -632,7 +541,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
             </div>
           )}
 
-          {isSupported ? (
+          {ok ? (
             <button
               onClick={handleStart}
               className="w-full max-w-xs py-4 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-black text-lg rounded-2xl transition-all shadow-xl hover:shadow-violet-500/30"
@@ -640,7 +549,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
               {errorMsg ? 'Réessayer' : 'Démarrer'}
             </button>
           ) : (
-            <button onClick={onClose} className="w-full max-w-xs py-4 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-2xl transition-all">
+            <button onClick={onClose} className="w-full max-w-xs py-4 bg-gray-700 text-white font-bold rounded-2xl">
               Fermer
             </button>
           )}
@@ -666,22 +575,22 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
         </div>
 
         <div className="relative flex items-center justify-center w-64 h-64" onClick={interrupt}>
-          <div ref={ring1Ref} className="absolute w-48 h-48 rounded-full border border-violet-400/30" style={{ opacity: 0, transition: 'opacity 0.2s' }} />
-          <div ref={ring2Ref} className="absolute w-56 h-56 rounded-full border border-blue-400/20"   style={{ opacity: 0, transition: 'opacity 0.2s' }} />
-          <div ref={ring3Ref} className="absolute w-64 h-64 rounded-full border border-blue-300/10"   style={{ opacity: 0, transition: 'opacity 0.2s' }} />
+          <div ref={r1Ref} className="absolute w-48 h-48 rounded-full border border-violet-400/30" style={{ opacity: 0, transition: 'opacity 0.2s' }} />
+          <div ref={r2Ref} className="absolute w-56 h-56 rounded-full border border-blue-400/20"   style={{ opacity: 0, transition: 'opacity 0.2s' }} />
+          <div ref={r3Ref} className="absolute w-64 h-64 rounded-full border border-blue-300/10"   style={{ opacity: 0, transition: 'opacity 0.2s' }} />
 
           <div
             ref={orbRef}
-            className={`w-36 h-36 rounded-full bg-gradient-to-br ${orbGradient} shadow-2xl flex items-center justify-center cursor-pointer transition-colors duration-500`}
+            className={`w-36 h-36 rounded-full bg-gradient-to-br ${gradient} shadow-2xl flex items-center justify-center cursor-pointer transition-colors duration-500`}
             style={{ willChange: 'transform' }}
           >
-            {state === S.PROCESSING ? (
+            {vsState === S.PROCESSING ? (
               <div className="flex gap-2">
                 {[0, 150, 300].map(d => (
                   <span key={d} className="w-2.5 h-2.5 bg-white rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
                 ))}
               </div>
-            ) : state === S.SPEAKING ? (
+            ) : vsState === S.SPEAKING ? (
               <Volume2 className="h-14 w-14 text-white drop-shadow-lg" />
             ) : (
               <Mic className="h-14 w-14 text-white drop-shadow-lg" />
@@ -690,7 +599,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
         </div>
 
         <div className="text-center min-h-[80px] px-4">
-          <p className="text-white font-bold text-base">{statusLabel}</p>
+          <p className="text-white font-bold text-base">{label}</p>
           {transcript && (
             <p className="text-violet-300 text-sm mt-1.5 italic leading-relaxed max-w-xs">
               «{transcript.slice(-100)}»
@@ -699,7 +608,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
           {botSnippet && (
             <p className="text-emerald-400 text-sm mt-1.5 leading-relaxed max-w-xs">{botSnippet}</p>
           )}
-          {state === S.SPEAKING && !botSnippet && (
+          {vsState === S.SPEAKING && !botSnippet && (
             <p className="text-gray-500 text-xs mt-1">Touchez l'orbe pour interrompre</p>
           )}
           {errorMsg && (
@@ -710,9 +619,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
         <div className="flex items-center gap-8">
           <button
             onClick={() => setIsMuted(m => !m)}
-            className={`p-4 rounded-full transition-all ${
-              isMuted ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-            }`}
+            className={`p-4 rounded-full transition-all ${isMuted ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}
             title={isMuted ? 'Activer le son' : 'Couper le son'}
           >
             {isMuted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
