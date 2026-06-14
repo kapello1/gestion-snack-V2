@@ -57,6 +57,8 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const ring1Ref         = useRef(null);
   const ring2Ref         = useRef(null);
   const ring3Ref         = useRef(null);
+  // Timestamp de fin du dernier TTS — sert à ignorer l'écho micro juste après
+  const ttsDoneAtRef     = useRef(0);
 
   // Synchronisation props → refs (évite les captures périmées dans les callbacks)
   useEffect(() => { historyRef.current       = chatHistory;   }, [chatHistory]);
@@ -107,6 +109,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
     clearInterval(keepAliveRef.current);
     clearTimeout(fallbackTimerRef.current);
+    clearTimeout(silenceTimerRef.current); // annule tout timer de silence en attente
     synth.cancel(); // annule aussi le préchauffage silencieux iOS
 
     const utter  = new SpeechSynthesisUtterance(text);
@@ -185,6 +188,9 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
         speak(botText, () => {
           if (!mountedRef.current) return;
           setBotSnippet('');
+          ttsDoneAtRef.current    = Date.now(); // marque la fin du TTS → écho bloqué 900 ms
+          fullTranscriptRef.current = '';       // efface tout résidu de transcript
+          clearTimeout(silenceTimerRef.current);
           safeSetState(S.LISTENING);
           startRecognition();
         });
@@ -218,9 +224,13 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       if (!mountedRef.current) return;
       errorCountRef.current = 0;
 
-      // Si la reconnaissance tourne encore pendant SPEAKING ou PROCESSING,
-      // on ignore le résultat pour ne pas s'interrompre soi-même.
+      // Ignorer les résultats hors état LISTENING
       if (stateRef.current !== S.LISTENING) return;
+
+      // Protection anti-écho (Android/iOS) : le TTS laisse un écho micro
+      // pendant ~700 ms après sa fin. On bloque les résultats pendant 900 ms
+      // pour éviter que la voix du bot soit captée et renvoyée comme input.
+      if (Date.now() - ttsDoneAtRef.current < 900) return;
 
       clearTimeout(silenceTimerRef.current);
       let interim = '';
@@ -383,6 +393,9 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     speak(welcomeText, () => {
       if (!mountedRef.current) return;
       setBotSnippet('');
+      ttsDoneAtRef.current      = Date.now(); // écho bloqué 900 ms après le salut
+      fullTranscriptRef.current = '';
+      clearTimeout(silenceTimerRef.current);
       safeSetState(S.LISTENING);
       startRecognition(); // commence réellement à écouter l'utilisateur
     });
@@ -406,6 +419,9 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     clearTimeout(fallbackTimerRef.current);
     window.speechSynthesis?.cancel();
     if (mountedRef.current) setBotSnippet('');
+    ttsDoneAtRef.current      = Date.now(); // écho bloqué 900 ms après interruption
+    fullTranscriptRef.current = '';
+    clearTimeout(silenceTimerRef.current);
     safeSetState(S.LISTENING);
     startRecognition();
   };
