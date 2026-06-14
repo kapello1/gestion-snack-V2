@@ -218,14 +218,9 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       if (!mountedRef.current) return;
       errorCountRef.current = 0;
 
-      // L'utilisateur parle pendant le TTS → interrompre
-      if (stateRef.current === S.SPEAKING) {
-        clearInterval(keepAliveRef.current);
-        clearTimeout(fallbackTimerRef.current);
-        window.speechSynthesis?.cancel();
-        if (mountedRef.current) setBotSnippet('');
-        safeSetState(S.LISTENING);
-      }
+      // Si la reconnaissance tourne encore pendant SPEAKING ou PROCESSING,
+      // on ignore le résultat pour ne pas s'interrompre soi-même.
+      if (stateRef.current !== S.LISTENING) return;
 
       clearTimeout(silenceTimerRef.current);
       let interim = '';
@@ -274,10 +269,13 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
     rec.onend = () => {
       if (!mountedRef.current) return;
-      const s = stateRef.current;
-      if (s === S.LISTENING || s === S.SPEAKING) {
+      // Redémarrer UNIQUEMENT en LISTENING — jamais en SPEAKING (le bot parle)
+      // ni en PROCESSING (l'API répond).
+      // Si on redémarre pendant SPEAKING, le micro capte la voix du bot,
+      // ce qui déclenche une fausse interruption.
+      if (stateRef.current === S.LISTENING) {
         restartTimerRef.current = setTimeout(() => {
-          if (mountedRef.current && (stateRef.current === S.LISTENING || stateRef.current === S.SPEAKING)) {
+          if (mountedRef.current && stateRef.current === S.LISTENING) {
             startRecognition();
           }
         }, 500);
