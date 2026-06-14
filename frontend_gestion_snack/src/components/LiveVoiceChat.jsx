@@ -21,9 +21,9 @@ const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const USE_CONTINUOUS = !(IS_IOS || IS_SAFARI);
 
 const WELCOME = {
-  fr: 'Bonjour ! Je vous écoute, posez-moi vos questions.',
-  nl: 'Hallo! Ik luister. Stel gerust uw vragen.',
-  de: 'Hallo! Ich höre Ihnen zu. Stellen Sie Ihre Fragen.',
+  fr: 'Bonjour et bienvenue au Snack Tiegni Bernard ! Je suis votre assistant vocal. En quoi puis-je vous aider ?',
+  nl: 'Hallo en welkom bij Snack Tiegni Bernard! Ik ben uw spraakassistent. Hoe kan ik u helpen?',
+  de: 'Hallo und willkommen beim Snack Tiegni Bernard! Ich bin Ihr Sprachassistent. Wie kann ich Ihnen helfen?',
 };
 
 // ── Composant ────────────────────────────────────────────────────────────────
@@ -245,7 +245,9 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     rec.onerror = (e) => {
       if (!mountedRef.current) return;
       // Erreurs normales et non critiques → ignorer
-      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      // no-speech, aborted : normaux — ignorer
+      // network : erreur transitoire du service vocal (Google/Apple), onend relancera automatiquement
+      if (e.error === 'no-speech' || e.error === 'aborted' || e.error === 'network') return;
       errorCountRef.current++;
 
       if (e.error === 'not-allowed' || e.error === 'permission-denied') {
@@ -256,9 +258,6 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
         mountedRef.current = false;
         setErrorMsg('Microphone indisponible. Vérifiez qu\'aucune autre application ne l\'utilise.');
         setStarted(false);
-      } else if (e.error === 'network') {
-        // Ne pas quitter — onend redémarre automatiquement
-        if (mountedRef.current) setErrorMsg('Connexion perdue. La reconnaissance reprendra automatiquement.');
       } else if (e.error === 'service-not-allowed') {
         mountedRef.current = false;
         setErrorMsg('Service vocal non autorisé. Utilisez Chrome ou Safari sur HTTPS.');
@@ -371,15 +370,25 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
     startOrbAnimation();
 
-    // Message de bienvenue en texte (pas de TTS welcome — écoute immédiate)
-    setBotSnippet(WELCOME[languageRef.current] || WELCOME.fr);
-    const welcomeTimer = setTimeout(() => {
-      if (mountedRef.current) setBotSnippet('');
-    }, 4000);
+    // Stopper la reconnaissance démarrée dans handleStart (elle servait uniquement
+    // à déclencher la dialog de permission iOS). Elle redémarrera après le salut.
+    // Important : le faire AVANT speak() pour que le micro ne capte pas le TTS.
+    try { recognitionRef.current?.stop(); } catch {}
+
+    // Salut vocal du bot (TTS préchauffé dans handleStart → fonctionne sur iOS)
+    const welcomeText = WELCOME[languageRef.current] || WELCOME.fr;
+    safeSetState(S.SPEAKING);
+    setBotSnippet(welcomeText);
+
+    speak(welcomeText, () => {
+      if (!mountedRef.current) return;
+      setBotSnippet('');
+      safeSetState(S.LISTENING);
+      startRecognition(); // commence réellement à écouter l'utilisateur
+    });
 
     return () => {
       mountedRef.current = false;
-      clearTimeout(welcomeTimer);
       clearTimeout(silenceTimerRef.current);
       clearTimeout(restartTimerRef.current);
       clearTimeout(fallbackTimerRef.current);
