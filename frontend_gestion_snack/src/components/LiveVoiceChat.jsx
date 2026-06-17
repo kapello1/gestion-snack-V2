@@ -19,9 +19,10 @@ const IS_MOBILE = IS_IOS || /android/i.test(navigator.userAgent);
 const USE_CONTINUOUS = !(IS_IOS || IS_SAFARI);
 
 // Garde anti-écho : délai avant d'ouvrir le micro après le TTS
-const ECHO_GUARD_MS  = IS_MOBILE ? 900 : 800;
-// Délai avant de rouvrir le micro (laisse l'audio se dissiper)
-const POST_TTS_MS    = IS_MOBILE ? 150 : 50;
+// Desktop 1500ms : couvre écho matériel (50ms) + réverbération salle (≤800ms) + traitement STT (≤500ms)
+const ECHO_GUARD_MS  = IS_MOBILE ? 900 : 1500;
+// Délai post-audio : laisse le buffer hardware se vider avant de lancer l'echo guard
+const POST_TTS_MS    = IS_MOBILE ? 200 : 150;
 
 const WELCOME = {
   fr: 'Bonjour et bienvenue au Snack Tiegni Bernard ! Je suis votre assistant vocal. En quoi puis-je vous aider ?',
@@ -61,6 +62,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const echoRef      = useRef(false); // true = ignorer onresult
   const safetyRef    = useRef(null);  // timer sécurité anti-blocage
   const abortCtrlRef = useRef(null);  // AbortController — annule les fetches ElevenLabs en vol
+  const lastTTSRef   = useRef('');    // dernier texte TTS — filtre anti-écho dans onresult
 
   const orbRef  = useRef(null);
   const r1Ref   = useRef(null);
@@ -181,6 +183,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
     cancelTTS();
     const myId = ttsIdRef.current; // id de session capturé après cancel
+    lastTTSRef.current = text;     // mémoriser pour le filtre anti-écho
 
     const fallback = () => {
       if (ttsIdRef.current !== myId || !mountedRef.current) return;
@@ -307,6 +310,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     if (!text || !mountedRef.current) return;
 
     txRef.current = '';
+    lastTTSRef.current = '';  // l'utilisateur a parlé → libérer le filtre anti-écho
     setTranscript('');
     clearTimeout(silTimerRef.current);
     setVS(S.PROCESSING);
@@ -400,6 +404,18 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
         else interim += event.results[i][0].transcript;
       }
       if (mountedRef.current) setTranscript((txRef.current + interim).trim());
+
+      // Filtre anti-écho : si ≥ 60 % des mots de la transcription proviennent du dernier TTS → écho
+      if (lastTTSRef.current) {
+        const norm = s => s.toLowerCase().replace(/[^a-zàâéèêëîïôùûüç0-9 ]/g, ' ');
+        const ttsSet  = new Set(norm(lastTTSRef.current).split(/\s+/).filter(w => w.length > 3));
+        const txWords = norm((txRef.current + interim).trim()).split(/\s+/).filter(w => w.length > 3);
+        if (txWords.length >= 2 && txWords.filter(w => ttsSet.has(w)).length / txWords.length >= 0.6) {
+          txRef.current = '';
+          if (mountedRef.current) setTranscript('');
+          return;
+        }
+      }
 
       // Timer silence : 350 ms après un résultat final confirmé, 700 ms si seulement intérimaire.
       const hasFinal = !!txRef.current.trim();
