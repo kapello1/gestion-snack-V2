@@ -6,7 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 // ── Constantes ────────────────────────────────────────────────────────────────
 const S = { LISTENING: 'listening', PROCESSING: 'processing', SPEAKING: 'speaking' };
 const LANG_MAP = { fr: 'fr-FR', nl: 'nl-NL', de: 'de-DE' };
-const VOICE_ID    = 'pNInz6obpgDQGcFmaJgB'; // ElevenLabs — Adam
+const VOICE_ID    = 'pNInz6obpgDQGcFmaJgB'; // ElevenLabs - Adam
 const EL_MODEL    = 'eleven_turbo_v2_5';    // modèle rapide (~2x plus vite que multilingual_v2)
 const EL_LATENCY  = 4;                      // optimize_streaming_latency (0-4, 4 = minimum latency)
 
@@ -53,13 +53,14 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
   const recRef       = useRef(null);  // SpeechRecognition
   const audioRef     = useRef(null);  // <Audio> ElevenLabs en cours
-  const ttsIdRef     = useRef(0);     // session TTS — incrémenté à chaque cancel/start
+  const ttsIdRef     = useRef(0);     // session TTS - incrémenté à chaque cancel/start
 
   const silTimerRef  = useRef(null);  // timer silence → sendToBot
   const rstTimerRef  = useRef(null);  // timer relance reconnaissance
   const echoTimerRef = useRef(null);  // timer fin de garde anti-écho
   const echoRef      = useRef(false); // true = ignorer onresult
   const safetyRef    = useRef(null);  // timer sécurité anti-blocage
+  const abortCtrlRef = useRef(null);  // AbortController — annule les fetches ElevenLabs en vol
 
   const orbRef  = useRef(null);
   const r1Ref   = useRef(null);
@@ -122,6 +123,8 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   // ── Annuler tout TTS en cours ─────────────────────────────────────────────
   const cancelTTS = () => {
     ttsIdRef.current += 1;
+    abortCtrlRef.current?.abort();
+    abortCtrlRef.current = null;
     if (audioRef.current) {
       try { audioRef.current.pause(); } catch {}
       audioRef.current = null;
@@ -168,9 +171,9 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     next();
   };
 
-  // ── TTS principal : ElevenLabs → Audio HTML, fallback → speechSynthesis ──
+  // ── TTS principal : ElevenLabs streaming → Audio HTML, fallback → speechSynthesis ──
   //
-  // Appeler sans await — le callback onEnd signale la fin.
+  // Appeler sans await - le callback onEnd signale la fin.
   // L'état SPEAKING doit être setté AVANT d'appeler speakText.
   //
   const speakText = async (text, onEnd) => {
@@ -184,35 +187,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       speakSynth(text, myId, onEnd);
     };
 
-    const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
-    if (!apiKey) { fallback(); return; }
-
-    try {
-      const res = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
-        {
-          method: 'POST',
-          headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text,
-            model_id: EL_MODEL,
-            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-            optimize_streaming_latency: EL_LATENCY,
-          }),
-        }
-      );
-
-      if (ttsIdRef.current !== myId || !mountedRef.current) return;
-
-      if (!res.ok) {
-        console.warn(`ElevenLabs ${res.status} → fallback`);
-        fallback();
-        return;
-      }
-
-      const blob = await res.blob();
-      if (ttsIdRef.current !== myId || !mountedRef.current) return;
-
+    const playBlob = async (blob) => {
       const url   = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
@@ -237,16 +212,62 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       try {
         await audio.play();
       } catch (playErr) {
-        // autoplay bloqué ou autre erreur → fallback
         console.warn('Audio.play():', playErr.name, '→ fallback');
         URL.revokeObjectURL(url);
         if (audioRef.current === audio) audioRef.current = null;
         if (ttsIdRef.current !== myId || !mountedRef.current) return;
         fallback();
       }
-    } catch (fetchErr) {
+    };
+
+    const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+    if (!apiKey) { fallback(); return; }
+
+    // AbortController : annule le fetch dès que cancelTTS() est appelé
+    const ctrl = new AbortController();
+    abortCtrlRef.current = ctrl;
+
+    try {
+      const res = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`,
+        {
+          method: 'POST',
+          headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text,
+            model_id: EL_MODEL,
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+            optimize_streaming_latency: EL_LATENCY,
+          }),
+          signal: ctrl.signal,
+        }
+      );
+
       if (ttsIdRef.current !== myId || !mountedRef.current) return;
-      console.warn('ElevenLabs fetch:', fetchErr.message, '→ fallback');
+
+      if (!res.ok) {
+        console.warn(`ElevenLabs ${res.status} → fallback`);
+        fallback();
+        return;
+      }
+
+      // Lire le stream chunk par chunk (permet l'annulation immédiate en cours de transfert)
+      const reader = res.body.getReader();
+      const chunks = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (ttsIdRef.current !== myId || !mountedRef.current) { reader.cancel(); return; }
+        if (done) break;
+        chunks.push(value);
+      }
+
+      await playBlob(new Blob(chunks, { type: 'audio/mpeg' }));
+
+    } catch (err) {
+      if (err.name === 'AbortError') return; // annulé intentionnellement par cancelTTS
+      if (ttsIdRef.current !== myId || !mountedRef.current) return;
+      console.warn('ElevenLabs fetch:', err.message, '→ fallback');
       fallback();
     }
   };
@@ -294,9 +315,13 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
     const userMsg = { id: Date.now(), text, sender: 'user', timestamp: new Date() };
 
+    // Limiter l'historique aux 6 derniers messages (3 échanges) pour rester
+    // sous la limite de tokens du plan gratuit Groq (6000 TPM).
+    const recentHistory = histRef.current.slice(-6);
+
     try {
       const botText = await sendChatMessage(
-        [...histRef.current, userMsg],
+        [...recentHistory, userMsg],
         prodsRef.current,
         true // voiceMode : pas d'emoji, pas de markdown
       );
@@ -368,18 +393,18 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       }
       if (mountedRef.current) setTranscript((txRef.current + interim).trim());
 
-      // Démarrer le timer dès qu'une parole est détectée (finale OU intermédiaire).
-      // Sur iOS, les résultats finaux peuvent arriver tard — on ne bloque pas sur eux.
-      const anyText = txRef.current.trim() || interim.trim();
+      // Timer silence : 250 ms après un résultat final confirmé, 600 ms si seulement intérimaire.
+      const hasFinal = !!txRef.current.trim();
+      const anyText  = hasFinal || !!interim.trim();
       if (anyText) {
+        const delay = hasFinal ? 250 : 600;
         silTimerRef.current = setTimeout(() => {
           if (!mountedRef.current || vsRef.current !== S.LISTENING) return;
-          // Si pas de résultat final encore, utiliser l'intérimaire comme texte
           if (!txRef.current.trim() && interim.trim()) {
             txRef.current = interim.trim() + ' ';
           }
           sendRef.current?.();
-        }, 1200);
+        }, delay);
       }
     };
 
@@ -399,7 +424,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       }
     };
 
-    // Relancer UNIQUEMENT en état LISTENING — jamais pendant SPEAKING/PROCESSING
+    // Relancer UNIQUEMENT en état LISTENING - jamais pendant SPEAKING/PROCESSING
     rec.onend = () => {
       if (!mountedRef.current) return;
       if (vsRef.current === S.LISTENING) {
@@ -416,7 +441,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     if (recRef.current) recRef.current.lang = LANG_MAP[language] || 'fr-FR';
   }, [language]);
 
-  // ── handleStart — DOIT ÊTRE SYNCHRONE (iOS Safari) ───────────────────────
+  // ── handleStart - DOIT ÊTRE SYNCHRONE (iOS Safari) ───────────────────────
   //
   // iOS exige que speechSynthesis.speak() et SpeechRecognition.start() soient
   // appelés dans le même gestionnaire de clic (pas après un await).
