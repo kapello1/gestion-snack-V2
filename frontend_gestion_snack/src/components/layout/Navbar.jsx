@@ -136,7 +136,7 @@ const Navbar = () => {
             {/* Notifications */}
             <NotificationBell />
 
-            {/* Langue — flag + code court */}
+            {/* Langue - flag + code court */}
             <div className="relative" ref={langRef}>
               <button
                 onClick={() => setIsLangOpen(!isLangOpen)}
@@ -167,7 +167,7 @@ const Navbar = () => {
               )}
             </div>
 
-            {/* Utilisateur — nom seulement */}
+            {/* Utilisateur - nom seulement */}
             <span className="hidden lg:block text-xs font-semibold text-blue-100 max-w-[100px] truncate">
               {user.username}
             </span>

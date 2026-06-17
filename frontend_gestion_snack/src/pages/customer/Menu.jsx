@@ -634,7 +634,7 @@ const MenuPage = () => {
                 className="flex-1 flex items-center justify-center gap-3 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-100 transition-all active:scale-95 disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none"
               >
                 <ShoppingCart className="h-5 w-5" />
-                <span>{selectedProduct.quantityAvailable <= 0 ? t('menu.unavailable') : `${t('menu.addToCart')} — ${totalModalPrice.toFixed(2)} €`}</span>
+                <span>{selectedProduct.quantityAvailable <= 0 ? t('menu.unavailable') : `${t('menu.addToCart')} - ${totalModalPrice.toFixed(2)} €`}</span>
               </button>
               <button
                 type="button"

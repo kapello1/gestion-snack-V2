@@ -18,7 +18,7 @@ const Layout = ({ children }) => {
       <Footer />
       <Chatbot />
 
-      {/* Toast custom WebSocket — centré, jamais coupé sur mobile */}
+      {/* Toast custom WebSocket - centré, jamais coupé sur mobile */}
       {notifToast && (
         <div className="fixed top-4 left-4 right-4 z-[9999] bg-white rounded-xl shadow-2xl p-4 border-l-4 border-blue-500 flex items-start gap-3 mx-auto max-w-sm">
           <span className="text-2xl flex-shrink-0">{notifToast.emoji}</span>

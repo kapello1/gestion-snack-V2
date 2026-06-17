@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ══════════════════════════════════════════════════════════
-   AUTH — ANIMATIONS
+   AUTH - ANIMATIONS
 ══════════════════════════════════════════════════════════ */
 
 /* 1 · Background gradient shift */
@@ -144,7 +144,7 @@
 .input-inner:focus-within { background: #ffffff; }
 
 /* ══════════════════════════════════════════════════════════
-   PERFORMANCE — GPU compositing forcé
+   PERFORMANCE - GPU compositing forcé
 ══════════════════════════════════════════════════════════ */
 .animate-blob1, .animate-blob2, .animate-blob3,
 .animate-float, .animate-float-slow,
@@ -156,7 +156,7 @@
 }
 
 /* ══════════════════════════════════════════════════════════
-   MOBILE — animations simplifiées (< 1024px)
+   MOBILE - animations simplifiées (< 1024px)
 ══════════════════════════════════════════════════════════ */
 @media (max-width: 1023px) {
   /* Blobs : morphing supprimé → simple flottement léger */

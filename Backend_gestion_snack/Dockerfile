@@ -1,5 +1,5 @@
 # =============================================================
-#  Dockerfile — Backend Gestion Snack (Spring Boot 3.5 / Java 17)
+#  Dockerfile - Backend Gestion Snack (Spring Boot 3.5 / Java 17)
 #  Build multi-stage : Maven build → JRE runtime allégé
 # =============================================================
 
@@ -20,7 +20,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests -B --no-transfer-progress
 
 # ─────────────────────────────────────────────────────────────
-# Stage 2 : Image de production (JRE uniquement — image légère)
+# Stage 2 : Image de production (JRE uniquement - image légère)
 # ─────────────────────────────────────────────────────────────
 FROM eclipse-temurin:17-jre-alpine
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * usePolling — Circuit-breaker polling silencieux.
+ * usePolling - Circuit-breaker polling silencieux.
  *
  * Comportement normal  : appel toutes les `interval` ms.
  * Quand le backend est down (3 erreurs consécutives) : ralentit à 30s.

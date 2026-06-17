@@ -20,7 +20,7 @@ class EmailSmtpTest {
 
         org.junit.jupiter.api.Assumptions.assumeTrue(
                 username != null && !username.isBlank(),
-                "MAIL_USERNAME non defini — test ignore");
+                "MAIL_USERNAME non defini - test ignore");
 
         if (to == null || to.isBlank()) to = "tiegnigamobernardjoel@gmail.com";
 
@@ -48,7 +48,7 @@ class EmailSmtpTest {
         Message message = new MimeMessage(session);
         message.setFrom(new InternetAddress(username, "Snack App"));
         message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
-        message.setSubject("Test SMTP — Snack App");
+        message.setSubject("Test SMTP - Snack App");
         message.setContent(
                 "<div style='font-family:Arial,sans-serif;padding:20px'>"
                 + "<h2 style='color:#2563eb'>Test SMTP reussi</h2>"

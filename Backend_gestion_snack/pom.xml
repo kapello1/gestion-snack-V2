@@ -85,23 +85,23 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
-        <!-- Cloudinary — stockage cloud des images -->
+        <!-- Cloudinary - stockage cloud des images -->
         <dependency>
             <groupId>com.cloudinary</groupId>
             <artifactId>cloudinary-http44</artifactId>
             <version>1.39.0</version>
         </dependency>
-        <!-- WebSocket STOMP — temps réel inter-profils -->
+        <!-- WebSocket STOMP - temps réel inter-profils -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
-        <!-- Email — envoi des liens de vérification et réinitialisation -->
+        <!-- Email - envoi des liens de vérification et réinitialisation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
-        <!-- Stripe — paiements en ligne (test + live) -->
+        <!-- Stripe - paiements en ligne (test + live) -->
         <dependency>
             <groupId>com.stripe</groupId>
             <artifactId>stripe-java</artifactId>

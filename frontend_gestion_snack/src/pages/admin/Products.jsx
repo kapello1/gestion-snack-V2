@@ -594,7 +594,7 @@ const ProductsPage = () => {
                   </div>
                 </div>
 
-                {/* ── Section extras — uniquement pour les plats FOOD ─────────────── */}
+                {/* ── Section extras - uniquement pour les plats FOOD ─────────────── */}
                 {formData.productType === PRODUCT_TYPE.FOOD && (
                   <div className="space-y-3">
                     {/* Checkboxes needsSauce / needsViande */}
@@ -812,7 +812,7 @@ const ProductsPage = () => {
           </div>
         )}
 
-        {/* ── Modal Extra (sauce / viande) — z-[60] pour passer au-dessus du modal produit ── */}
+        {/* ── Modal Extra (sauce / viande) - z-[60] pour passer au-dessus du modal produit ── */}
         {showExtraModal && editingExtra && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden">

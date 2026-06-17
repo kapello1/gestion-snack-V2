@@ -57,7 +57,7 @@ const ProductCard = ({
         </div>
       )}
 
-      {/* Bouton "+" — angle supérieur DROIT — déclenche le modal détails */}
+      {/* Bouton "+" - angle supérieur DROIT - déclenche le modal détails */}
       {!isOutOfStock && onProductClick && (
         <div className="absolute top-2 right-2 z-20">
           <span className="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-60 animate-ping" />

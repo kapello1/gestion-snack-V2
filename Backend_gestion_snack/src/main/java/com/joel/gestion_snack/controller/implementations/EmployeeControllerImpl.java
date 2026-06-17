@@ -65,7 +65,7 @@ public class EmployeeControllerImpl {
     }
 
     @PatchMapping("/{id}/deactivate")
-    @Operation(summary = "Désactiver un employé (soft delete — bloque la connexion)")
+    @Operation(summary = "Désactiver un employé (soft delete - bloque la connexion)")
     public ResponseEntity<EmployeeDTO> deactivateEmployee(@PathVariable Long id) {
         log.info("Requête PATCH pour désactiver l'employé avec l'ID: {}", id);
         return ResponseEntity.ok(employeeService.toggleActiveStatus(id, false));

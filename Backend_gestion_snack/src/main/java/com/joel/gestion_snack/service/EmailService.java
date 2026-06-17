@@ -32,9 +32,9 @@ public class EmailService {
     @PostConstruct
     private void logMailConfigStatus() {
         if (brevoApiKey != null && !brevoApiKey.isBlank()) {
-            log.info("=== Email via Brevo API — from='{}' | frontend='{}' ===", brevoFromEmail, frontendUrl);
+            log.info("=== Email via Brevo API - from='{}' | frontend='{}' ===", brevoFromEmail, frontendUrl);
         } else {
-            log.warn("=== EMAIL NON CONFIGURÉ — définissez BREVO_API_KEY dans les variables d'environnement ===");
+            log.warn("=== EMAIL NON CONFIGURÉ - définissez BREVO_API_KEY dans les variables d'environnement ===");
         }
     }
 
@@ -48,25 +48,25 @@ public class EmailService {
 
     public boolean sendVerificationEmail(String toEmail, String token, String firstName) {
         if (!isConfigured()) {
-            log.warn("Brevo non configuré — vérification non envoyée à {}", toEmail);
+            log.warn("Brevo non configuré - vérification non envoyée à {}", toEmail);
             return false;
         }
         String link = frontendUrl + "/verify-email?token=" + token;
-        return sendHtml(toEmail, "Confirmez votre compte — Snack", buildVerificationBody(firstName, link));
+        return sendHtml(toEmail, "Confirmez votre compte - Snack", buildVerificationBody(firstName, link));
     }
 
     public boolean sendPasswordResetEmail(String toEmail, String token, String firstName) {
         if (!isConfigured()) {
-            log.warn("Brevo non configuré — réinitialisation non envoyée à {}", toEmail);
+            log.warn("Brevo non configuré - réinitialisation non envoyée à {}", toEmail);
             return false;
         }
         String link = frontendUrl + "/reset-password?token=" + token;
-        return sendHtml(toEmail, "Réinitialisation de votre mot de passe — Snack", buildResetBody(firstName, link));
+        return sendHtml(toEmail, "Réinitialisation de votre mot de passe - Snack", buildResetBody(firstName, link));
     }
 
     public boolean sendTestEmail(String toEmail) {
         if (!isConfigured()) {
-            log.warn("Brevo non configuré — test impossible");
+            log.warn("Brevo non configuré - test impossible");
             return false;
         }
         String body = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px'>"
@@ -76,7 +76,7 @@ public class EmailService {
                 + "<p><strong>Provider :</strong> Brevo API</p>"
                 + "<p style='color:#6b7280;font-size:12px'>Envoyé depuis : " + brevoFromEmail + "</p>"
                 + "</div>";
-        return sendHtml(toEmail, "Test de configuration email — Snack", body);
+        return sendHtml(toEmail, "Test de configuration email - Snack", body);
     }
 
     private boolean sendHtml(String to, String subject, String htmlBody) {
@@ -103,12 +103,12 @@ public class EmailService {
                     .bodyToMono(String.class)
                     .block();
 
-            log.info("Email envoyé via Brevo à {} — réponse: {}", to, response);
+            log.info("Email envoyé via Brevo à {} - réponse: {}", to, response);
             return true;
         } catch (Exception e) {
             Throwable root = e;
             while (root.getCause() != null && root.getCause() != root) root = root.getCause();
-            log.error("Échec envoi Brevo à {} — [{}] {} | cause: [{}] {}",
+            log.error("Échec envoi Brevo à {} - [{}] {} | cause: [{}] {}",
                     to, e.getClass().getSimpleName(), e.getMessage(),
                     root.getClass().getSimpleName(), root.getMessage());
             return false;
@@ -125,7 +125,7 @@ public class EmailService {
             String reservationTime,
             String tableNumber) {
         if (!isConfigured()) {
-            log.warn("Brevo non configuré — confirmation de réservation non envoyée à {}", toEmail);
+            log.warn("Brevo non configuré - confirmation de réservation non envoyée à {}", toEmail);
             return false;
         }
         String body = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px'>"
@@ -160,9 +160,9 @@ public class EmailService {
                 + "color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px'>"
                 + "Voir le site</a></div>"
                 + "<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0'>"
-                + "<p style='color:#9ca3af;font-size:12px'>Snack — cet email est automatique, merci de ne pas y répondre.</p>"
+                + "<p style='color:#9ca3af;font-size:12px'>Snack - cet email est automatique, merci de ne pas y répondre.</p>"
                 + "</div>";
-        return sendHtml(toEmail, "Confirmation de votre réservation — Snack", body);
+        return sendHtml(toEmail, "Confirmation de votre réservation - Snack", body);
     }
 
     private String buildVerificationBody(String firstName, String link) {

@@ -244,7 +244,7 @@ const ReservationsPage = () => {
                     <span className="text-sm font-medium text-gray-900">
                       {reservation.datetimeFrom
                         ? new Date(reservation.datetimeFrom).toLocaleDateString('fr-FR')
-                        : '—'}
+                        : '-'}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -255,13 +255,13 @@ const ReservationsPage = () => {
                             hour: '2-digit',
                             minute: '2-digit',
                           })
-                        : '—'}
+                        : '-'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Nombre de personnes:</span>
                     <span className="text-sm font-medium text-gray-900">
-                      {reservation.places ?? '—'}
+                      {reservation.places ?? '-'}
                     </span>
                   </div>
                 </div>

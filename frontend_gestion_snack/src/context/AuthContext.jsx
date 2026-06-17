@@ -121,7 +121,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   /**
-   * Réinitialisation du mot de passe — désormais gérée via la page ForgotPassword (email + token)
+   * Réinitialisation du mot de passe - désormais gérée via la page ForgotPassword (email + token)
    * Cette méthode reste pour compatibilité mais n'est plus utilisée directement
    */
   const resetPassword = async () => {

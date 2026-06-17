@@ -22,7 +22,7 @@ public class StripeService {
             Stripe.apiKey = secretKey;
             log.info("Stripe configuré (mode: {})", secretKey.startsWith("sk_live_") ? "LIVE" : "TEST");
         } else {
-            log.warn("Stripe non configuré — définissez STRIPE_SECRET_KEY dans votre .env");
+            log.warn("Stripe non configuré - définissez STRIPE_SECRET_KEY dans votre .env");
         }
     }
 

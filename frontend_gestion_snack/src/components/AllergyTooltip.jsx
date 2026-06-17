@@ -1,4 +1,4 @@
-// Composant AllergyTooltip — Icône info avec tooltip d'allergies
+// Composant AllergyTooltip - Icône info avec tooltip d'allergies
 import { useState, useRef, useEffect } from 'react';
 import { Info, AlertTriangle } from 'lucide-react';
 

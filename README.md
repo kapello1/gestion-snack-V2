@@ -1,4 +1,4 @@
-# Gestion Snack — Application de Gestion de Restauration Rapide
+# Gestion Snack - Application de Gestion de Restauration Rapide
 
 > Application full-stack de gestion d'un snack : commandes, réservations, employés, fournisseurs, caisse, chatbot intégré et tableaux de bord par rôle.
 
@@ -16,16 +16,16 @@
   - [Backend Spring Boot](#backend-spring-boot)
   - [Frontend React](#frontend-react)
 - [Déploiement en production](#déploiement-en-production)
-  - [1. Base de données — Neon.tech](#1-base-de-données--neontech)
-  - [2. Backend — Render](#2-backend--render)
-  - [3. Frontend — Vercel](#3-frontend--vercel)
+  - [1. Base de données - Neon.tech](#1-base-de-données--neontech)
+  - [2. Backend - Render](#2-backend--render)
+  - [3. Frontend - Vercel](#3-frontend--vercel)
 - [Variables d'environnement](#variables-denvironnement)
   - [Backend (Render)](#backend-render)
   - [Frontend (Vercel)](#frontend-vercel)
 - [Structure du projet](#structure-du-projet)
-- [API REST — Endpoints principaux](#api-rest--endpoints-principaux)
+- [API REST - Endpoints principaux](#api-rest--endpoints-principaux)
 - [Rôles et accès](#rôles-et-accès)
-- [Base de données — Schéma](#base-de-données--schéma)
+- [Base de données - Schéma](#base-de-données--schéma)
 - [Auteur](#auteur)
 
 ---
@@ -69,14 +69,14 @@ Un **chatbot** basé sur l'API Groq est intégré pour assister les clients et l
 | Build tool   | Vite                                     | 7.x      |
 | HTTP Client  | Axios                                    | 1.x      |
 | PDF          | jsPDF + jsPDF-AutoTable                  | 3.x / 5.x|
-| Chatbot      | Groq API                                 | —        |
+| Chatbot      | Groq API                                 | -        |
 | Backend      | Spring Boot                              | 3.5.7    |
 | Langage      | Java                                     | 17       |
-| ORM          | Spring Data JPA / Hibernate              | —        |
+| ORM          | Spring Data JPA / Hibernate              | -        |
 | Base données | PostgreSQL (Neon.tech)                   | 16.x     |
-| Sécurité     | Spring Security Crypto (BCrypt)          | —        |
+| Sécurité     | Spring Security Crypto (BCrypt)          | -        |
 | Doc API      | SpringDoc OpenAPI (Swagger UI)           | 2.8.9    |
-| Hébergement  | Vercel (frontend) + Render (backend)     | —        |
+| Hébergement  | Vercel (frontend) + Render (backend)     | -        |
 
 ---
 
@@ -106,10 +106,10 @@ Un **chatbot** basé sur l'API Groq est intégré pour assister les clients et l
 ## Prérequis
 
 ### Développement local
-- **Java 17+** — [Télécharger](https://adoptium.net/)
-- **Maven 3.9+** — inclus via `mvnw`
-- **Node.js 20+** et **npm** — [Télécharger](https://nodejs.org/)
-- **PostgreSQL 14+** — base de données locale
+- **Java 17+** - [Télécharger](https://adoptium.net/)
+- **Maven 3.9+** - inclus via `mvnw`
+- **Node.js 20+** et **npm** - [Télécharger](https://nodejs.org/)
+- **PostgreSQL 14+** - base de données locale
 
 ### Déploiement
 - Compte [Vercel](https://vercel.com) (gratuit)
@@ -195,7 +195,7 @@ Un **chatbot** basé sur l'API Groq est intégré pour assister les clients et l
 
 ## Déploiement en production
 
-### 1. Base de données — Neon.tech
+### 1. Base de données - Neon.tech
 
 La base de données est hébergée sur **Neon.tech** (PostgreSQL serverless).
 
@@ -205,7 +205,7 @@ La base de données est hébergée sur **Neon.tech** (PostgreSQL serverless).
 2. Ouvrir l'**SQL Editor** de votre projet
 3. Copier-coller et exécuter le contenu du fichier **`snack_db_postgres.sql`** (à la racine du projet)
 
-> Le script est idempotent (`CREATE ... IF NOT EXISTS`, `DROP ... IF EXISTS`) — il peut être exécuté plusieurs fois sans risque.
+> Le script est idempotent (`CREATE ... IF NOT EXISTS`, `DROP ... IF EXISTS`) - il peut être exécuté plusieurs fois sans risque.
 
 #### Chaîne de connexion Neon.tech
 
@@ -224,16 +224,16 @@ jdbc:postgresql://ep-ancient-star-alrwjzz0-pooler.c-3.eu-central-1.aws.neon.tech
 
 ---
 
-### 2. Backend — Render
+### 2. Backend - Render
 
-#### Étape 1 — Connecter le dépôt GitHub
+#### Étape 1 - Connecter le dépôt GitHub
 
 1. Aller sur [dashboard.render.com](https://dashboard.render.com)
 2. Cliquer **"New" → "Web Service"**
 3. Connecter votre dépôt GitHub
 4. Sélectionner le dépôt `gestion-snack`
 
-#### Étape 2 — Configurer le service
+#### Étape 2 - Configurer le service
 
 | Paramètre          | Valeur                                              |
 |--------------------|-----------------------------------------------------|
@@ -244,7 +244,7 @@ jdbc:postgresql://ep-ancient-star-alrwjzz0-pooler.c-3.eu-central-1.aws.neon.tech
 | **Start Command**  | `java -jar target/gestion_snack-0.0.1-SNAPSHOT.jar` |
 | **Plan**           | `Free`                                              |
 
-#### Étape 3 — Variables d'environnement
+#### Étape 3 - Variables d'environnement
 
 Dans l'onglet **"Environment"** du service Render, ajouter :
 
@@ -258,7 +258,7 @@ Dans l'onglet **"Environment"** du service Render, ajouter :
 
 > **Important** : Le plan Free de Render met le service en veille après 15 minutes d'inactivité. Le premier appel peut prendre ~30–60 secondes (cold start).
 
-#### Étape 4 — Déployer
+#### Étape 4 - Déployer
 
 Cliquer **"Create Web Service"**. Render build et démarre automatiquement.
 
@@ -266,9 +266,9 @@ L'URL du backend sera de la forme : `https://gestion-snack-backend.onrender.com`
 
 ---
 
-### 3. Frontend — Vercel
+### 3. Frontend - Vercel
 
-#### Étape 1 — Importer le projet
+#### Étape 1 - Importer le projet
 
 1. Aller sur [vercel.com/new](https://vercel.com/new)
 2. Importer le dépôt GitHub `gestion-snack`
@@ -282,7 +282,7 @@ L'URL du backend sera de la forme : `https://gestion-snack-backend.onrender.com`
 | **Output Directory**    | `dist`                    |
 | **Install Command**     | `npm install`             |
 
-#### Étape 2 — Variables d'environnement
+#### Étape 2 - Variables d'environnement
 
 Dans **"Environment Variables"** de Vercel, ajouter :
 
@@ -291,11 +291,11 @@ Dans **"Environment Variables"** de Vercel, ajouter :
 | `VITE_API_BASE_URL`  | `https://gestion-snack-backend.onrender.com/api`           |
 | `VITE_GROQ_API_KEY`  | Votre clé API Groq                                         |
 
-#### Étape 3 — Déployer
+#### Étape 3 - Déployer
 
 Cliquer **"Deploy"**. L'URL sera de la forme : `https://gestion-snack.vercel.app`
 
-#### Étape 4 — Mettre à jour CORS sur Render
+#### Étape 4 - Mettre à jour CORS sur Render
 
 Revenir sur Render et mettre à jour la variable `ALLOWED_ORIGINS` avec l'URL Vercel obtenue :
 ```
@@ -378,7 +378,7 @@ gestion-snack/
 
 ---
 
-## API REST — Endpoints principaux
+## API REST - Endpoints principaux
 
 La documentation complète est disponible sur **Swagger UI** : `http://localhost:8080/swagger-ui.html` (local) ou `https://gestion-snack-backend.onrender.com/swagger-ui.html` (production).
 
@@ -415,7 +415,7 @@ La documentation complète est disponible sur **Swagger UI** : `http://localhost
 
 ---
 
-## Base de données — Schéma
+## Base de données - Schéma
 
 Le schéma est défini dans [`snack_db_postgres.sql`](snack_db_postgres.sql) à la racine du projet.
 
@@ -452,7 +452,7 @@ Le schéma est défini dans [`snack_db_postgres.sql`](snack_db_postgres.sql) à 
 ## Auteur
 
 **Tiegni Bernard Joël**
-Étudiant TFE — Développement Full-Stack
+Étudiant TFE - Développement Full-Stack
 [tiegnigamobernardjoel@gmail.com](mailto:tiegnigamobernardjoel@gmail.com)
 
 ---

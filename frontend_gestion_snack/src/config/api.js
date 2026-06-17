@@ -148,7 +148,7 @@ export const API_ENDPOINTS = {
     BROADCAST: '/messages/broadcast',
     MARK_READ: (id) => `/messages/${id}/read`,
   },
-  // Stripe — paiements en ligne
+  // Stripe - paiements en ligne
   STRIPE: {
     CREATE_PAYMENT_INTENT: '/stripe/create-payment-intent',
     CONFIRM_ORDER: '/stripe/confirm-order',

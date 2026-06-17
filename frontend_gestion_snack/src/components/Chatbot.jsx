@@ -376,7 +376,7 @@ const Chatbot = () => {
                       )}
                     </div>
 
-                    {/* Bouton supprimer — visible au survol, jamais sur le message de bienvenue */}
+                    {/* Bouton supprimer - visible au survol, jamais sur le message de bienvenue */}
                     {msg.id !== 'welcome' && msg.sender !== 'error' && (
                       <button
                         onClick={() => deleteMessage(msg.id)}

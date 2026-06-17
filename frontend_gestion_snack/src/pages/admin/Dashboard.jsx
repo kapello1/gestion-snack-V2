@@ -479,7 +479,7 @@ const AdminDashboard = () => {
         {/* Analytics Row: Donut + Reservations + Top Products */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Commandes par statut — Donut */}
+          {/* Commandes par statut - Donut */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
               <BarChart2 className="h-5 w-5 text-blue-500" />
@@ -516,7 +516,7 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Réservations — Radial bars */}
+          {/* Réservations - Radial bars */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
               <Calendar className="h-5 w-5 text-purple-500" />

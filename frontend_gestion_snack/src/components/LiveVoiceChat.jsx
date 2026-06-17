@@ -19,7 +19,7 @@ const IS_MOBILE = IS_IOS || /android/i.test(navigator.userAgent);
 const USE_CONTINUOUS = !(IS_IOS || IS_SAFARI);
 
 // Garde anti-écho : bloque les résultats du micro juste après le TTS
-const ECHO_GUARD_MS  = IS_MOBILE ? 700 : 300;
+const ECHO_GUARD_MS  = IS_MOBILE ? 700 : 500;
 // Délai avant de rouvrir le micro (laisse l'audio se dissiper)
 const POST_TTS_MS    = IS_MOBILE ? 150 : 50;
 
@@ -229,7 +229,8 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
     try {
       const res = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`,
+        `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`
+          + `?optimize_streaming_latency=${EL_LATENCY}&output_format=mp3_44100_128`,
         {
           method: 'POST',
           headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
@@ -237,7 +238,6 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
             text,
             model_id: EL_MODEL,
             voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-            optimize_streaming_latency: EL_LATENCY,
           }),
           signal: ctrl.signal,
         }
@@ -393,11 +393,11 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       }
       if (mountedRef.current) setTranscript((txRef.current + interim).trim());
 
-      // Timer silence : 250 ms après un résultat final confirmé, 600 ms si seulement intérimaire.
+      // Timer silence : 350 ms après un résultat final confirmé, 700 ms si seulement intérimaire.
       const hasFinal = !!txRef.current.trim();
       const anyText  = hasFinal || !!interim.trim();
       if (anyText) {
-        const delay = hasFinal ? 250 : 600;
+        const delay = hasFinal ? 350 : 700;
         silTimerRef.current = setTimeout(() => {
           if (!mountedRef.current || vsRef.current !== S.LISTENING) return;
           if (!txRef.current.trim() && interim.trim()) {

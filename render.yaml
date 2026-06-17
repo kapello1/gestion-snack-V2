@@ -24,6 +24,6 @@ services:
       - key: FRONTEND_URL
         sync: false   # URL du frontend utilisée dans les liens des emails (vérification / réinitialisation)
       - key: RESEND_API_KEY
-        sync: false   # API key Resend (compte gratuit sur https://resend.com — remplace Gmail SMTP)
+        sync: false   # API key Resend (compte gratuit sur https://resend.com - remplace Gmail SMTP)
       - key: RESEND_FROM
         sync: false   # ex: Snack <noreply@votre-domaine.com>  (optionnel, défaut = onboarding@resend.dev)

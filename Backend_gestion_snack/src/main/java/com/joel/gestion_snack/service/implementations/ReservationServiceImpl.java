@@ -111,7 +111,7 @@ public class ReservationServiceImpl implements IReservationService {
                 log.warn("Échec envoi email confirmation réservation ID={} : {}", reservation.getReservationId(), e.getMessage());
             }
         } else {
-            log.info("Email non configuré ou absent — confirmation non envoyée pour réservation ID={}", reservation.getReservationId());
+            log.info("Email non configuré ou absent - confirmation non envoyée pour réservation ID={}", reservation.getReservationId());
         }
 
         wsPublisher.publishReservationEvent("RESERVATION_CREATED", reservation.getReservationId());

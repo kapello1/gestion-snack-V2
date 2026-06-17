@@ -1,4 +1,4 @@
-// Composant OrderStatusBar — Barre de progression visuelle du statut de commande
+// Composant OrderStatusBar - Barre de progression visuelle du statut de commande
 import { CheckCircle2, ChefHat, Truck, XCircle, Clock } from 'lucide-react';
 
 const STEPS = [

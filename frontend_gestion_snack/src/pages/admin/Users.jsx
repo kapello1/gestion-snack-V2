@@ -110,7 +110,7 @@ const UsersPage = () => {
         ? API_ENDPOINTS.USERS.DEACTIVATE(user.userId)
         : API_ENDPOINTS.USERS.ACTIVATE(user.userId);
       await api.patch(endpoint);
-      toast.success(isCurrentlyActive ? 'Compte désactivé — connexion bloquée' : 'Compte réactivé');
+      toast.success(isCurrentlyActive ? 'Compte désactivé - connexion bloquée' : 'Compte réactivé');
       loadUsers();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Erreur lors du changement de statut');

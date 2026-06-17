@@ -40,7 +40,7 @@ const CookOrdersPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterByDate, setFilterByDate] = useState(true);
 
-  // Clé de requête dépendant des filtres — React Query refetch automatiquement
+  // Clé de requête dépendant des filtres - React Query refetch automatiquement
   // quand la clé change, et invalide quand le WebSocket reçoit un événement /topic/orders
   const queryKey = ['orders', 'cook', statusFilter, filterByDate ? selectedDate : null];
 
@@ -59,7 +59,7 @@ const CookOrdersPage = () => {
       }
       return response.data || [];
     },
-    staleTime: Infinity, // Jamais périmé automatiquement — WS invalide le cache
+    staleTime: Infinity, // Jamais périmé automatiquement - WS invalide le cache
   });
 
   // Vue cuisine : ACTIVE (à préparer) + CLOSED (prêtes)

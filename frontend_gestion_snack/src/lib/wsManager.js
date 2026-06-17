@@ -72,7 +72,7 @@ export const wsManager = {
           listeners.forEach(fn => fn({ topic: 'users' }));
         });
 
-        // Notification broadcast — reçue par tous les utilisateurs connectés
+        // Notification broadcast - reçue par tous les utilisateurs connectés
         client.subscribe('/topic/notifications/broadcast', (msg) => {
           try {
             const data = JSON.parse(msg.body);
@@ -80,7 +80,7 @@ export const wsManager = {
           } catch {}
         });
 
-        // Notification personnelle — reçue uniquement par l'utilisateur connecté
+        // Notification personnelle - reçue uniquement par l'utilisateur connecté
         if (userId) {
           client.subscribe(`/topic/notifications/${userId}`, (msg) => {
             try {

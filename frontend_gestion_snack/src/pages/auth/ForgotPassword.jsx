@@ -1,4 +1,4 @@
-// Page de réinitialisation du mot de passe — envoi d'un lien par email
+// Page de réinitialisation du mot de passe - envoi d'un lien par email
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Lock, Mail, ArrowLeft, CheckCircle } from 'lucide-react';

@@ -77,7 +77,7 @@ public class OrderServiceImpl implements IOrderService {
         order.setCreatedBy(requestDTO.getCreatedBy());
         order.setGuestCount(requestDTO.getGuestCount());
 
-        // Associer la table si fournie — lock pessimiste pour éviter les accès concurrents
+        // Associer la table si fournie - lock pessimiste pour éviter les accès concurrents
         if (requestDTO.getTableId() != null) {
             DiningTable table = diningTableRepository.findByIdForUpdate(requestDTO.getTableId())
                     .orElseThrow(() -> {

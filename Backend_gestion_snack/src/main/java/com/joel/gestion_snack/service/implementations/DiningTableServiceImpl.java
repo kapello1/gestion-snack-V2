@@ -159,7 +159,7 @@ public class DiningTableServiceImpl implements IDiningTableService {
             return mapperUtil.toDiningTableDTO(table);
         }
 
-        // Cas : table RESERVED — clôturer la réservation et libérer
+        // Cas : table RESERVED - clôturer la réservation et libérer
         if (table.getStatus() == TableStatusType.RESERVED) {
             List<Reservation> reservations = reservationRepository.findByTable_TableId(id);
             reservations.stream()
@@ -173,11 +173,11 @@ public class DiningTableServiceImpl implements IDiningTableService {
             table.setUpdatedBy("SYSTEM");
             table = diningTableRepository.save(table);
             wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", table.getTableId());
-            log.info("Table {} libérée — réservation(s) clôturée(s)", id);
+            log.info("Table {} libérée - réservation(s) clôturée(s)", id);
             return mapperUtil.toDiningTableDTO(table);
         }
 
-        // Cas : table OCCUPIED — vérifier l'état des commandes
+        // Cas : table OCCUPIED - vérifier l'état des commandes
         List<com.joel.gestion_snack.model.entity.Order> orders =
                 orderRepository.findByTable_TableId(id);
 
@@ -198,7 +198,7 @@ public class DiningTableServiceImpl implements IDiningTableService {
                     + "Veuillez d'abord servir la commande.");
         }
 
-        // Toutes les commandes sont SERVED ou CANCELLED — libération autorisée
+        // Toutes les commandes sont SERVED ou CANCELLED - libération autorisée
         table.setStatus(TableStatusType.FREE);
         table.setUpdatedBy("SYSTEM");
         table = diningTableRepository.save(table);

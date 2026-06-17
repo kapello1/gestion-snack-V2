@@ -110,7 +110,7 @@ const CheckoutPage = () => {
   const validateBeforeSubmit = () => {
     if (cart.length === 0) { toast.warning(t('checkout.empty')); return false; }
     const invalid = cart.filter(item => !item.productId || !item.quantity || item.quantity < 1);
-    if (invalid.length > 0) { toast.error('Panier invalide — veuillez vider le panier et recommencer.'); return false; }
+    if (invalid.length > 0) { toast.error('Panier invalide - veuillez vider le panier et recommencer.'); return false; }
     if (formData.orderType === ORDER_TYPE.ON_SITE && !formData.tableId) {
       toast.error('Veuillez sélectionner une table avant de commander.');
       return false;
@@ -354,7 +354,7 @@ const CheckoutPage = () => {
                       <div className="flex items-center gap-2 px-4 py-3 bg-orange-50 border border-orange-200 rounded-xl">
                         <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0" />
                         <span className="text-sm text-orange-700 font-medium">
-                          Aucune table libre pour le moment — veuillez patienter ou contacter le personnel
+                          Aucune table libre pour le moment - veuillez patienter ou contacter le personnel
                         </span>
                       </div>
                     ) : (
@@ -364,10 +364,10 @@ const CheckoutPage = () => {
                         onChange={e => setFormData(prev => ({ ...prev, tableId: parseInt(e.target.value) || null }))}
                         className="block w-full px-4 py-3 bg-white border-2 border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-semibold text-gray-900"
                       >
-                        <option value="">— Sélectionnez votre table —</option>
+                        <option value="">- Sélectionnez votre table -</option>
                         {[...freeTables].sort((a, b) => a.tableNumber - b.tableNumber).map(tbl => (
                           <option key={tbl.tableId} value={tbl.tableId}>
-                            Table #{tbl.tableNumber} — {tbl.capacity} place{tbl.capacity > 1 ? 's' : ''}
+                            Table #{tbl.tableNumber} - {tbl.capacity} place{tbl.capacity > 1 ? 's' : ''}
                           </option>
                         ))}
                       </select>

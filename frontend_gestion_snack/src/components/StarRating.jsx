@@ -1,4 +1,4 @@
-// Composant StarRating — Étoiles interactives ou lecture seule
+// Composant StarRating - Étoiles interactives ou lecture seule
 import { useState } from 'react';
 import { Star } from 'lucide-react';
 

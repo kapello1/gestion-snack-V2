@@ -34,9 +34,9 @@ public class StripeController {
     @PostMapping("/create-payment-intent")
     public ResponseEntity<?> createPaymentIntent(@RequestBody PaymentIntentRequestDTO request) {
         if (!stripeService.isConfigured()) {
-            log.error("Stripe non configuré — STRIPE_SECRET_KEY absent ou invalide");
+            log.error("Stripe non configuré - STRIPE_SECRET_KEY absent ou invalide");
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("message", "Service de paiement non disponible — contactez l'administrateur"));
+                    .body(Map.of("message", "Service de paiement non disponible - contactez l'administrateur"));
         }
         if (request.getAmountInCents() == null || request.getAmountInCents() <= 0) {
             return ResponseEntity.badRequest()
@@ -69,7 +69,7 @@ public class StripeController {
                     .body(Map.of("message", "Identifiant de paiement manquant"));
         }
         if (!stripeService.isPaymentSucceeded(piId)) {
-            log.warn("PaymentIntent {} non confirmé — commande refusée", piId);
+            log.warn("PaymentIntent {} non confirmé - commande refusée", piId);
             return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED)
                     .body(Map.of("message", "Le paiement n'a pas été confirmé par Stripe. Veuillez réessayer."));
         }

@@ -127,7 +127,7 @@ const EmployeesPage = () => {
                 ? API_ENDPOINTS.EMPLOYEES.DEACTIVATE(emp.employeeId)
                 : API_ENDPOINTS.EMPLOYEES.ACTIVATE(emp.employeeId);
             await api.patch(endpoint);
-            toast.success(isCurrentlyActive ? 'Employé désactivé — connexion bloquée' : 'Employé réactivé');
+            toast.success(isCurrentlyActive ? 'Employé désactivé - connexion bloquée' : 'Employé réactivé');
             loadEmployees();
         } catch (error) {
             toast.error(error.response?.data?.message || `Erreur lors de la ${action === 'désactiver' ? 'désactivation' : 'réactivation'}`);

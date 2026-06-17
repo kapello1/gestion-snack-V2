@@ -87,7 +87,7 @@ const Login = () => {
 
   return (
     <>
-      {/* ════ FOND FIXE — ne bouge jamais (clavier, barre URL) ════ */}
+      {/* ════ FOND FIXE - ne bouge jamais (clavier, barre URL) ════ */}
       <div className="fixed inset-0 overflow-hidden" style={{ zIndex: 0 }}>
 
         {/* Dégradé de base animé */}
@@ -99,7 +99,7 @@ const Login = () => {
           }}
         />
 
-        {/* Blobs — taille réduite sur mobile via max-width conditionnel */}
+        {/* Blobs - taille réduite sur mobile via max-width conditionnel */}
         <div
           className="absolute animate-blob1"
           style={{
@@ -141,7 +141,7 @@ const Login = () => {
           }}
         />
 
-        {/* Rings — cachés sur mobile via CSS */}
+        {/* Rings - cachés sur mobile via CSS */}
         <div
           className="absolute rounded-full border border-white/[0.03] animate-spin-slow"
           style={{ width: 780, height: 780, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
@@ -161,7 +161,7 @@ const Login = () => {
         ))}
       </div>
 
-      {/* ════ CONTENU — scrollable, hauteur safe sur iOS ════ */}
+      {/* ════ CONTENU - scrollable, hauteur safe sur iOS ════ */}
       <div
         className="relative flex items-center justify-center px-4 py-10 sm:py-12"
         style={{ zIndex: 10, minHeight: '100svh' }}

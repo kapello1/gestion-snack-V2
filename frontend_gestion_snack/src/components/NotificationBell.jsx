@@ -260,7 +260,7 @@ const NotificationBell = () => {
                       {TYPE_ICON[notif.type] || '🔔'}
                     </span>
 
-                    {/* Contenu — clic marque comme lu */}
+                    {/* Contenu - clic marque comme lu */}
                     <div
                       className="flex-1 min-w-0 cursor-pointer"
                       onClick={() => markAsRead(notif.id)}
@@ -290,7 +290,7 @@ const NotificationBell = () => {
               )}
             </div>
 
-            {/* Section admin — envoi de notifications */}
+            {/* Section admin - envoi de notifications */}
             {isAdmin && (
               <div className="border-t border-gray-200 bg-gray-50 p-3 flex-shrink-0">
                 {!showForm ? (
@@ -319,7 +319,7 @@ const NotificationBell = () => {
                       className="w-full text-sm text-gray-900 placeholder-gray-400 px-3 py-2 bg-white border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
                     />
 
-                    {/* Sélection du mode d'envoi — 4 options */}
+                    {/* Sélection du mode d'envoi - 4 options */}
                     <div className="grid grid-cols-2 gap-1.5">
                       {[
                         { key: 'broadcast', icon: <Radio    className="h-3.5 w-3.5" />, label: 'Diffusion',         desc: 'Tous les utilisateurs' },

@@ -41,10 +41,10 @@ public class AuthControllerImpl {
         }
         log.info("Requête POST forgot-password pour: {}", email);
         if (!emailService.isConfigured()) {
-            log.warn("Forgot-password appelé mais MAIL_USERNAME n'est pas configuré — aucun email ne sera envoyé");
+            log.warn("Forgot-password appelé mais MAIL_USERNAME n'est pas configuré - aucun email ne sera envoyé");
             return ResponseEntity.ok(Map.of(
                 "message", "Si cet email existe, un lien de réinitialisation a été envoyé.",
-                "warning", "Email non configuré sur le serveur — contactez l'administrateur"
+                "warning", "Email non configuré sur le serveur - contactez l'administrateur"
             ));
         }
         userService.forgotPassword(email);
@@ -75,14 +75,14 @@ public class AuthControllerImpl {
             return ResponseEntity.ok(Map.of(
                 "sent", "false",
                 "fromEmail", "(non configuré)",
-                "message", "Email non configuré — définissez BREVO_API_KEY dans les variables d'environnement Render"
+                "message", "Email non configuré - définissez BREVO_API_KEY dans les variables d'environnement Render"
             ));
         }
         boolean sent = emailService.sendTestEmail(to);
         return ResponseEntity.ok(Map.of(
             "sent", String.valueOf(sent),
             "fromEmail", emailService.getFromEmail(),
-            "message", sent ? "Email envoyé avec succès à " + to : "Échec de l'envoi — consultez les logs du serveur"
+            "message", sent ? "Email envoyé avec succès à " + to : "Échec de l'envoi - consultez les logs du serveur"
         ));
     }
 }

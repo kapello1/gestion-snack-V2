@@ -213,7 +213,7 @@ public class UserServiceImpl implements IUserService {
     @Override
     @Transactional
     public UserDTO updateUser(Long id, UserUpdateRequestDTO requestDTO) {
-        log.info("[UPDATE_USER] Début — userId={} username={} email={} roleId={} ownerId={}",
+        log.info("[UPDATE_USER] Début - userId={} username={} email={} roleId={} ownerId={}",
                 id, requestDTO.getUsername(), requestDTO.getEmail(),
                 requestDTO.getRoleId(), requestDTO.getOwnerId());
 
@@ -254,7 +254,7 @@ public class UserServiceImpl implements IUserService {
         user.setUpdatedBy(requestDTO.getCreatedBy());
 
         user = userRepository.save(user);
-        log.info("[UPDATE_USER] Succès — userId={}", user.getUserId());
+        log.info("[UPDATE_USER] Succès - userId={}", user.getUserId());
         wsPublisher.publishUserEvent("USER_UPDATED", user.getUserId());
         return mapperUtil.toUserDTO(user);
     }
@@ -271,7 +271,7 @@ public class UserServiceImpl implements IUserService {
         if (role == RoleType.CUSTOMER) {
             customerRepository.findById(user.getOwnerId()).ifPresent(customer -> {
                 Long customerId = customer.getCustomerId();
-                // Détacher les commandes — flush immédiat pour satisfaire ON DELETE RESTRICT
+                // Détacher les commandes - flush immédiat pour satisfaire ON DELETE RESTRICT
                 orderRepository.findByCustomer_CustomerId(customerId).forEach(order -> {
                     order.setCustomer(null);
                     orderRepository.save(order);
@@ -372,7 +372,7 @@ public class UserServiceImpl implements IUserService {
         if (sent) {
             log.info("Email de réinitialisation envoyé à: {}", email);
         } else {
-            log.warn("Email de réinitialisation non envoyé à: {} — vérifier MAIL_PASSWORD", email);
+            log.warn("Email de réinitialisation non envoyé à: {} - vérifier MAIL_PASSWORD", email);
         }
     }
 

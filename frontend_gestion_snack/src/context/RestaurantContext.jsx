@@ -50,7 +50,7 @@ const loadFromStorage = () => {
 export const RestaurantProvider = ({ children }) => {
   const [info, setInfo] = useState(loadFromStorage);
 
-  // Reactive open/closed status — updated every second
+  // Reactive open/closed status - updated every second
   const [openNow, setOpenNow] = useState(() => computeIsOpen(info.hours));
 
   // Ref always points to latest info so the interval closure stays fresh
@@ -105,7 +105,7 @@ export const RestaurantProvider = ({ children }) => {
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
   }, []);
 
-  // Kept for backward compatibility — prefer using openNow from context
+  // Kept for backward compatibility - prefer using openNow from context
   const isOpenNow = useCallback(() => computeIsOpen(info.hours), [info.hours]);
 
   return (
