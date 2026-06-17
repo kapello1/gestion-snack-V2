@@ -18,8 +18,8 @@ const IS_MOBILE = IS_IOS || /android/i.test(navigator.userAgent);
 // iOS/Safari : continuous=true instable → false + relance via onend
 const USE_CONTINUOUS = !(IS_IOS || IS_SAFARI);
 
-// Garde anti-écho : bloque les résultats du micro juste après le TTS
-const ECHO_GUARD_MS  = IS_MOBILE ? 700 : 500;
+// Garde anti-écho : délai avant d'ouvrir le micro après le TTS
+const ECHO_GUARD_MS  = IS_MOBILE ? 900 : 800;
 // Délai avant de rouvrir le micro (laisse l'audio se dissiper)
 const POST_TTS_MS    = IS_MOBILE ? 150 : 50;
 
@@ -284,13 +284,21 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   };
 
   // ── Transition propre vers LISTENING ─────────────────────────────────────
+  //
+  // Le micro ne démarre QU'APRÈS ECHO_GUARD_MS : la reconnaissance ne capte
+  // jamais l'écho du TTS car le stream audio n'existe pas encore à ce moment.
+  //
   const goListening = () => {
     clearTimeout(safetyRef.current);
     clearTimeout(silTimerRef.current);
+    clearTimeout(echoTimerRef.current);
     txRef.current = '';
-    activateEcho();
+    echoRef.current = true;
     setVS(S.LISTENING);
-    startRec();
+    echoTimerRef.current = setTimeout(() => {
+      echoRef.current = false;
+      if (mountedRef.current && vsRef.current === S.LISTENING) startRec();
+    }, ECHO_GUARD_MS);
   };
 
   // ── Envoyer la transcription au bot ──────────────────────────────────────
