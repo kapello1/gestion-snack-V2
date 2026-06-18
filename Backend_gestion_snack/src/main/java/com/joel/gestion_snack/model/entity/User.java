@@ -68,5 +68,14 @@ public class User {
 
     @Column(name = "reset_password_token_expiry")
     private LocalDateTime resetPasswordTokenExpiry;
+
+    @Column(name = "two_factor_code", length = 6)
+    private String twoFactorCode;
+
+    @Column(name = "two_factor_code_expiry")
+    private LocalDateTime twoFactorCodeExpiry;
+
+    @Column(name = "two_factor_attempts")
+    private Integer twoFactorAttempts = 0;
 }
 

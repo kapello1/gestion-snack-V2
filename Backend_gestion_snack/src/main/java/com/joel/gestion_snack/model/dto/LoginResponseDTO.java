@@ -19,5 +19,7 @@ public class LoginResponseDTO {
     private Long ownerId;
     private String message;
     private Boolean success;
+    private Boolean requiresTwoFactor;
+    private Long twoFactorUserId;
 }
 

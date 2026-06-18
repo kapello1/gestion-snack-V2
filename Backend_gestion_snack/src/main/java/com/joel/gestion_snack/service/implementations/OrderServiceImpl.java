@@ -10,6 +10,7 @@ import com.joel.gestion_snack.model.entity.*;
 import com.joel.gestion_snack.repository.*;
 import com.joel.gestion_snack.service.interfaces.IOrderService;
 import com.joel.gestion_snack.utils.MapperUtil;
+import com.stripe.exception.StripeException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ public class OrderServiceImpl implements IOrderService {
     private final TransactionRepository transactionRepository;
     private final MapperUtil mapperUtil;
     private final WebSocketEventPublisher wsPublisher;
+    private final StripeService stripeService;
 
     @Override
     @Transactional(readOnly = true)
@@ -401,6 +403,109 @@ public class OrderServiceImpl implements IOrderService {
             wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", order.getTable().getTableId());
         }
         return toOrderDTOWithItems(order);
+    }
+
+    /**
+     * Rembourse intégralement une commande payée par carte via Stripe.
+     *
+     * <p><b>Ordre des opérations (intentionnel et important) :</b></p>
+     * <ol>
+     *   <li>Vérifications métier (commande existe, paiement COMPLETED, non déjà remboursée)</li>
+     *   <li>Appel à l'API Stripe — si Stripe échoue, on s'arrête ici, la BDD reste intacte</li>
+     *   <li>Mise à jour de la transaction en REFUNDED en BDD</li>
+     *   <li>Correction du chiffre d'affaires ({@link #reverseRevenue})</li>
+     *   <li>Publication d'un événement WebSocket pour les interfaces en temps réel</li>
+     * </ol>
+     *
+     * <p>Les commandes payées en espèces (CASH) ou par carte en caisse sans Stripe
+     * n'ont pas de {@code stripePaymentIntentId} et ne peuvent pas être remboursées
+     * par cette méthode — le remboursement doit alors être fait manuellement.</p>
+     *
+     * @param orderId    identifiant de la commande à rembourser
+     * @param refundedBy nom de l'utilisateur ou du système qui déclenche le remboursement
+     * @return DTO de la commande avec la transaction mise à jour
+     * @throws IllegalStateException si le remboursement est impossible pour une raison métier
+     * @throws RuntimeException      si Stripe refuse le remboursement (cause enveloppée)
+     */
+    @Override
+    public OrderDTO refundOrder(Long orderId, String refundedBy) {
+        Order order = findOrderOrThrow(orderId);
+
+        // On cherche uniquement une transaction COMPLETED : une transaction PENDING ou FAILED
+        // ne correspond pas à un paiement réel, donc elle n'est pas remboursable.
+        Transaction transaction = transactionRepository
+                .findFirstByOrder_OrderIdAndStatus(orderId, TransactionStatusType.COMPLETED)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Aucun paiement complété trouvé pour la commande " + orderId));
+
+        // Seuls les paiements Stripe ont un stripePaymentIntentId.
+        // Les paiements CASH ou carte en caisse (sans Stripe) doivent être remboursés manuellement.
+        if (transaction.getStripePaymentIntentId() == null || transaction.getStripePaymentIntentId().isBlank()) {
+            throw new IllegalStateException(
+                    "Cette commande n'a pas été payée par Stripe — remboursement manuel requis");
+        }
+
+        // Idempotence : on refuse de rembourser deux fois la même commande.
+        if (transactionRepository.existsByOrder_OrderIdAndStatus(orderId, TransactionStatusType.REFUNDED)) {
+            throw new IllegalStateException("La commande " + orderId + " a déjà été remboursée");
+        }
+
+        // Stripe attend le montant en centimes entiers (pas de décimales).
+        // Ex. : 15,50 € → 1550 centimes.
+        long amountInCents = transaction.getAmount()
+                .multiply(java.math.BigDecimal.valueOf(100))
+                .longValue();
+
+        // RÈGLE D'OR : Stripe est appelé AVANT toute modification en BDD.
+        // Si Stripe échoue (délai dépassé, fonds insuffisants, etc.), on lance une exception
+        // et la transaction reste COMPLETED — aucune incohérence de données.
+        try {
+            stripeService.createRefund(transaction.getStripePaymentIntentId(), amountInCents);
+        } catch (StripeException e) {
+            log.error("Remboursement Stripe échoué pour commande {}: {}", orderId, e.getMessage());
+            throw new RuntimeException("Remboursement Stripe impossible: " + e.getMessage(), e);
+        }
+
+        // Stripe a confirmé le remboursement → on met à jour la BDD.
+        transaction.setStatus(TransactionStatusType.REFUNDED);
+        transaction.setUpdatedBy(refundedBy != null ? refundedBy : "SYSTEM");
+        transactionRepository.save(transaction);
+
+        reverseRevenue(order);
+
+        log.info("Commande {} remboursée avec succès via Stripe", orderId);
+        wsPublisher.publishOrderEvent("ORDER_REFUNDED", orderId);
+        return toOrderDTOWithItems(order);
+    }
+
+    /**
+     * Corrige le chiffre d'affaires du jour après un remboursement.
+     *
+     * <p>Soustrait le montant de la commande du CA enregistré pour la date de la commande
+     * (pas nécessairement aujourd'hui, une commande d'hier peut être remboursée aujourd'hui).
+     * Si le CA calculé devient négatif (cas improbable mais défensif), il est ramené à 0.</p>
+     *
+     * <p>Cette méthode ne lève jamais d'exception : une erreur ici ne doit pas annuler
+     * le remboursement Stripe déjà effectué. L'erreur est seulement loggée.</p>
+     */
+    private void reverseRevenue(Order order) {
+        try {
+            LocalDate date = order.getOrderDate() != null ? order.getOrderDate() : LocalDate.now();
+            revenueRepository.findByDate(date).ifPresent(revenue -> {
+                BigDecimal newAmount = revenue.getAmount().subtract(order.getTotalAmount());
+                // Plancher à 0 pour éviter un CA négatif si les données sont incohérentes.
+                revenue.setAmount(newAmount.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : newAmount);
+                int newCount = Math.max(0, revenue.getOrderCount() - 1);
+                revenue.setOrderCount(newCount);
+                revenue.setUpdatedBy("SYSTEM");
+                revenue.setUpdatedAt(java.time.LocalDateTime.now());
+                revenueRepository.save(revenue);
+                log.info("Chiffre d'affaires corrigé après remboursement commande {}: -{} €",
+                        order.getOrderId(), order.getTotalAmount());
+            });
+        } catch (Exception e) {
+            log.error("Erreur lors de la correction du chiffre d'affaires après remboursement", e);
+        }
     }
 
     private Order findOrderOrThrow(Long id) {

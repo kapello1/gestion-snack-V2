@@ -74,29 +74,17 @@ export const AuthProvider = ({ children }) => {
    */
   const login = async (username, password) => {
     try {
-      const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, {
-        username,
-        password,
-      });
+      const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, { username, password });
 
       if (response.data && response.data.success) {
-        const userData = {
-          userId: response.data.userId,
-          username: response.data.username,
-          email: response.data.email,
-          roleName: response.data.roleName,
-          roleId: response.data.roleId,
-          ownerId: response.data.ownerId,
-        };
+        // Étape 1 : 2FA requise — le backend a envoyé un code par email
+        if (response.data.requiresTwoFactor) {
+          sessionStorage.setItem('twoFactorUserId', response.data.twoFactorUserId);
+          return { success: true, requiresTwoFactor: true, userId: response.data.twoFactorUserId };
+        }
 
-        // Stocker les données utilisateur (le backend n'utilise pas de token JWT pour l'instant)
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('token', 'authenticated');
-
-        setUser(userData);
-        wsManager.connect(userData.userId); // Ouvre la connexion WebSocket temps réel
-        toast.success('Connexion réussie !');
-        return { success: true, data: userData };
+        // Connexion directe (fallback si 2FA désactivé)
+        return completeLogin(response.data);
       } else {
         toast.error(response.data?.message || 'Échec de la connexion');
         return { success: false, message: response.data?.message || 'Échec de la connexion' };
@@ -106,6 +94,40 @@ export const AuthProvider = ({ children }) => {
       toast.error(message);
       return { success: false, message };
     }
+  };
+
+  const verifyTwoFactor = async (userId, code) => {
+    try {
+      const response = await api.post(API_ENDPOINTS.AUTH.VERIFY_2FA, { userId, code });
+      if (response.data && response.data.success) {
+        sessionStorage.removeItem('twoFactorUserId');
+        return completeLogin(response.data);
+      } else {
+        toast.error(response.data?.message || 'Code invalide');
+        return { success: false, message: response.data?.message || 'Code invalide' };
+      }
+    } catch (error) {
+      const message = error.response?.data?.message || error.message || 'Code invalide';
+      toast.error(message);
+      return { success: false, message };
+    }
+  };
+
+  const completeLogin = (data) => {
+    const userData = {
+      userId: data.userId,
+      username: data.username,
+      email: data.email,
+      roleName: data.roleName,
+      roleId: data.roleId,
+      ownerId: data.ownerId,
+    };
+    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('token', 'authenticated');
+    setUser(userData);
+    wsManager.connect(userData.userId);
+    toast.success('Connexion réussie !');
+    return { success: true, data: userData };
   };
 
   /**
@@ -143,6 +165,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     resetPassword,
     updateUser,
+    verifyTwoFactor,
     isAuthenticated: !!user,
   };
 

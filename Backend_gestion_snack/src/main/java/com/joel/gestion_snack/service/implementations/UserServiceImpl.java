@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -59,7 +60,6 @@ public class UserServiceImpl implements IUserService {
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Override
-    @Transactional(readOnly = true)
     public LoginResponseDTO authenticate(LoginRequestDTO loginRequest) {
         log.info("Tentative d'authentification pour l'utilisateur: {}", loginRequest.getUsername());
 
@@ -69,33 +69,100 @@ public class UserServiceImpl implements IUserService {
                     return new EntityNotFoundException("Nom d'utilisateur ou mot de passe incorrect");
                 });
 
-        // Vérifier si l'utilisateur est un fournisseur (PROVIDER)
         if (user.getRole().getRoleName() == RoleType.PROVIDER) {
             log.warn("Tentative de connexion d'un fournisseur rejetée: {}", loginRequest.getUsername());
             throw new IllegalArgumentException("L'accès est restreint pour les fournisseurs.");
         }
 
-        // Vérifier si le compte est actif
         if (Boolean.FALSE.equals(user.getIsActive())) {
             log.warn("Tentative de connexion sur un compte inactif: {}", loginRequest.getUsername());
             throw new IllegalArgumentException("Compte inactif. Veuillez vérifier votre email ou contacter l'administrateur.");
         }
 
-        // Vérifier le mot de passe
-        // Note: Les mots de passe dans la base sont cryptés avec pgcrypto (crypt)
-        // Pour la vérification, nous devons utiliser BCrypt qui est compatible
-        // ou utiliser une fonction PostgreSQL pour vérifier
-
-        // Vérification simple avec BCrypt (si le mot de passe a été hashé avec BCrypt)
-        // Sinon, on peut utiliser une requête SQL directe pour vérifier avec crypt()
         boolean passwordMatches = verifyPassword(loginRequest.getPassword(), user.getPassword());
-
         if (!passwordMatches) {
             log.error("Mot de passe incorrect pour l'utilisateur: {}", loginRequest.getUsername());
             throw new IllegalArgumentException("Nom d'utilisateur ou mot de passe incorrect");
         }
 
-        log.info("Authentification réussie pour l'utilisateur: {}", loginRequest.getUsername());
+        // Générer le code 2FA à 6 chiffres
+        String code = String.format("%06d", new Random().nextInt(1_000_000));
+        user.setTwoFactorCode(code);
+        user.setTwoFactorCodeExpiry(LocalDateTime.now().plusMinutes(10));
+        user.setTwoFactorAttempts(0);
+        userRepository.save(user);
+
+        String firstName = resolveFirstName(user);
+        boolean sent = emailService.send2FACodeEmail(user.getEmail(), code, firstName);
+        if (!sent) {
+            log.warn("Email 2FA non envoyé pour l'utilisateur: {}", loginRequest.getUsername());
+        }
+
+        log.info("Code 2FA généré et envoyé pour l'utilisateur: {}", loginRequest.getUsername());
+
+        LoginResponseDTO response = new LoginResponseDTO();
+        response.setRequiresTwoFactor(true);
+        response.setTwoFactorUserId(user.getUserId());
+        response.setSuccess(true);
+        response.setMessage("Code de vérification envoyé à votre adresse email");
+        return response;
+    }
+
+    private static final int MAX_2FA_ATTEMPTS = 5;
+
+    @Override
+    public LoginResponseDTO verify2FACode(Long userId, String code) {
+        log.info("Vérification du code 2FA pour l'utilisateur ID: {}", userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
+
+        // Trop de tentatives : invalider le code et forcer une nouvelle connexion
+        int attempts = user.getTwoFactorAttempts() != null ? user.getTwoFactorAttempts() : 0;
+        if (attempts >= MAX_2FA_ATTEMPTS) {
+            user.setTwoFactorCode(null);
+            user.setTwoFactorCodeExpiry(null);
+            user.setTwoFactorAttempts(0);
+            userRepository.save(user);
+            log.warn("Trop de tentatives 2FA pour l'utilisateur ID: {}", userId);
+            throw new IllegalArgumentException("Trop de tentatives échouées. Veuillez vous reconnecter depuis le début.");
+        }
+
+        // Expiration
+        if (user.getTwoFactorCodeExpiry() == null ||
+                user.getTwoFactorCodeExpiry().isBefore(LocalDateTime.now())) {
+            user.setTwoFactorCode(null);
+            user.setTwoFactorCodeExpiry(null);
+            user.setTwoFactorAttempts(0);
+            userRepository.save(user);
+            log.warn("Code 2FA expiré pour l'utilisateur ID: {}", userId);
+            throw new IllegalArgumentException("Code expiré. Veuillez vous reconnecter.");
+        }
+
+        // Code incorrect : incrémenter le compteur
+        if (user.getTwoFactorCode() == null || !user.getTwoFactorCode().equals(code)) {
+            user.setTwoFactorAttempts(attempts + 1);
+            userRepository.save(user);
+            int remaining = MAX_2FA_ATTEMPTS - (attempts + 1);
+            log.warn("Code 2FA incorrect pour l'utilisateur ID: {} ({} tentative(s) restante(s))", userId, remaining);
+            if (remaining <= 0) {
+                user.setTwoFactorCode(null);
+                user.setTwoFactorCodeExpiry(null);
+                user.setTwoFactorAttempts(0);
+                userRepository.save(user);
+                throw new IllegalArgumentException("Trop de tentatives échouées. Veuillez vous reconnecter depuis le début.");
+            }
+            throw new IllegalArgumentException("Code incorrect. " + remaining + " tentative(s) restante(s).");
+        }
+
+        // Succès : réinitialiser tout
+        user.setTwoFactorCode(null);
+        user.setTwoFactorCodeExpiry(null);
+        user.setTwoFactorAttempts(0);
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
+
+        log.info("Code 2FA validé avec succès pour l'utilisateur ID: {}", userId);
 
         LoginResponseDTO response = new LoginResponseDTO();
         response.setUserId(user.getUserId());
@@ -106,8 +173,40 @@ public class UserServiceImpl implements IUserService {
         response.setOwnerId(user.getOwnerId());
         response.setSuccess(true);
         response.setMessage("Authentification réussie");
-
         return response;
+    }
+
+    @Override
+    public void resend2FACode(Long userId) {
+        log.info("Renvoi du code 2FA pour l'utilisateur ID: {}", userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
+
+        String code = String.format("%06d", new Random().nextInt(1_000_000));
+        user.setTwoFactorCode(code);
+        user.setTwoFactorCodeExpiry(LocalDateTime.now().plusMinutes(10));
+        user.setTwoFactorAttempts(0);
+        userRepository.save(user);
+
+        String firstName = resolveFirstName(user);
+        boolean sent = emailService.send2FACodeEmail(user.getEmail(), code, firstName);
+        if (!sent) {
+            log.warn("Email 2FA (renvoi) non envoyé pour l'utilisateur ID: {}", userId);
+        }
+        log.info("Nouveau code 2FA envoyé pour l'utilisateur ID: {}", userId);
+    }
+
+    private String resolveFirstName(User user) {
+        RoleType role = user.getRole() != null ? user.getRole().getRoleName() : null;
+        if (role == RoleType.CUSTOMER) {
+            return customerRepository.findById(user.getOwnerId())
+                    .map(c -> c.getFirstName()).orElse(user.getUsername());
+        } else if (role != null && role != RoleType.PROVIDER) {
+            return employeeRepository.findById(user.getOwnerId())
+                    .map(e -> e.getFirstName()).orElse(user.getUsername());
+        }
+        return user.getUsername();
     }
 
     /**

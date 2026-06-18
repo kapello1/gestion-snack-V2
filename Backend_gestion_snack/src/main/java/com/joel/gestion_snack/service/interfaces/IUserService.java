@@ -101,5 +101,19 @@ public interface IUserService {
      * @return DTO mis à jour
      */
     UserDTO activateUser(Long id);
+
+    /**
+     * Vérifie le code 2FA et retourne la session complète si valide
+     * @param userId ID de l'utilisateur
+     * @param code Code à 6 chiffres reçu par email
+     * @return DTO de réponse avec les informations de l'utilisateur
+     */
+    LoginResponseDTO verify2FACode(Long userId, String code);
+
+    /**
+     * Régénère un nouveau code 2FA et l'envoie par email (remet twoFactorAttempts à 0)
+     * @param userId ID de l'utilisateur
+     */
+    void resend2FACode(Long userId);
 }
 

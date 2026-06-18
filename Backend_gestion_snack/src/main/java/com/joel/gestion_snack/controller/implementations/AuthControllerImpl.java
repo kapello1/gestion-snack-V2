@@ -2,6 +2,7 @@ package com.joel.gestion_snack.controller.implementations;
 
 import com.joel.gestion_snack.model.dto.LoginRequestDTO;
 import com.joel.gestion_snack.model.dto.LoginResponseDTO;
+import com.joel.gestion_snack.model.dto.TwoFactorVerifyDTO;
 import com.joel.gestion_snack.service.EmailService;
 import com.joel.gestion_snack.service.interfaces.IUserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,6 +31,26 @@ public class AuthControllerImpl {
         log.info("Requête POST pour authentifier l'utilisateur: {}", loginRequest.getUsername());
         LoginResponseDTO response = userService.authenticate(loginRequest);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-2fa")
+    @Operation(summary = "Vérifier le code 2FA et finaliser la connexion")
+    public ResponseEntity<LoginResponseDTO> verify2FA(@Valid @RequestBody TwoFactorVerifyDTO dto) {
+        log.info("Requête POST verify-2fa pour userId: {}", dto.getUserId());
+        LoginResponseDTO response = userService.verify2FACode(dto.getUserId(), dto.getCode());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/resend-2fa")
+    @Operation(summary = "Renvoyer un nouveau code 2FA par email")
+    public ResponseEntity<Map<String, String>> resend2FA(@RequestBody Map<String, Long> body) {
+        Long userId = body.get("userId");
+        if (userId == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "L'identifiant utilisateur est obligatoire"));
+        }
+        log.info("Requête POST resend-2fa pour userId: {}", userId);
+        userService.resend2FACode(userId);
+        return ResponseEntity.ok(Map.of("message", "Nouveau code envoyé à votre adresse email"));
     }
 
     @PostMapping("/forgot-password")

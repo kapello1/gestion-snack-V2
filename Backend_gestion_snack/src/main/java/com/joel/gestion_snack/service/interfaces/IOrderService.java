@@ -130,4 +130,10 @@ public interface IOrderService {
      * Enregistre le paiement d'une commande (caisse ou client)
      */
     OrderDTO payOrder(Long id, OrderPaymentRequestDTO requestDTO);
+
+    /**
+     * Rembourse une commande payée par Stripe.
+     * Appelle l'API Stripe en premier, puis met à jour la transaction en REFUNDED.
+     */
+    OrderDTO refundOrder(Long orderId, String refundedBy);
 }

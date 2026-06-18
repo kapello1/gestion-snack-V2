@@ -64,6 +64,14 @@ public class EmailService {
         return sendHtml(toEmail, "Réinitialisation de votre mot de passe - Snack", buildResetBody(firstName, link));
     }
 
+    public boolean send2FACodeEmail(String toEmail, String code, String firstName) {
+        if (!isConfigured()) {
+            log.warn("Brevo non configuré - code 2FA non envoyé à {}", toEmail);
+            return false;
+        }
+        return sendHtml(toEmail, "Votre code de vérification - Snack", build2FABody(firstName, code));
+    }
+
     public boolean sendTestEmail(String toEmail) {
         if (!isConfigured()) {
             log.warn("Brevo non configuré - test impossible");
@@ -163,6 +171,25 @@ public class EmailService {
                 + "<p style='color:#9ca3af;font-size:12px'>Snack - cet email est automatique, merci de ne pas y répondre.</p>"
                 + "</div>";
         return sendHtml(toEmail, "Confirmation de votre réservation - Snack", body);
+    }
+
+    private String build2FABody(String firstName, String code) {
+        return "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px'>"
+                + "<h1 style='color:#2563eb'>Snack</h1>"
+                + "<h2 style='color:#1f2937'>Vérification en deux étapes</h2>"
+                + "<p style='color:#4b5563;font-size:16px'>Bonjour " + firstName + ",</p>"
+                + "<p style='color:#4b5563;font-size:16px'>Voici votre code de vérification :</p>"
+                + "<div style='text-align:center;margin:32px 0'>"
+                + "<div style='display:inline-block;padding:20px 40px;background:#f3f4f6;"
+                + "border-radius:12px;border:2px solid #e0e7ff'>"
+                + "<span style='font-size:36px;font-weight:900;letter-spacing:12px;color:#4f46e5'>"
+                + code + "</span></div></div>"
+                + "<p style='color:#6b7280;font-size:14px'>Ce code expire dans <strong>10 minutes</strong>.</p>"
+                + "<p style='color:#6b7280;font-size:14px'>Si vous n'êtes pas à l'origine de cette connexion, "
+                + "ignorez cet email et sécurisez votre compte.</p>"
+                + "<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0'>"
+                + "<p style='color:#9ca3af;font-size:12px'>Snack - cet email est automatique, merci de ne pas y répondre.</p>"
+                + "</div>";
     }
 
     private String buildVerificationBody(String firstName, String link) {
