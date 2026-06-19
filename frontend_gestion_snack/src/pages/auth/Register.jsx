@@ -98,8 +98,9 @@ const Register = () => {
         address:  formData.address  || null,
         createdBy: 'SELF',
       });
+      toast.success('Inscription réussie ! Redirection en cours...');
       sessionStorage.setItem('verifyEmail', formData.email);
-      navigate('/verify-email-code');
+      setTimeout(() => navigate('/verify-email-code'), 800);
     } catch (err) {
       const data = err.response?.data;
       // Erreurs de validation champ par champ (MethodArgumentNotValidException)
