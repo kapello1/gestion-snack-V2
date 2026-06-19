@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { X, Mic, MicOff, Volume2, VolumeX, PhoneOff } from 'lucide-react';
 import { sendChatMessage } from '../utils/groqApi';
 import { useLanguage } from '../context/LanguageContext';
@@ -140,11 +140,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     if (!synth) { onEnd(); return; }
     synth.cancel();
 
-    const chunks = text
-      .replace(/([.!?])\s+/g, '$1')
-      .split('')
-      .map(s => s.trim())
-      .filter(Boolean);
+    const chunks = text.match(/[^.!?]+[.!?]*/g)?.map(s => s.trim()).filter(Boolean) || [text];
 
     if (!chunks.length) { onEnd(); return; }
 
@@ -294,6 +290,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const goListening = () => {
     clearTimeout(safetyRef.current);
     clearTimeout(silTimerRef.current);
+    clearTimeout(rstTimerRef.current);   // ← annule tout timer onend stale
     clearTimeout(echoTimerRef.current);
     txRef.current = '';
     echoRef.current = true;
@@ -313,6 +310,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     lastTTSRef.current = '';  // l'utilisateur a parlé → libérer le filtre anti-écho
     setTranscript('');
     clearTimeout(silTimerRef.current);
+    clearTimeout(rstTimerRef.current);  // ← annule tout restart onend stale
     setVS(S.PROCESSING);
     try { recRef.current?.stop(); } catch {}
 
@@ -448,12 +446,12 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       }
     };
 
-    // Relancer UNIQUEMENT en état LISTENING - jamais pendant SPEAKING/PROCESSING
+    // Relancer UNIQUEMENT en état LISTENING et hors garde anti-écho
     rec.onend = () => {
       if (!mountedRef.current) return;
-      if (vsRef.current === S.LISTENING) {
+      if (vsRef.current === S.LISTENING && !echoRef.current) {
         rstTimerRef.current = setTimeout(() => {
-          if (mountedRef.current && vsRef.current === S.LISTENING) startRec();
+          if (mountedRef.current && vsRef.current === S.LISTENING && !echoRef.current) startRec();
         }, 250);
       }
     };
@@ -515,8 +513,10 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     startAnim();
 
     // Arrêter la reconnaissance ouverte dans handleStart (elle servait uniquement
-    // à déclencher la boîte de permission). Elle reprendra après le salut TTS.
-    try { recRef.current?.stop(); } catch {}
+    // à déclencher la boîte de permission). abort() est plus fiable que stop()
+    // si la reconnaissance est encore en état "starting".
+    clearTimeout(rstTimerRef.current);
+    try { recRef.current?.abort(); } catch {}
 
     const welcome = WELCOME[langRef.current] || WELCOME.fr;
     setVS(S.SPEAKING);
