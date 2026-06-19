@@ -19,8 +19,7 @@ export const API_ENDPOINTS = {
     LOGIN: '/auth/login',
     FORGOT_PASSWORD: '/auth/forgot-password',
     RESET_PASSWORD: '/auth/reset-password',
-    VERIFY_2FA: '/auth/verify-2fa',
-    RESEND_2FA: '/auth/resend-2fa',
+    VERIFY_RESET_CODE: '/auth/verify-reset-code',
   },
   // Utilisateurs
   USERS: {
@@ -39,6 +38,7 @@ export const API_ENDPOINTS = {
     BY_EMAIL: (email) => `/customers/email/${email}`,
     BY_USERNAME: (username) => `/customers/username/${username}`,
     VERIFY_EMAIL: (token) => `/customers/verify/${token}`,
+    VERIFY_EMAIL_CODE: '/customers/verify-email-code',
   },
   // Produits
   PRODUCTS: {

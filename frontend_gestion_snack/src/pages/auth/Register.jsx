@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus, User, Mail, Lock, Phone, MapPin, Eye, EyeOff, CheckCircle, ShieldCheck } from 'lucide-react';
+import { UserPlus, User, Mail, Lock, Phone, MapPin, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
@@ -64,8 +64,6 @@ const Register = () => {
   const [errors,      setErrors]      = useState({});
   const [showPwd,     setShowPwd]     = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showModal,   setShowModal]   = useState(false);
-  const [modalType,   setModalType]   = useState('email');
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -100,20 +98,27 @@ const Register = () => {
         address:  formData.address  || null,
         createdBy: 'SELF',
       });
-      setModalType(res.data?.emailVerified ? 'immediate' : 'email');
-      setShowModal(true);
+      if (res.data?.emailVerified === false) {
+        // Code 6 chiffres envoyé — rediriger vers la page de vérification
+        sessionStorage.setItem('verifyEmail', formData.email);
+        navigate('/verify-email-code');
+      } else {
+        // Email non configuré — compte activé directement
+        toast.success('Compte créé ! Vous pouvez maintenant vous connecter.');
+        navigate('/login');
+      }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Erreur lors de l'inscription");
+      const data = err.response?.data;
+      // Erreurs de validation champ par champ (MethodArgumentNotValidException)
+      if (data?.errors && typeof data.errors === 'object') {
+        setErrors(data.errors);
+        toast.error('Veuillez corriger les erreurs dans le formulaire');
+      } else {
+        toast.error(data?.message || "Erreur lors de l'inscription");
+      }
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleModalOk = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    setShowModal(false);
-    navigate('/login');
   };
 
   const inp = 'w-full bg-transparent text-gray-800 placeholder-gray-400 text-sm font-medium focus:outline-none';
@@ -211,48 +216,6 @@ const Register = () => {
         animCls="animate-drift3"
         style={{ right: '2%', top: '25%', width: 195, height: 250 }}
       />
-
-      {/* ════ MODAL CONFIRMATION ════════════════════════════ */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center animate-fade-in-up">
-            <div
-              className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-5 shadow-lg"
-              style={{ background: modalType === 'email'
-                ? 'linear-gradient(135deg,#6366f1,#7c3aed)'
-                : 'linear-gradient(135deg,#10b981,#0d9488)' }}
-            >
-              {modalType === 'email'
-                ? <Mail className="h-8 w-8 text-white" />
-                : <CheckCircle className="h-8 w-8 text-white" />
-              }
-            </div>
-            {modalType === 'email' ? (
-              <>
-                <h2 className="text-xl font-black text-gray-900 mb-2">Vérifiez votre email</h2>
-                <p className="text-sm text-gray-500 mb-1">Un lien de confirmation a été envoyé à :</p>
-                <p className="font-black text-emerald-600 text-sm mb-4 break-all">{formData.email}</p>
-                <p className="text-xs text-gray-400 leading-relaxed mb-6">
-                  Cliquez sur le lien pour activer votre compte.
-                  Valable <strong className="text-gray-600">24 heures</strong>.
-                </p>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-black text-gray-900 mb-2">Compte créé !</h2>
-                <p className="text-sm text-gray-500 mb-6">Votre inscription est complète. Connectez-vous maintenant.</p>
-              </>
-            )}
-            <button
-              onClick={handleModalOk}
-              className="w-full py-3 text-white font-bold text-sm rounded-xl hover:-translate-y-px transition-all duration-200 animate-gradient-x"
-              style={{ background: 'linear-gradient(90deg,#10b981,#0d9488,#059669,#0d9488,#10b981)', backgroundSize: '300% 300%', boxShadow: '0 8px 25px rgba(16,185,129,0.3)' }}
-            >
-              Aller à la connexion
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ════ CARTE INSCRIPTION ════════════════════════════ */}
       <div className="relative z-10 w-full max-w-xl animate-fade-in-up">

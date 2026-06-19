@@ -1,15 +1,14 @@
-// Page de réinitialisation du mot de passe - envoi d'un lien par email
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Lock, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Lock, Mail, ArrowLeft } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 
 const ForgotPassword = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail]     = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,43 +19,16 @@ const ForgotPassword = () => {
     setLoading(true);
     try {
       await api.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, { email });
-      setSent(true);
+      // Toujours rediriger (même si l'email n'existe pas — sécurité)
+      sessionStorage.setItem('resetEmail', email);
+      navigate('/verify-reset-code');
     } catch (error) {
-      const message = error.response?.data?.message || 'Erreur lors de l\'envoi de l\'email';
+      const message = error.response?.data?.message || "Erreur lors de l'envoi du code";
       toast.error(message);
     } finally {
       setLoading(false);
     }
   };
-
-  if (sent) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4">
-        <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-2xl text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-green-100 p-4 rounded-full">
-              <CheckCircle className="h-12 w-12 text-green-600" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-extrabold text-gray-900 mb-3">Email envoyé !</h2>
-          <p className="text-gray-600 mb-2">
-            Si l'adresse <strong>{email}</strong> est associée à un compte, vous recevrez
-            un lien de réinitialisation dans quelques minutes.
-          </p>
-          <p className="text-gray-500 text-sm mb-6">
-            Vérifiez également vos spams. Le lien expire dans 1 heure.
-          </p>
-          <Link
-            to="/login"
-            className="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour à la connexion
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -67,11 +39,9 @@ const ForgotPassword = () => {
               <Lock className="h-10 w-10 text-white" />
             </div>
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Mot de passe oublié
-          </h2>
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Mot de passe oublié</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Entrez votre adresse email. Nous vous enverrons un lien pour réinitialiser votre mot de passe.
+            Entrez votre email. Un code à 6 chiffres vous sera envoyé pour vérifier votre identité.
           </p>
         </div>
 
@@ -104,15 +74,12 @@ const ForgotPassword = () => {
             {loading ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
             ) : (
-              'Envoyer le lien de réinitialisation'
+              'Envoyer le code de vérification'
             )}
           </button>
 
           <div className="text-center">
-            <Link
-              to="/login"
-              className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
-            >
+            <Link to="/login" className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors">
               <ArrowLeft className="h-4 w-4 mr-1" />
               Retour à la connexion
             </Link>

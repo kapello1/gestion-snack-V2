@@ -93,8 +93,21 @@ public class CustomerControllerImpl implements ICustomerController {
         return ResponseEntity.ok(customer);
     }
 
+    @PostMapping("/verify-email-code")
+    @Operation(summary = "Vérifier l'email d'un client via le code à 6 chiffres")
+    public ResponseEntity<Map<String, String>> verifyEmailCode(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String code  = body.get("code");
+        if (email == null || email.isBlank() || code == null || code.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Email et code sont obligatoires"));
+        }
+        log.info("Requête POST pour vérifier le code email de: {}", email);
+        customerService.verifyEmailCode(email, code);
+        return ResponseEntity.ok(Map.of("message", "Email vérifié ! Vous pouvez maintenant vous connecter."));
+    }
+
     @GetMapping("/verify/{token}")
-    @Operation(summary = "Vérifier l'email d'un client via son token")
+    @Operation(summary = "Vérifier l'email d'un client via son token (compatibilité anciens liens)")
     public ResponseEntity<Map<String, String>> verifyEmail(@PathVariable String token) {
         log.info("Requête GET pour vérifier l'email via token");
         customerService.verifyEmail(token);

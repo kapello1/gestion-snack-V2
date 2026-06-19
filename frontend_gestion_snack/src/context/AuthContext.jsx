@@ -75,15 +75,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, { username, password });
-
       if (response.data && response.data.success) {
-        // Étape 1 : 2FA requise — le backend a envoyé un code par email
-        if (response.data.requiresTwoFactor) {
-          sessionStorage.setItem('twoFactorUserId', response.data.twoFactorUserId);
-          return { success: true, requiresTwoFactor: true, userId: response.data.twoFactorUserId };
-        }
-
-        // Connexion directe (fallback si 2FA désactivé)
         return completeLogin(response.data);
       } else {
         toast.error(response.data?.message || 'Échec de la connexion');
@@ -91,23 +83,6 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Erreur lors de la connexion';
-      toast.error(message);
-      return { success: false, message };
-    }
-  };
-
-  const verifyTwoFactor = async (userId, code) => {
-    try {
-      const response = await api.post(API_ENDPOINTS.AUTH.VERIFY_2FA, { userId, code });
-      if (response.data && response.data.success) {
-        sessionStorage.removeItem('twoFactorUserId');
-        return completeLogin(response.data);
-      } else {
-        toast.error(response.data?.message || 'Code invalide');
-        return { success: false, message: response.data?.message || 'Code invalide' };
-      }
-    } catch (error) {
-      const message = error.response?.data?.message || error.message || 'Code invalide';
       toast.error(message);
       return { success: false, message };
     }
@@ -165,7 +140,6 @@ export const AuthProvider = ({ children }) => {
     logout,
     resetPassword,
     updateUser,
-    verifyTwoFactor,
     isAuthenticated: !!user,
   };
 

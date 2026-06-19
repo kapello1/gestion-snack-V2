@@ -53,6 +53,19 @@ public class AuthControllerImpl {
         return ResponseEntity.ok(Map.of("message", "Nouveau code envoyé à votre adresse email"));
     }
 
+    @PostMapping("/verify-reset-code")
+    @Operation(summary = "Vérifier le code reçu par email avant la réinitialisation du mot de passe")
+    public ResponseEntity<Map<String, String>> verifyResetCode(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String code  = body.get("code");
+        if (email == null || email.isBlank() || code == null || code.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Email et code sont obligatoires"));
+        }
+        log.info("Requête POST verify-reset-code pour: {}", email);
+        String resetToken = userService.verifyResetCode(email, code);
+        return ResponseEntity.ok(Map.of("token", resetToken, "message", "Code vérifié avec succès"));
+    }
+
     @PostMapping("/forgot-password")
     @Operation(summary = "Demander la réinitialisation du mot de passe par email")
     public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody Map<String, String> body) {

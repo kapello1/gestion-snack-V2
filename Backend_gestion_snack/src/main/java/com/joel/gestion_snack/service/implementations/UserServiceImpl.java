@@ -60,6 +60,7 @@ public class UserServiceImpl implements IUserService {
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Override
+    @Transactional(readOnly = true)
     public LoginResponseDTO authenticate(LoginRequestDTO loginRequest) {
         log.info("Tentative d'authentification pour l'utilisateur: {}", loginRequest.getUsername());
 
@@ -85,26 +86,17 @@ public class UserServiceImpl implements IUserService {
             throw new IllegalArgumentException("Nom d'utilisateur ou mot de passe incorrect");
         }
 
-        // Générer le code 2FA à 6 chiffres
-        String code = String.format("%06d", new Random().nextInt(1_000_000));
-        user.setTwoFactorCode(code);
-        user.setTwoFactorCodeExpiry(LocalDateTime.now().plusMinutes(10));
-        user.setTwoFactorAttempts(0);
-        userRepository.save(user);
-
-        String firstName = resolveFirstName(user);
-        boolean sent = emailService.send2FACodeEmail(user.getEmail(), code, firstName);
-        if (!sent) {
-            log.warn("Email 2FA non envoyé pour l'utilisateur: {}", loginRequest.getUsername());
-        }
-
-        log.info("Code 2FA généré et envoyé pour l'utilisateur: {}", loginRequest.getUsername());
+        log.info("Authentification réussie pour l'utilisateur: {}", loginRequest.getUsername());
 
         LoginResponseDTO response = new LoginResponseDTO();
-        response.setRequiresTwoFactor(true);
-        response.setTwoFactorUserId(user.getUserId());
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setEmail(user.getEmail());
+        response.setRoleName(user.getRole().getRoleName().name());
+        response.setRoleId(user.getRole().getRoleId());
+        response.setOwnerId(user.getOwnerId());
         response.setSuccess(true);
-        response.setMessage("Code de vérification envoyé à votre adresse email");
+        response.setMessage("Authentification réussie");
         return response;
     }
 
@@ -441,38 +433,52 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void forgotPassword(String email) {
         log.info("Demande de réinitialisation de mot de passe pour l'email: {}", email);
         User user = userRepository.findByEmail(email).orElse(null);
-        // Ne pas révéler si l'email existe ou non (sécurité)
         if (user == null) {
             log.warn("Aucun utilisateur trouvé pour l'email: {} (réponse silencieuse)", email);
             return;
         }
-        String token = UUID.randomUUID().toString();
-        user.setResetPasswordToken(token);
+        // Code 6 chiffres valable 15 minutes
+        String code = String.format("%06d", new Random().nextInt(1_000_000));
+        user.setResetPasswordToken(code);
+        user.setResetPasswordTokenExpiry(LocalDateTime.now().plusMinutes(15));
+        userRepository.save(user);
+        String firstName = resolveFirstName(user);
+        boolean sent = emailService.send2FACodeEmail(user.getEmail(), code, firstName);
+        if (sent) {
+            log.info("Code de réinitialisation envoyé à: {}", email);
+        } else {
+            log.warn("Code de réinitialisation non envoyé à: {}", email);
+        }
+    }
+
+    @Override
+    public String verifyResetCode(String email, String code) {
+        log.info("Vérification du code de réinitialisation pour: {}", email);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("Aucun compte associé à cet email"));
+
+        if (user.getResetPasswordToken() == null || !user.getResetPasswordToken().equals(code)) {
+            throw new IllegalArgumentException("Code de vérification incorrect");
+        }
+        if (user.getResetPasswordTokenExpiry() == null ||
+                user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
+            user.setResetPasswordToken(null);
+            user.setResetPasswordTokenExpiry(null);
+            userRepository.save(user);
+            throw new IllegalArgumentException("Code expiré. Veuillez refaire une demande.");
+        }
+
+        // Le code est valide : générer un token UUID sécurisé pour la réinitialisation
+        String resetToken = UUID.randomUUID().toString();
+        user.setResetPasswordToken(resetToken);
         user.setResetPasswordTokenExpiry(LocalDateTime.now().plusHours(1));
         userRepository.save(user);
-        RoleType role = user.getRole() != null ? user.getRole().getRoleName() : null;
-        String firstName;
-        if (role == RoleType.CUSTOMER) {
-            firstName = customerRepository.findById(user.getOwnerId())
-                    .map(c -> c.getFirstName())
-                    .orElse(user.getUsername());
-        } else if (role != null && role != RoleType.PROVIDER) {
-            firstName = employeeRepository.findById(user.getOwnerId())
-                    .map(e -> e.getFirstName())
-                    .orElse(user.getUsername());
-        } else {
-            firstName = user.getUsername();
-        }
-        boolean sent = emailService.sendPasswordResetEmail(user.getEmail(), token, firstName);
-        if (sent) {
-            log.info("Email de réinitialisation envoyé à: {}", email);
-        } else {
-            log.warn("Email de réinitialisation non envoyé à: {} - vérifier MAIL_PASSWORD", email);
-        }
+
+        log.info("Code réinitialisation validé, token UUID généré pour: {}", email);
+        return resetToken;
     }
 
     @Override

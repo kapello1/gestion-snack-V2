@@ -71,10 +71,6 @@ const Login = () => {
     try {
       const result = await login(formData.username, formData.password);
       if (result.success) {
-        if (result.requiresTwoFactor) {
-          navigate('/verify-2fa');
-          return;
-        }
         const map = {
           ADMIN: '/admin/dashboard', CUSTOMER: '/customer/menu',
           CASHIER: '/cashier/payments', WAITER: '/waiter/orders',

@@ -115,5 +115,14 @@ public interface IUserService {
      * @param userId ID de l'utilisateur
      */
     void resend2FACode(Long userId);
+
+    /**
+     * Vérifie le code de réinitialisation reçu par email
+     * Si valide, génère un token UUID sécurisé pour la page de nouveau mot de passe
+     * @param email Email de l'utilisateur
+     * @param code  Code à 6 chiffres
+     * @return Token UUID à passer à /reset-password
+     */
+    String verifyResetCode(String email, String code);
 }
 

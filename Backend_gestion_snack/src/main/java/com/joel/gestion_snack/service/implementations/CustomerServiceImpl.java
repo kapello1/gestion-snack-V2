@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -108,13 +109,14 @@ public class CustomerServiceImpl implements ICustomerService {
         // 3. Préparer le Customer
         boolean emailEnabled = emailService.isConfigured();
         log.info("[INSCRIPTION] emailEnabled={}", emailEnabled);
-        String token = null;
+        String code = null;
         Customer customer = mapperUtil.toCustomer(requestDTO);
         if (emailEnabled) {
-            token = UUID.randomUUID().toString();
+            // Code 6 chiffres valable 15 minutes (remplace le lien UUID)
+            code = String.format("%06d", new Random().nextInt(1_000_000));
             customer.setEmailVerified(false);
-            customer.setVerificationToken(token);
-            customer.setVerificationTokenExpiry(LocalDateTime.now().plusHours(24));
+            customer.setVerificationToken(code);
+            customer.setVerificationTokenExpiry(LocalDateTime.now().plusMinutes(15));
         } else {
             customer.setEmailVerified(true);
         }
@@ -142,11 +144,11 @@ public class CustomerServiceImpl implements ICustomerService {
             log.info("[INSCRIPTION] Mot de passe BCrypt défini userId={}", customerUser.getUserId());
         }
 
-        // 8. Gestion email de vérification
+        // 8. Gestion email de vérification (code 6 chiffres)
         if (emailEnabled) {
-            final String finalToken = token;
-            boolean emailSent = emailService.sendVerificationEmail(
-                    customer.getEmail(), finalToken, customer.getFirstName());
+            final String finalCode = code;
+            boolean emailSent = emailService.send2FACodeEmail(
+                    customer.getEmail(), finalCode, customer.getFirstName());
             if (emailSent) {
                 if (customerUser != null) {
                     customerUser.setIsActive(false);
@@ -286,6 +288,36 @@ public class CustomerServiceImpl implements ICustomerService {
                     log.error("Client non trouvé avec le username: {}", username);
                     return new EntityNotFoundException("Client non trouvé avec le username: " + username);
                 });
+        return mapperUtil.toCustomerDTO(customer);
+    }
+
+    @Override
+    public CustomerDTO verifyEmailCode(String email, String code) {
+        log.info("Vérification du code email pour: {}", email);
+        Customer customer = customerRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("Client non trouvé pour cet email"));
+
+        if (customer.getVerificationToken() == null || !customer.getVerificationToken().equals(code)) {
+            throw new IllegalArgumentException("Code de vérification incorrect");
+        }
+        if (customer.getVerificationTokenExpiry() == null ||
+                customer.getVerificationTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Code expiré. Veuillez vous réinscrire.");
+        }
+
+        customer.setEmailVerified(true);
+        customer.setVerificationToken(null);
+        customer.setVerificationTokenExpiry(null);
+        customer = customerRepository.save(customer);
+
+        userRepository.findByEmail(email).ifPresent(user -> {
+            user.setIsActive(true);
+            userRepository.save(user);
+            log.info("Compte User activé pour: {}", email);
+            wsPublisher.publishUserEvent("USER_ACTIVATED", user.getUserId());
+        });
+
+        log.info("Email vérifié via code pour le client: {}", email);
         return mapperUtil.toCustomerDTO(customer);
     }
 
