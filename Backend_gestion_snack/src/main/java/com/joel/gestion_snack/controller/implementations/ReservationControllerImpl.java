@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import com.joel.gestion_snack.model.dto.AvailabilitySlotDTO;
 import com.joel.gestion_snack.model.dto.ReservationDTO;
 import com.joel.gestion_snack.model.dto.ReservationRequestDTO;
 import com.joel.gestion_snack.model.entity.ReservationStatus;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Implémentation du contrôleur pour la gestion des réservations
@@ -94,6 +96,15 @@ public class ReservationControllerImpl {
     public ResponseEntity<ReservationDTO> cancelReservation(@PathVariable Long id) {
         log.info("Requête POST pour annuler la réservation avec l'ID: {}", id);
         return ResponseEntity.ok(reservationService.cancelReservation(id));
+    }
+
+    @GetMapping("/availability")
+    @Operation(summary = "Obtenir les créneaux disponibles pour une date et un nombre de personnes")
+    public ResponseEntity<List<AvailabilitySlotDTO>> getAvailability(
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(defaultValue = "1") int guests) {
+        log.info("Requête GET disponibilités : date={} guests={}", date, guests);
+        return ResponseEntity.ok(reservationService.getAvailableSlots(date, guests));
     }
 }
 

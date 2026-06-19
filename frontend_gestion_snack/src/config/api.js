@@ -81,6 +81,7 @@ export const API_ENDPOINTS = {
     BY_DATE: (date) => `/reservations/date/${date}`,
     BY_CUSTOMER: (customerId) => `/reservations/customer/${customerId}`,
     CANCEL: (id) => `/reservations/${id}/cancel`,
+    AVAILABILITY: '/reservations/availability',
   },
   // Employés
   EMPLOYEES: {

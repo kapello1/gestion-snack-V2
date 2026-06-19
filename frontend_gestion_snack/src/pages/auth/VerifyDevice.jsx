@@ -21,9 +21,10 @@ const VerifyDevice = () => {
   const [cooldown, setCooldown]   = useState(0);
   const navigate     = useNavigate();
   const { verifyDevice } = useAuth();
-  const inputsRef    = useRef([]);
-  const timerRef     = useRef(null);
-  const verifiedRef  = useRef(false);
+  const inputsRef      = useRef([]);
+  const timerRef       = useRef(null);
+  const verifiedRef    = useRef(false);
+  const submittingRef  = useRef(false);
 
   const userId = sessionStorage.getItem('deviceVerifyUserId');
 
@@ -71,8 +72,10 @@ const VerifyDevice = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submittingRef.current) return;
     const code = digits.join('');
     if (code.length !== 6) return;
+    submittingRef.current = true;
     setLoading(true);
     try {
       const result = await verifyDevice(Number(userId), code);
@@ -80,12 +83,13 @@ const VerifyDevice = () => {
         verifiedRef.current = true;
         toast.success('Appareil validé ! Connexion réussie.');
         navigate(ROLE_MAP[result.data.roleName] || '/dashboard');
+      } else {
+        setDigits(['', '', '', '', '', '']);
+        setTimeout(() => inputsRef.current[0]?.focus(), 50);
       }
-    } catch {
-      setDigits(['', '', '', '', '', '']);
-      inputsRef.current[0]?.focus();
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 

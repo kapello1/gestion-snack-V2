@@ -20,6 +20,8 @@ public class ReservationDTO {
     private Long customerId;
     private String customerName;
     private Long tableId;
+    private Integer tableNumber;
+    private Integer tableCapacity;
     private LocalDateTime datetimeFrom;
     private LocalDateTime datetimeTo;
     private Integer places;

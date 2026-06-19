@@ -268,6 +268,8 @@ public class MapperUtil {
         dto.setReservationId(reservation.getReservationId());
         dto.setCustomerId(reservation.getCustomer().getCustomerId());
         dto.setTableId(reservation.getTable().getTableId());
+        dto.setTableNumber(reservation.getTable().getTableNumber());
+        dto.setTableCapacity(reservation.getTable().getCapacity());
         if (reservation.getCustomer() != null) {
             dto.setCustomerName(
                     reservation.getCustomer().getFirstName() + " " + reservation.getCustomer().getLastName());

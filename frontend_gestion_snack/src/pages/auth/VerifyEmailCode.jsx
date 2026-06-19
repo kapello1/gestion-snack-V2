@@ -12,10 +12,11 @@ const VerifyEmailCode = () => {
   const [loading, setLoading]     = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown]   = useState(0);
-  const navigate     = useNavigate();
-  const inputsRef    = useRef([]);
-  const timerRef     = useRef(null);
-  const verifiedRef  = useRef(false);
+  const navigate      = useNavigate();
+  const inputsRef     = useRef([]);
+  const timerRef      = useRef(null);
+  const verifiedRef   = useRef(false);
+  const submittingRef = useRef(false);
 
   const email = sessionStorage.getItem('verifyEmail');
 
@@ -63,8 +64,10 @@ const VerifyEmailCode = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submittingRef.current) return;
     const code = digits.join('');
     if (code.length !== 6) return;
+    submittingRef.current = true;
     setLoading(true);
     try {
       await api.post(API_ENDPOINTS.CUSTOMERS.VERIFY_EMAIL_CODE, { email, code });
@@ -75,9 +78,10 @@ const VerifyEmailCode = () => {
     } catch (error) {
       toast.error(error.response?.data?.message || 'Code invalide');
       setDigits(['', '', '', '', '', '']);
-      inputsRef.current[0]?.focus();
+      setTimeout(() => inputsRef.current[0]?.focus(), 50);
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 

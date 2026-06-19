@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.service.interfaces;
 
+import com.joel.gestion_snack.model.dto.AvailabilitySlotDTO;
 import com.joel.gestion_snack.model.dto.ReservationDTO;
 import com.joel.gestion_snack.model.dto.ReservationRequestDTO;
 import com.joel.gestion_snack.model.entity.ReservationStatus;
@@ -72,5 +73,11 @@ public interface IReservationService {
      * @return DTO de la réservation annulée
      */
     ReservationDTO cancelReservation(Long id);
+
+    /**
+     * Retourne les créneaux disponibles pour une date et un nombre de personnes donnés.
+     * Les créneaux sont générés selon les horaires de service configurés dans le service.
+     */
+    List<AvailabilitySlotDTO> getAvailableSlots(LocalDate date, int guests);
 }
 

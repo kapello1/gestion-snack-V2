@@ -6,34 +6,29 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-/**
- * DTO de requête pour créer/mettre à jour une Reservation
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReservationRequestDTO {
+
     @NotNull(message = "L'ID du client est obligatoire")
     private Long customerId;
-    
-    @NotNull(message = "L'ID de la table est obligatoire")
+
+    // ── Mode client : créneau automatique (guests + date + time) ─────────────
+    private Integer guests;
+    private String date;   // "YYYY-MM-DD"
+    private String time;   // "HH:mm"
+
+    // ── Mode admin : table + plages horaires explicites ───────────────────────
     private Long tableId;
-    
-    @NotNull(message = "L'heure de début est obligatoire")
     private LocalDateTime datetimeFrom;
-    
-    @NotNull(message = "L'heure de fin est obligatoire")
     private LocalDateTime datetimeTo;
-    
-    @NotNull(message = "Le nombre de places est obligatoire")
     @Min(value = 1, message = "Le nombre de places doit être au moins 1")
     private Integer places;
-    
+
     private String attribut55;
-    
     private String createdBy;
 }
 
