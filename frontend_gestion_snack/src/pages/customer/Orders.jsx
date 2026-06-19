@@ -103,7 +103,7 @@ const OrdersPage = () => {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
-            <h1 className="text-4xl font-black text-gray-900 tracking-tight">Suivi de mes Délices</h1>
+            <h1 className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight">Suivi de mes Délices</h1>
             <p className="text-gray-500 font-medium mt-1 uppercase text-xs tracking-widest italic">Suivez vos commandes en temps réel</p>
           </div>
 
@@ -164,7 +164,7 @@ const OrdersPage = () => {
                 className="group bg-white rounded-[3rem] shadow-xl border border-gray-50 overflow-hidden transition-all duration-500 hover:shadow-2xl"
               >
                 <div className="flex flex-col lg:flex-row">
-                   <div className="p-8 lg:w-1/3 bg-gray-50 border-r border-gray-100">
+                   <div className="p-4 sm:p-8 lg:w-1/3 bg-gray-50 border-r border-gray-100">
                       <div className="flex items-center justify-between mb-6">
                          <span className="px-4 py-1 bg-gray-900 text-white text-xs font-black rounded-full">#{order.orderId}</span>
                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">{new Date(order.orderDate).toLocaleDateString()}</span>
@@ -186,7 +186,7 @@ const OrdersPage = () => {
                       </div>
                    </div>
 
-                   <div className="p-8 lg:w-2/3 flex flex-col justify-between">
+                   <div className="p-4 sm:p-8 lg:w-2/3 flex flex-col justify-between">
                       <div>
                          <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-8 text-center lg:text-left">Progression de la préparation</h3>
                          <div className="flex justify-center lg:justify-start">

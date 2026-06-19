@@ -298,7 +298,7 @@ const ReservationWizard = ({ onClose, onCreated, customerId, username }) => {
 const SlotButton = ({ slot, onClick }) => (
   <button
     onClick={() => onClick(slot)}
-    className="flex flex-col items-center py-3 px-2 rounded-xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all duration-150 group"
+    className="flex flex-col items-center py-3.5 px-2 min-h-[52px] rounded-xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all duration-150 group touch-manipulation"
   >
     <span className="text-sm font-bold text-gray-800 group-hover:text-blue-700">
       {slot.time}
@@ -388,7 +388,7 @@ const ReservationsPage = () => {
           </div>
           <button
             onClick={() => setShowWizard(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold"
+            className="flex items-center gap-2 px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold touch-manipulation"
           >
             <Plus className="h-5 w-5" />
             Nouvelle réservation
@@ -404,7 +404,7 @@ const ReservationsPage = () => {
               placeholder="Rechercher par n° de réservation ou date…"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="block w-full pl-10 pr-3 py-2.5 text-base border border-gray-200 rounded-xl focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
         </div>
@@ -485,7 +485,7 @@ const ReservationsPage = () => {
                   <div className="pt-3 border-t border-gray-100">
                     <button
                       onClick={() => handleCancel(r.reservationId)}
-                      className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors text-sm font-semibold"
+                      className="w-full flex justify-center items-center gap-2 px-4 py-3 min-h-[44px] bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors text-sm font-semibold touch-manipulation"
                     >
                       <X className="h-4 w-4" />
                       Annuler

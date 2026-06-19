@@ -34,7 +34,7 @@ const AboutPage = () => {
             <Utensils className="h-4 w-4" />
             {t('about.locationCity')}
           </div>
-          <h1 className="text-5xl md:text-7xl font-black text-white mb-4 tracking-tight">{info.name}</h1>
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-black text-white mb-4 tracking-tight">{info.name}</h1>
           <p className="text-xl text-blue-100 max-w-2xl mx-auto mb-8 leading-relaxed">{info.description}</p>
           <div className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm shadow-lg ${
             open ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
@@ -45,7 +45,7 @@ const AboutPage = () => {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-16 space-y-20">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16 space-y-12 sm:space-y-20">
 
         {/* Histoire + Mission */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -181,7 +181,7 @@ const AboutPage = () => {
             <p className="text-gray-500 mt-2">{info.address}</p>
             <div className="h-1.5 w-16 bg-orange-500 rounded-full mx-auto mt-3" />
           </div>
-          <div className="rounded-3xl overflow-hidden shadow-xl border border-gray-200" style={{ height: '420px' }}>
+          <div className="rounded-3xl overflow-hidden shadow-xl border border-gray-200 h-[260px] sm:h-[420px]">
             <iframe
               src={info.mapEmbedUrl}
               width="100%"
@@ -214,7 +214,7 @@ const AboutPage = () => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
             {teamRoles.map(({ icon: Icon, label, desc }) => (
-              <div key={label} className="bg-white rounded-2xl p-6 text-center shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-1 transition-all">
+              <div key={label} className="bg-white rounded-2xl p-4 sm:p-6 text-center shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-1 transition-all">
                 <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
                   <Icon className="h-7 w-7 text-white" />
                 </div>

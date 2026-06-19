@@ -207,10 +207,10 @@ const CheckoutPage = () => {
     <Layout>
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex flex-wrap items-center gap-3 mb-6 sm:mb-8">
           <button
             onClick={() => navigate('/customer/menu')}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 rounded-xl shadow-sm transition-all font-medium text-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 rounded-xl shadow-sm transition-all font-medium text-sm"
           >
             <ArrowLeft className="h-4 w-4" />
             {t('checkout.backToMenu')}
@@ -237,7 +237,7 @@ const CheckoutPage = () => {
                 {cart.map(item => {
                   const itemKey = item.cartKey || item.productId;
                   return (
-                    <div key={itemKey} className="p-5 flex items-start gap-4 hover:bg-gray-50/50 transition-colors">
+                    <div key={itemKey} className="p-3 sm:p-5 flex items-start gap-3 sm:gap-4 hover:bg-gray-50/50 transition-colors">
                       {/* Info produit */}
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-gray-900 text-sm">{item.productName}</h3>
@@ -251,17 +251,17 @@ const CheckoutPage = () => {
                       </div>
 
                       {/* Quantité */}
-                      <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-2 py-1">
+                      <div className="flex items-center gap-1 bg-gray-100 rounded-xl px-1 py-1">
                         <button
                           onClick={() => updateQuantity(itemKey, item.quantity - 1)}
-                          className="p-1 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors"
+                          className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors touch-manipulation"
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <span className="font-bold text-gray-900 text-sm w-5 text-center">{item.quantity}</span>
+                        <span className="font-bold text-gray-900 text-sm w-6 text-center">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(itemKey, item.quantity + 1)}
-                          className="p-1 hover:bg-green-100 hover:text-green-600 rounded-lg transition-colors"
+                          className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center hover:bg-green-100 hover:text-green-600 rounded-lg transition-colors touch-manipulation"
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </button>
@@ -401,13 +401,13 @@ const CheckoutPage = () => {
                       <CreditCard className="inline h-3.5 w-3.5 mr-1" />
                       {t('checkout.paymentMethod')} *
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                       {Object.entries(LABELS.PAYMENT_METHOD).map(([value, label]) => (
                         <button
                           key={value}
                           type="button"
                           onClick={() => setFormData(prev => ({ ...prev, paymentMethod: value }))}
-                          className={`px-3 py-2.5 rounded-xl border-2 font-semibold text-xs transition-all ${
+                          className={`px-3 py-3 min-h-[44px] rounded-xl border-2 font-semibold text-xs transition-all touch-manipulation ${
                             formData.paymentMethod === value
                               ? 'border-green-500 bg-green-50 text-green-700'
                               : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
@@ -466,7 +466,7 @@ const CheckoutPage = () => {
 
           {/* Colonne Droite: Récapitulatif ou Formulaire Stripe */}
           <div className="space-y-4">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 sticky top-4">
 
               {stripeClientSecret ? (
                 /* ── Mode paiement Stripe ── */

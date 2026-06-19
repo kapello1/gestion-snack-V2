@@ -110,14 +110,14 @@ const ReviewsPage = () => {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-6 flex justify-between items-center">
+        <div className="mb-6 flex flex-wrap gap-3 items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Mes avis</h1>
-            <p className="text-gray-600 mt-2">Gérer vos avis et commentaires</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Mes avis</h1>
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">Gérer vos avis et commentaires</p>
           </div>
           <button
             onClick={handleAdd}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm touch-manipulation"
           >
             <Plus className="h-5 w-5" />
             <span>Nouvel avis</span>
@@ -125,7 +125,7 @@ const ReviewsPage = () => {
         </div>
 
         {/* Liste des avis */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {reviews.length === 0 ? (
             <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
               <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -135,25 +135,25 @@ const ReviewsPage = () => {
             reviews.map((review) => (
               <div
                 key={review.reviewId}
-                className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+                className="bg-white rounded-xl shadow-md p-4 sm:p-6 hover:shadow-lg transition-shadow"
               >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center space-x-2">
+                <div className="flex justify-between items-start gap-3 mb-4">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <StarRating value={review.star || 5} readOnly size="md" />
                     <span className="text-sm text-gray-600">
                       {new Date(review.createdAt).toLocaleDateString('fr-FR')}
                     </span>
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex gap-1 flex-shrink-0">
                     <button
                       onClick={() => handleEdit(review)}
-                      className="text-blue-600 hover:text-blue-800"
+                      className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
                     >
                       <Edit className="h-5 w-5" />
                     </button>
                     <button
                       onClick={() => handleDelete(review.reviewId)}
-                      className="text-red-600 hover:text-red-800"
+                      className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -169,8 +169,8 @@ const ReviewsPage = () => {
         {/* Modal d'ajout/édition */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
                 {editingReview ? 'Modifier mon avis' : 'Nouvel avis'}
               </h2>
 
@@ -196,24 +196,24 @@ const ReviewsPage = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, comment: e.target.value })
                     }
-                    rows={6}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    rows={4}
+                    className="block w-full px-3 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all"
                     placeholder="Dites-nous ce que vous pensez de notre snack..."
                     required
                   />
                 </div>
 
-                <div className="flex space-x-4 pt-4">
+                <div className="flex gap-3 pt-2">
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="flex-1 px-4 py-3 min-h-[48px] bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors touch-manipulation"
                   >
                     {editingReview ? 'Modifier' : 'Publier'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                    className="flex-1 px-4 py-3 min-h-[48px] bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-colors touch-manipulation"
                   >
                     Annuler
                   </button>
