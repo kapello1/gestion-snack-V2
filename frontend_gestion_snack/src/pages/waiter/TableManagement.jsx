@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import { Clock, Users, CheckCircle, XCircle, AlertCircle, RefreshCw, User, Phone, Mail, Hash } from 'lucide-react';
+import { Clock, Users, CheckCircle, XCircle, AlertCircle, RefreshCw, User, Phone, Mail, Hash, Calendar } from 'lucide-react';
 import api from '../../utils/api';
 import { wsManager } from '../../lib/wsManager';
 import { API_ENDPOINTS } from '../../config/api';
@@ -15,6 +15,7 @@ const TableManagement = () => {
         return wsManager.onEvent(() => {
             queryClient.invalidateQueries({ queryKey: ['tables'] });
             queryClient.invalidateQueries({ queryKey: ['orders', 'active'] });
+            queryClient.invalidateQueries({ queryKey: ['reservations', 'today'] });
         });
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -52,6 +53,37 @@ const TableManagement = () => {
         return map;
     }, {});
 
+    // Réservations du jour (BOOKED uniquement)
+    const todayStr = new Date().toISOString().split('T')[0];
+    const { data: todayReservations = [] } = useQuery({
+        queryKey: ['reservations', 'today'],
+        queryFn: async () => {
+            const res = await api.get(API_ENDPOINTS.RESERVATIONS.BY_DATE(todayStr)).catch(() => ({ data: [] }));
+            return (res.data || []).filter(r => r.status === 'BOOKED');
+        },
+        staleTime: Infinity,
+    });
+
+    // Map tableId → réservation la plus pertinente (en cours > prochaine)
+    const reservationByTable = todayReservations.reduce((map, r) => {
+        const existing = map[r.tableId];
+        if (!existing) { map[r.tableId] = r; return map; }
+        const nowMs = Date.now();
+        const fromMs = new Date(r.datetimeFrom).getTime();
+        const existFromMs = new Date(existing.datetimeFrom).getTime();
+        const isCurrent = fromMs <= nowMs && new Date(r.datetimeTo).getTime() > nowMs;
+        const existIsCurrent = existFromMs <= nowMs && new Date(existing.datetimeTo).getTime() > nowMs;
+        if (isCurrent && !existIsCurrent) { map[r.tableId] = r; return map; }
+        if (!isCurrent && existIsCurrent) return map;
+        if (fromMs < existFromMs) map[r.tableId] = r;
+        return map;
+    }, {});
+
+    const fmtSlot = (from, to) => {
+        const fmt = dt => new Date(dt).toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' });
+        return `${fmt(from)} → ${fmt(to)}`;
+    };
+
     const lastUpdated = new Date();
 
     const handleReleaseTable = async (tableId) => {
@@ -82,6 +114,7 @@ const TableManagement = () => {
     const handleManualRefresh = () => {
         queryClient.invalidateQueries({ queryKey: ['tables'] });
         queryClient.invalidateQueries({ queryKey: ['orders', 'active'] });
+        queryClient.invalidateQueries({ queryKey: ['reservations', 'today'] });
     };
 
     const getRemainingTime = (updatedAt) => {
@@ -151,6 +184,12 @@ const TableManagement = () => {
                         const custPhone = customer?.phone || activeOrder?.customerPhone || null;
                         const custEmail = customer?.email || activeOrder?.customerEmail || null;
                         const custId = activeOrder?.customerId || customer?.customerId || null;
+
+                        const reservation = reservationByTable[table.tableId] || null;
+                        const isCurrentRes = reservation
+                            ? new Date(reservation.datetimeFrom).getTime() <= Date.now() &&
+                              new Date(reservation.datetimeTo).getTime() > Date.now()
+                            : false;
 
                         return (
                             <div
@@ -237,18 +276,33 @@ const TableManagement = () => {
                                     </div>
                                 )}
 
-                                {table.status === 'RESERVED' && table.reservedForCustomerName && (
-                                    <div className="mb-4 p-3 bg-yellow-50 rounded-md border border-yellow-200 text-sm">
-                                        <div className="flex items-center gap-1 font-semibold text-yellow-800 mb-1">
-                                            <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                                            Réservation
+                                {reservation && (
+                                    <div className={`mb-4 p-3 rounded-md border text-sm ${isCurrentRes ? 'bg-orange-50 border-orange-300' : 'bg-yellow-50 border-yellow-200'}`}>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <div className={`flex items-center gap-1 font-semibold ${isCurrentRes ? 'text-orange-800' : 'text-yellow-800'}`}>
+                                                <Calendar className="h-3.5 w-3.5" />
+                                                Réservation
+                                            </div>
+                                            {isCurrentRes && (
+                                                <span className="text-xs font-bold bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full">
+                                                    En cours
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="text-gray-700 font-medium">{table.reservedForCustomerName}</div>
-                                        <div className="text-gray-500 text-xs">ID: {table.reservedForCustomerId}</div>
-                                        <div className="text-gray-700 mt-1 flex items-center gap-1">
-                                            <Clock className="h-3 w-3" />
-                                            {new Date(table.activeReservationDate).toLocaleString()}
+                                        <div className="flex items-center gap-1.5 text-gray-800 font-medium">
+                                            <User className="h-3 w-3 text-yellow-600 flex-shrink-0" />
+                                            {reservation.customerName || `Client #${reservation.customerId}`}
                                         </div>
+                                        <div className="flex items-center gap-1.5 text-gray-700 mt-0.5">
+                                            <Clock className="h-3 w-3 text-yellow-600 flex-shrink-0" />
+                                            {fmtSlot(reservation.datetimeFrom, reservation.datetimeTo)}
+                                        </div>
+                                        {reservation.places > 0 && (
+                                            <div className="flex items-center gap-1.5 text-gray-600 mt-0.5">
+                                                <Users className="h-3 w-3 text-yellow-600 flex-shrink-0" />
+                                                {reservation.places} convive{reservation.places > 1 ? 's' : ''}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
