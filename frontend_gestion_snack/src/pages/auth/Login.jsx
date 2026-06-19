@@ -76,10 +76,6 @@ const Login = () => {
     setLoading(true);
     try {
       const result = await login(formData.username, formData.password);
-      if (result.requiresDeviceVerification) {
-        navigate('/verify-device');
-        return;
-      }
       if (result.success) {
         navigate(ROLE_MAP[result.data.roleName] || '/dashboard');
       }
