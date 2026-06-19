@@ -12,14 +12,15 @@ const VerifyEmailCode = () => {
   const [loading, setLoading]     = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown]   = useState(0);
-  const navigate  = useNavigate();
-  const inputsRef = useRef([]);
-  const timerRef  = useRef(null);
+  const navigate     = useNavigate();
+  const inputsRef    = useRef([]);
+  const timerRef     = useRef(null);
+  const verifiedRef  = useRef(false);
 
   const email = sessionStorage.getItem('verifyEmail');
 
   useEffect(() => {
-    if (!email) navigate('/register');
+    if (!email && !verifiedRef.current) navigate('/register');
   }, [email, navigate]);
 
   const startCooldown = useCallback(() => {
@@ -67,6 +68,7 @@ const VerifyEmailCode = () => {
     setLoading(true);
     try {
       await api.post(API_ENDPOINTS.CUSTOMERS.VERIFY_EMAIL_CODE, { email, code });
+      verifiedRef.current = true;
       sessionStorage.removeItem('verifyEmail');
       toast.success('Email vérifié ! Vous pouvez maintenant vous connecter.');
       navigate('/login');

@@ -12,14 +12,15 @@ const VerifyResetCode = () => {
   const [loading, setLoading]     = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown]   = useState(0);
-  const navigate  = useNavigate();
-  const inputsRef = useRef([]);
-  const timerRef  = useRef(null);
+  const navigate    = useNavigate();
+  const inputsRef   = useRef([]);
+  const timerRef    = useRef(null);
+  const verifiedRef = useRef(false);
 
   const email = sessionStorage.getItem('resetEmail');
 
   useEffect(() => {
-    if (!email) navigate('/forgot-password');
+    if (!email && !verifiedRef.current) navigate('/forgot-password');
   }, [email, navigate]);
 
   const startCooldown = useCallback(() => {
@@ -68,6 +69,7 @@ const VerifyResetCode = () => {
     try {
       const res = await api.post(API_ENDPOINTS.AUTH.VERIFY_RESET_CODE, { email, code });
       const token = res.data?.token;
+      verifiedRef.current = true;
       sessionStorage.removeItem('resetEmail');
       navigate(`/reset-password?token=${token}`);
     } catch (error) {
