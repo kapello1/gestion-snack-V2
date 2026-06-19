@@ -21,10 +21,5 @@ public class LoginResponseDTO {
     private Boolean success;
     private Boolean requiresTwoFactor;
     private Long twoFactorUserId;
-
-    // Vérification de nouvel appareil
-    private Boolean requiresDeviceVerification;
-    private Long deviceVerificationUserId;
-    private String newDeviceToken; // renvoyé après validation réussie, à stocker dans localStorage
 }
 

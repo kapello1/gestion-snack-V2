@@ -17,8 +17,5 @@ public class LoginRequestDTO {
 
     @NotBlank(message = "Le mot de passe est obligatoire")
     private String password;
-
-    // Token UUID stocké dans le localStorage du navigateur — null = appareil inconnu
-    private String deviceToken;
 }
 

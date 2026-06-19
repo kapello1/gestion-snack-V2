@@ -8,7 +8,6 @@ import com.joel.gestion_snack.model.dto.UserUpdateRequestDTO;
 import com.joel.gestion_snack.model.entity.Role;
 import com.joel.gestion_snack.model.entity.RoleType;
 import com.joel.gestion_snack.model.entity.User;
-import com.joel.gestion_snack.model.entity.UserDevice;
 import com.joel.gestion_snack.repository.CustomerRepository;
 import com.joel.gestion_snack.repository.EmployeeRepository;
 import com.joel.gestion_snack.repository.OrderRepository;
@@ -16,7 +15,6 @@ import com.joel.gestion_snack.repository.ReservationRepository;
 import com.joel.gestion_snack.repository.ReviewRepository;
 import com.joel.gestion_snack.repository.RoleRepository;
 import com.joel.gestion_snack.repository.UserRepository;
-import com.joel.gestion_snack.repository.UserDeviceRepository;
 import com.joel.gestion_snack.config.WebSocketEventPublisher;
 import com.joel.gestion_snack.service.EmailService;
 import com.joel.gestion_snack.service.interfaces.IUserService;
@@ -35,7 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -55,7 +52,6 @@ public class UserServiceImpl implements IUserService {
     private final OrderRepository orderRepository;
     private final ReservationRepository reservationRepository;
     private final ReviewRepository reviewRepository;
-    private final UserDeviceRepository userDeviceRepository;
     private final MapperUtil mapperUtil;
     private final EntityManager entityManager;
     private final EmailService emailService;
@@ -89,38 +85,7 @@ public class UserServiceImpl implements IUserService {
             throw new IllegalArgumentException("Nom d'utilisateur ou mot de passe incorrect");
         }
 
-        // ── Vérification de l'appareil ──────────────────────────────────────────
-        String deviceToken = loginRequest.getDeviceToken();
-        boolean knownDevice = deviceToken != null && !deviceToken.isBlank()
-                && userDeviceRepository.existsByUserAndDeviceToken(user, deviceToken);
-
-        if (knownDevice) {
-            // Appareil connu : mettre à jour lastUsedAt et accorder l'accès directement
-            userDeviceRepository.findByUserAndDeviceToken(user, deviceToken).ifPresent(d -> {
-                d.setLastUsedAt(java.time.LocalDateTime.now());
-                userDeviceRepository.save(d);
-            });
-            log.info("Appareil connu — connexion directe pour: {}", loginRequest.getUsername());
-            return buildSuccessResponse(user);
-        }
-
-        // Appareil inconnu : envoyer un code de vérification par email
-        log.info("Nouvel appareil détecté — envoi du code de vérification à: {}", user.getEmail());
-        String code = String.format("%06d", new Random().nextInt(1_000_000));
-        user.setTwoFactorCode(code);
-        user.setTwoFactorCodeExpiry(java.time.LocalDateTime.now().plusMinutes(15));
-        user.setTwoFactorAttempts(0);
-        userRepository.save(user);
-
-        String firstName = resolveFirstName(user);
-        emailService.sendNewDeviceEmail(user.getEmail(), code, firstName, loginRequest.getDeviceToken());
-
-        LoginResponseDTO response = new LoginResponseDTO();
-        response.setSuccess(false);
-        response.setRequiresDeviceVerification(true);
-        response.setDeviceVerificationUserId(user.getUserId());
-        response.setMessage("Nouvel appareil détecté. Un code de vérification a été envoyé à votre email.");
-        return response;
+        return buildSuccessResponse(user);
     }
 
     private LoginResponseDTO buildSuccessResponse(User user) {
@@ -137,83 +102,6 @@ public class UserServiceImpl implements IUserService {
     }
 
     private static final int MAX_2FA_ATTEMPTS = 5;
-
-    @Override
-    public LoginResponseDTO verifyDeviceCode(Long userId, String code) {
-        log.info("Vérification du code appareil pour userId: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
-
-        int attempts = user.getTwoFactorAttempts() != null ? user.getTwoFactorAttempts() : 0;
-        if (attempts >= MAX_2FA_ATTEMPTS) {
-            user.setTwoFactorCode(null);
-            user.setTwoFactorCodeExpiry(null);
-            user.setTwoFactorAttempts(0);
-            userRepository.save(user);
-            throw new IllegalArgumentException("Trop de tentatives échouées. Veuillez vous reconnecter.");
-        }
-
-        if (user.getTwoFactorCodeExpiry() == null ||
-                user.getTwoFactorCodeExpiry().isBefore(java.time.LocalDateTime.now())) {
-            user.setTwoFactorCode(null);
-            user.setTwoFactorCodeExpiry(null);
-            user.setTwoFactorAttempts(0);
-            userRepository.save(user);
-            throw new IllegalArgumentException("Code expiré. Veuillez vous reconnecter.");
-        }
-
-        if (user.getTwoFactorCode() == null || !user.getTwoFactorCode().equals(code)) {
-            user.setTwoFactorAttempts(attempts + 1);
-            userRepository.save(user);
-            int remaining = MAX_2FA_ATTEMPTS - (attempts + 1);
-            if (remaining <= 0) {
-                user.setTwoFactorCode(null);
-                user.setTwoFactorCodeExpiry(null);
-                user.setTwoFactorAttempts(0);
-                userRepository.save(user);
-                throw new IllegalArgumentException("Trop de tentatives échouées. Veuillez vous reconnecter.");
-            }
-            throw new IllegalArgumentException("Code incorrect. " + remaining + " tentative(s) restante(s).");
-        }
-
-        // Code valide : réinitialiser, créer l'entrée device, retourner la session
-        user.setTwoFactorCode(null);
-        user.setTwoFactorCodeExpiry(null);
-        user.setTwoFactorAttempts(0);
-        user.setLastLogin(java.time.LocalDateTime.now());
-        userRepository.save(user);
-
-        String newDeviceToken = UUID.randomUUID().toString();
-        UserDevice device = new UserDevice();
-        device.setUser(user);
-        device.setDeviceToken(newDeviceToken);
-        device.setLastUsedAt(java.time.LocalDateTime.now());
-        userDeviceRepository.save(device);
-
-        log.info("Nouvel appareil validé et enregistré pour userId: {}", userId);
-
-        LoginResponseDTO response = buildSuccessResponse(user);
-        response.setNewDeviceToken(newDeviceToken);
-        return response;
-    }
-
-    @Override
-    public void resendDeviceCode(Long userId) {
-        log.info("Renvoi du code appareil pour userId: {}", userId);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
-
-        String code = String.format("%06d", new Random().nextInt(1_000_000));
-        user.setTwoFactorCode(code);
-        user.setTwoFactorCodeExpiry(java.time.LocalDateTime.now().plusMinutes(15));
-        user.setTwoFactorAttempts(0);
-        userRepository.save(user);
-
-        String firstName = resolveFirstName(user);
-        emailService.sendNewDeviceEmail(user.getEmail(), code, firstName, null);
-        log.info("Nouveau code appareil envoyé pour userId: {}", userId);
-    }
 
     @Override
     public LoginResponseDTO verify2FACode(Long userId, String code) {
@@ -485,8 +373,6 @@ public class UserServiceImpl implements IUserService {
             });
         }
 
-        // Supprimer les devices associés avant de supprimer l'utilisateur
-        userDeviceRepository.findAllByUser(user).forEach(userDeviceRepository::delete);
         entityManager.flush();
         userRepository.deleteById(id);
         log.info("Utilisateur supprimé avec succès avec l'ID: {}", id);
