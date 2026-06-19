@@ -98,15 +98,8 @@ const Register = () => {
         address:  formData.address  || null,
         createdBy: 'SELF',
       });
-      if (res.data?.emailVerified === false) {
-        // Code 6 chiffres envoyé — rediriger vers la page de vérification
-        sessionStorage.setItem('verifyEmail', formData.email);
-        navigate('/verify-email-code');
-      } else {
-        // Email non configuré — compte activé directement
-        toast.success('Compte créé ! Vous pouvez maintenant vous connecter.');
-        navigate('/login');
-      }
+      sessionStorage.setItem('verifyEmail', formData.email);
+      navigate('/verify-email-code');
     } catch (err) {
       const data = err.response?.data;
       // Erreurs de validation champ par champ (MethodArgumentNotValidException)
