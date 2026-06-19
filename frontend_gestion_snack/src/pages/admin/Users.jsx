@@ -21,11 +21,15 @@ const UsersPage = () => {
   const [editFormData, setEditFormData] = useState({
     username: '',
     email: '',
-    roleName: ''
+    roleId: null,
   });
+  const [rolesList, setRolesList] = useState([]);
 
   useEffect(() => {
     loadUsers(true);
+    api.get(API_ENDPOINTS.ROLES.BASE)
+      .then(res => setRolesList(res.data || []))
+      .catch(() => {});
   }, []);
 
   // Rafraîchissement instantané et silencieux sur tout événement WebSocket
@@ -80,7 +84,7 @@ const UsersPage = () => {
     setEditFormData({
       username: user.username,
       email: user.email,
-      roleName: user.roleName
+      roleId: user.roleId,
     });
     setShowEditModal(true);
   };
@@ -88,16 +92,18 @@ const UsersPage = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Note: Backend might not support direct user update if it's tied to Employee/Provider
-      // But we can try updating basic info if endpoint exists
-      // Assuming PUT /users/{id} exists or similar
-      await api.put(API_ENDPOINTS.USERS.BY_ID(editingUser.userId), editFormData);
+      await api.put(API_ENDPOINTS.USERS.BY_ID(editingUser.userId), {
+        username: editFormData.username,
+        email: editFormData.email,
+        roleId: editFormData.roleId,
+        ownerId: editingUser.ownerId,
+      });
       toast.success('Utilisateur mis à jour');
       setShowEditModal(false);
       loadUsers();
     } catch (error) {
-      console.error(error);
-      toast.error('Erreur lors de la mise à jour. Vérifiez si cet utilisateur est lié à un employé/fournisseur.');
+      const msg = error.response?.data?.message || 'Erreur lors de la mise à jour';
+      toast.error(msg);
     }
   };
 
@@ -264,10 +270,19 @@ const UsersPage = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Rôle</label>
-                  <select value={editFormData.roleName} onChange={e => setEditFormData({ ...editFormData, roleName: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                    {Object.values(ROLES).map(role => (
-                      <option key={role} value={role}>{role}</option>
-                    ))}
+                  <select
+                    value={editFormData.roleId ?? ''}
+                    onChange={e => setEditFormData({ ...editFormData, roleId: parseInt(e.target.value) })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  >
+                    {rolesList.length > 0
+                      ? rolesList.map(r => (
+                          <option key={r.roleId} value={r.roleId}>{r.roleName}</option>
+                        ))
+                      : Object.values(ROLES).map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))
+                    }
                   </select>
                 </div>
                 <div className="flex justify-end gap-4 mt-6">

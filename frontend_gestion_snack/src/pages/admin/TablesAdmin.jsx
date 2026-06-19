@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
-import { Plus, Edit, Trash2, Utensils, Users, User, Phone, Mail, Hash, LogOut } from 'lucide-react';
+import { Plus, Edit, Trash2, Utensils, Users, User, Phone, Mail, Hash, LogOut, Calendar, Clock } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
@@ -8,8 +9,15 @@ import { useAuth } from '../../context/AuthContext';
 import { LABELS, TABLE_STATUS } from '../../utils/constants';
 import { wsManager } from '../../lib/wsManager';
 
+const fmtSlot = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' });
+};
+
 const TablesAdminPage = () => {
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     const [tables, setTables] = useState([]);
     const [ordersByTable, setOrdersByTable] = useState({});
     const [loading, setLoading] = useState(true);
@@ -22,13 +30,42 @@ const TablesAdminPage = () => {
         status: 'FREE',
     });
 
+    // Réservations BOOKED du jour pour toutes les tables
+    const todayStr = new Date().toISOString().split('T')[0];
+    const { data: todayReservations = [] } = useQuery({
+        queryKey: ['reservations', 'today-admin'],
+        queryFn: async () => {
+            const res = await api.get(API_ENDPOINTS.RESERVATIONS.BY_DATE(todayStr)).catch(() => ({ data: [] }));
+            return (res.data || []).filter(r => r.status === 'BOOKED');
+        },
+        staleTime: Infinity,
+    });
+
+    // Map tableId → réservation la plus pertinente (en cours > prochaine)
+    const reservationByTable = todayReservations.reduce((map, r) => {
+        const existing = map[r.tableId];
+        if (!existing) { map[r.tableId] = r; return map; }
+        const nowMs = Date.now();
+        const fromMs = new Date(r.datetimeFrom).getTime();
+        const existFromMs = new Date(existing.datetimeFrom).getTime();
+        const isCurrent = fromMs <= nowMs && new Date(r.datetimeTo).getTime() > nowMs;
+        const existIsCurrent = existFromMs <= nowMs && new Date(existing.datetimeTo).getTime() > nowMs;
+        if (isCurrent && !existIsCurrent) { map[r.tableId] = r; return map; }
+        if (!isCurrent && existIsCurrent) return map;
+        if (fromMs < existFromMs) map[r.tableId] = r;
+        return map;
+    }, {});
+
     useEffect(() => {
         loadTables(true);
     }, []);
 
     // Rafraîchissement instantané et silencieux sur tout événement WebSocket
     useEffect(() => {
-        return wsManager.onEvent(() => loadTables(false));
+        return wsManager.onEvent(() => {
+            loadTables(false);
+            queryClient.invalidateQueries({ queryKey: ['reservations', 'today-admin'] });
+        });
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadTables = async (showLoading = false) => {
@@ -223,32 +260,37 @@ const TablesAdminPage = () => {
                                 </div>
                             )}
 
-                            {table.status === 'RESERVED' && table.reservedForCustomerName && (
-                                <div className="mt-3 p-2 bg-yellow-50 rounded border border-yellow-200 text-sm space-y-0.5">
-                                    <div className="font-semibold text-yellow-800 mb-1">📅 Réservation</div>
-                                    <div className="flex items-center gap-1 text-gray-700">
-                                        <User className="h-3 w-3 text-yellow-500" />
-                                        {table.reservedForCustomerName}
+                            {/* Réservation du jour (dynamique) */}
+                            {reservationByTable[table.tableId] && (() => {
+                                const r = reservationByTable[table.tableId];
+                                const nowMs = Date.now();
+                                const inProgress = new Date(r.datetimeFrom).getTime() <= nowMs && new Date(r.datetimeTo).getTime() > nowMs;
+                                return (
+                                    <div className={`mt-3 p-2 rounded border text-sm space-y-0.5 ${inProgress ? 'bg-orange-50 border-orange-200' : 'bg-yellow-50 border-yellow-200'}`}>
+                                        <div className={`font-semibold mb-1 flex items-center gap-1 ${inProgress ? 'text-orange-700' : 'text-yellow-800'}`}>
+                                            <Calendar className="h-3 w-3" />
+                                            {inProgress ? 'Réservation en cours' : 'Prochaine réservation'}
+                                        </div>
+                                        {r.customerName && (
+                                            <div className="flex items-center gap-1 text-gray-700">
+                                                <User className="h-3 w-3 text-yellow-500" />
+                                                {r.customerName}
+                                            </div>
+                                        )}
+                                        {r.places > 0 && (
+                                            <div className="flex items-center gap-1 text-gray-700 font-semibold">
+                                                <Users className="h-3 w-3 text-yellow-500" />
+                                                {r.places} personne{r.places > 1 ? 's' : ''}
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-1 text-gray-500 text-xs">
+                                            <Clock className="h-3 w-3" />
+                                            {fmtSlot(r.datetimeFrom)} → {fmtSlot(r.datetimeTo)}
+                                        </div>
+                                        <div className="text-xs text-gray-400">Rés. #{r.reservationId}</div>
                                     </div>
-                                    {table.reservedForCustomerPhone && (
-                                        <div className="flex items-center gap-1 text-gray-700">
-                                            <Phone className="h-3 w-3 text-yellow-500" />
-                                            {table.reservedForCustomerPhone}
-                                        </div>
-                                    )}
-                                    {table.reservationPlaces > 0 && (
-                                        <div className="flex items-center gap-1 text-gray-700 font-semibold">
-                                            <Users className="h-3 w-3 text-yellow-500" />
-                                            {table.reservationPlaces} personne{table.reservationPlaces > 1 ? 's' : ''}
-                                        </div>
-                                    )}
-                                    {table.activeReservationDate && (
-                                        <div className="text-gray-500 text-xs">
-                                            🕐 {new Date(table.activeReservationDate).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                );
+                            })()}
                         </div>
                         );
                     })}
