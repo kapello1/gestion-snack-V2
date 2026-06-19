@@ -78,6 +78,9 @@ const Login = () => {
       const result = await login(formData.username, formData.password);
       if (result.success) {
         navigate(ROLE_MAP[result.data.roleName] || '/dashboard');
+      } else if (result.requiresTwoFactor) {
+        sessionStorage.setItem('twoFactorUserId', result.twoFactorUserId);
+        navigate('/verify-2fa');
       }
     } catch (err) {
       console.error('Erreur connexion:', err);

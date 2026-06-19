@@ -7,6 +7,8 @@ import com.joel.gestion_snack.model.dto.PaymentIntentResponseDTO;
 import com.joel.gestion_snack.model.dto.RefundRequestDTO;
 import com.joel.gestion_snack.service.implementations.OrderServiceImpl;
 import com.joel.gestion_snack.service.implementations.StripeService;
+import com.stripe.exception.SignatureVerificationException;
+import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -158,5 +160,62 @@ public class StripeController {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body(Map.of("message", "Remboursement impossible: " + e.getMessage()));
         }
+    }
+
+    /**
+     * Endpoint de réception des webhooks Stripe.
+     *
+     * <p><b>Sécurité :</b> chaque requête Stripe est signée avec {@code STRIPE_WEBHOOK_SECRET}.
+     * La signature est vérifiée AVANT tout traitement — une requête avec signature invalide
+     * reçoit immédiatement un {@code 400 Bad Request} sans exécuter aucune logique métier.</p>
+     *
+     * <p><b>Corps brut obligatoire :</b> le corps est reçu en {@code byte[]} (non parsé par Spring)
+     * car la vérification de la signature porte sur les octets exacts envoyés par Stripe.
+     * Toute sérialisation/désérialisation JSON invaliderait la signature HMAC-SHA256.</p>
+     *
+     * <p><b>Événements gérés :</b></p>
+     * <ul>
+     *   <li>{@code payment_intent.payment_failed} — paiement refusé par la banque → transaction FAILED</li>
+     *   <li>{@code charge.refunded} — remboursement initié depuis le dashboard Stripe → transaction REFUNDED</li>
+     * </ul>
+     *
+     * <p><b>Toujours répondre 200 :</b> Stripe réessaie la livraison pendant 72h si la réponse
+     * n'est pas 2xx. On répond 200 même en cas d'erreur métier interne pour éviter une boucle
+     * de réessais infinie sur des événements que l'on ne peut pas traiter.</p>
+     *
+     * <p><b>Configuration requise :</b> {@code STRIPE_WEBHOOK_SECRET=whsec_...} dans le fichier
+     * {@code .env}. Cette clé se récupère dans le dashboard Stripe → Webhooks → signing secret.
+     * L'URL à enregistrer dans Stripe est : {@code https://[votre-domaine]/api/stripe/webhook}</p>
+     */
+    @PostMapping(value = "/webhook", consumes = "application/json")
+    public ResponseEntity<String> handleWebhook(
+            @RequestBody byte[] rawPayload,
+            @RequestHeader("Stripe-Signature") String sigHeader) {
+
+        Event event;
+        try {
+            event = stripeService.constructWebhookEvent(rawPayload, sigHeader);
+        } catch (SignatureVerificationException e) {
+            log.warn("Webhook Stripe: signature invalide — requête rejetée ({})", e.getMessage());
+            return ResponseEntity.badRequest().body("Signature Stripe invalide");
+        } catch (Exception e) {
+            log.error("Webhook Stripe: erreur construction événement — {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Erreur webhook");
+        }
+
+        log.info("Webhook Stripe reçu: type={} id={}", event.getType(), event.getId());
+
+        try {
+            switch (event.getType()) {
+                case "payment_intent.payment_failed" -> stripeService.handlePaymentFailed(event);
+                case "charge.refunded"               -> stripeService.handleChargeRefunded(event);
+                default -> log.debug("Webhook Stripe: événement ignoré — {}", event.getType());
+            }
+        } catch (Exception e) {
+            // On log sans propager : répondre 200 pour éviter les réessais Stripe infinis
+            log.error("Webhook Stripe: erreur traitement {} — {}", event.getType(), e.getMessage());
+        }
+
+        return ResponseEntity.ok("OK");
     }
 }

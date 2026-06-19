@@ -86,7 +86,24 @@ public class UserServiceImpl implements IUserService {
             throw new IllegalArgumentException("Nom d'utilisateur ou mot de passe incorrect");
         }
 
-        return buildSuccessResponse(user);
+        // Générer et envoyer le code 2FA — la session n'est créée qu'après validation
+        String twoFactorCode = String.format("%06d", new Random().nextInt(1_000_000));
+        user.setTwoFactorCode(twoFactorCode);
+        user.setTwoFactorCodeExpiry(LocalDateTime.now().plusMinutes(10));
+        user.setTwoFactorAttempts(0);
+        userRepository.save(user);
+
+        String firstName = resolveFirstName(user);
+        boolean sent = emailService.send2FACodeEmail(user.getEmail(), twoFactorCode, firstName);
+        if (!sent) log.warn("Email 2FA non envoyé pour: {}", user.getUsername());
+        log.info("Code 2FA envoyé à {} pour: {}", user.getEmail(), user.getUsername());
+
+        LoginResponseDTO pending = new LoginResponseDTO();
+        pending.setSuccess(false);
+        pending.setRequiresTwoFactor(true);
+        pending.setTwoFactorUserId(user.getUserId());
+        pending.setMessage("Un code de vérification a été envoyé à votre adresse email.");
+        return pending;
     }
 
     private LoginResponseDTO buildSuccessResponse(User user) {

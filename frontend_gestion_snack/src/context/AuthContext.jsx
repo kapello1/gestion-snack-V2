@@ -77,14 +77,30 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, { username, password });
       const data = response.data;
 
-      if (data?.success) {
-        return completeLogin(data);
+      if (data?.success) return completeLogin(data);
+
+      if (data?.requiresTwoFactor) {
+        return { success: false, requiresTwoFactor: true, twoFactorUserId: data.twoFactorUserId };
       }
 
       toast.error(data?.message || 'Échec de la connexion');
       return { success: false, message: data?.message || 'Échec de la connexion' };
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Erreur lors de la connexion';
+      toast.error(message);
+      return { success: false, message };
+    }
+  };
+
+  const verify2FA = async (userId, code) => {
+    try {
+      const response = await api.post(API_ENDPOINTS.AUTH.VERIFY_2FA, { userId, code });
+      const data = response.data;
+      if (data?.success) return completeLogin(data);
+      toast.error(data?.message || 'Code invalide');
+      return { success: false, message: data?.message };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Code invalide ou expiré';
       toast.error(message);
       return { success: false, message };
     }
@@ -142,6 +158,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     resetPassword,
     updateUser,
+    verify2FA,
     isAuthenticated: !!user,
   };
 

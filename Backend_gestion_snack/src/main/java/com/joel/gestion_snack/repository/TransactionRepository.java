@@ -13,4 +13,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     boolean existsByOrder_OrderIdAndStatus(Long orderId, TransactionStatusType status);
 
     Optional<Transaction> findFirstByOrder_OrderIdAndStatus(Long orderId, TransactionStatusType status);
+
+    Optional<Transaction> findByStripePaymentIntentId(String stripePaymentIntentId);
 }
