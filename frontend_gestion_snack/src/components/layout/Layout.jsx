@@ -2,8 +2,6 @@
 import Navbar from './Navbar';
 import Footer from './Footer';
 import Chatbot from '../Chatbot';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import { useNotifications } from '../../context/NotificationContext';
 
 const Layout = ({ children }) => {
@@ -34,16 +32,6 @@ const Layout = ({ children }) => {
         </div>
       )}
 
-      {/* ToastContainer conservé pour les autres toasts de l'app (login, erreurs…) */}
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        pauseOnHover
-        theme="light"
-      />
     </div>
   );
 };

@@ -1,5 +1,7 @@
 // Application principale avec routes
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { QueryClientProvider } from '@tanstack/react-query';
 import queryClient from './lib/queryClient';
 import { AuthProvider } from './context/AuthContext';
@@ -68,6 +70,7 @@ function App() {
     <NetworkProvider>
     <NotificationProvider>
       <Router>
+        <ToastContainer position="top-right" autoClose={3500} hideProgressBar={false} newestOnTop closeOnClick pauseOnHover theme="light" />
         <Routes>
           {/* Routes publiques */}
           <Route path="/login" element={<Login />} />
