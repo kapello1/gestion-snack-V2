@@ -53,6 +53,33 @@ public class AuthControllerImpl {
         return ResponseEntity.ok(Map.of("message", "Nouveau code envoyé à votre adresse email"));
     }
 
+    @PostMapping("/verify-device")
+    @Operation(summary = "Vérifier le code reçu pour valider un nouvel appareil et finaliser la connexion")
+    public ResponseEntity<?> verifyDevice(@RequestBody Map<String, Object> body) {
+        Object userIdObj = body.get("userId");
+        String code = (String) body.get("code");
+        if (userIdObj == null || code == null || code.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "userId et code sont obligatoires"));
+        }
+        Long userId = Long.valueOf(userIdObj.toString());
+        log.info("Requête POST verify-device pour userId: {}", userId);
+        LoginResponseDTO response = userService.verifyDeviceCode(userId, code);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/resend-device-code")
+    @Operation(summary = "Renvoyer un nouveau code de vérification d'appareil par email")
+    public ResponseEntity<Map<String, String>> resendDeviceCode(@RequestBody Map<String, Object> body) {
+        Object userIdObj = body.get("userId");
+        if (userIdObj == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "userId est obligatoire"));
+        }
+        Long userId = Long.valueOf(userIdObj.toString());
+        log.info("Requête POST resend-device-code pour userId: {}", userId);
+        userService.resendDeviceCode(userId);
+        return ResponseEntity.ok(Map.of("message", "Nouveau code envoyé à votre adresse email"));
+    }
+
     @PostMapping("/verify-reset-code")
     @Operation(summary = "Vérifier le code reçu par email avant la réinitialisation du mot de passe")
     public ResponseEntity<Map<String, String>> verifyResetCode(@RequestBody Map<String, String> body) {

@@ -119,10 +119,18 @@ public interface IUserService {
     /**
      * Vérifie le code de réinitialisation reçu par email
      * Si valide, génère un token UUID sécurisé pour la page de nouveau mot de passe
-     * @param email Email de l'utilisateur
-     * @param code  Code à 6 chiffres
-     * @return Token UUID à passer à /reset-password
      */
     String verifyResetCode(String email, String code);
+
+    /**
+     * Vérifie le code reçu pour valider un nouvel appareil.
+     * Si valide, enregistre l'appareil et retourne la session complète + le nouveau deviceToken.
+     */
+    LoginResponseDTO verifyDeviceCode(Long userId, String code);
+
+    /**
+     * Renvoie un nouveau code de vérification d'appareil par email.
+     */
+    void resendDeviceCode(Long userId);
 }
 

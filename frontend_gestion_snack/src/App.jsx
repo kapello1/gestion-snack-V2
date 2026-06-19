@@ -20,6 +20,7 @@ import ResetPassword from './pages/auth/ResetPassword';
 import VerifyEmail from './pages/auth/VerifyEmail';
 import VerifyEmailCode from './pages/auth/VerifyEmailCode';
 import VerifyResetCode from './pages/auth/VerifyResetCode';
+import VerifyDevice from './pages/auth/VerifyDevice';
 
 // Page de profil
 import Profile from './pages/Profile';
@@ -80,6 +81,7 @@ function App() {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/verify-email-code" element={<VerifyEmailCode />} />
           <Route path="/verify-reset-code" element={<VerifyResetCode />} />
+          <Route path="/verify-device" element={<VerifyDevice />} />
 
           {/* Routes protégées - Profil */}
           <Route

@@ -72,6 +72,47 @@ public class EmailService {
         return sendHtml(toEmail, "Votre code de vérification - Snack", build2FABody(firstName, code));
     }
 
+    public boolean sendNewDeviceEmail(String toEmail, String code, String firstName, String ipAddress) {
+        if (!isConfigured()) {
+            log.warn("Brevo non configuré - email nouvel appareil non envoyé à {}", toEmail);
+            return false;
+        }
+        return sendHtml(toEmail, "⚠️ Connexion depuis un nouvel appareil - Snack",
+                buildNewDeviceBody(firstName, code, ipAddress));
+    }
+
+    private String buildNewDeviceBody(String firstName, String code, String ipAddress) {
+        return "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:0'>"
+            + "<div style='background:linear-gradient(135deg,#0f172a,#1e293b);padding:32px;text-align:center;border-radius:12px 12px 0 0'>"
+            + "<h1 style='color:#f59e0b;margin:0;font-size:22px;letter-spacing:1px'>⚠️ SNACK</h1>"
+            + "<p style='color:#94a3b8;margin:8px 0 0;font-size:13px'>Sécurité du compte</p>"
+            + "</div>"
+            + "<div style='background:#ffffff;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0'>"
+            + "<h2 style='color:#1e293b;font-size:18px;margin:0 0 12px'>Connexion depuis un nouvel appareil</h2>"
+            + "<p style='color:#475569;font-size:15px;line-height:1.6'>Bonjour <strong>" + firstName + "</strong>,</p>"
+            + "<p style='color:#475569;font-size:15px;line-height:1.6'>"
+            + "Une tentative de connexion a été détectée depuis un <strong>appareil non reconnu</strong>"
+            + (ipAddress != null ? " (IP : <code>" + ipAddress + "</code>)" : "") + ".</p>"
+            + "<p style='color:#475569;font-size:15px;line-height:1.6'>"
+            + "<strong>Si c'est vous</strong>, saisissez le code ci-dessous pour valider cet appareil :</p>"
+            + "<div style='text-align:center;margin:28px 0'>"
+            + "<div style='display:inline-block;background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:18px 32px'>"
+            + "<span style='font-size:36px;font-weight:900;letter-spacing:10px;color:#92400e'>" + code + "</span>"
+            + "</div>"
+            + "<p style='color:#64748b;font-size:12px;margin:10px 0 0'>Valable 15 minutes · 5 tentatives max</p>"
+            + "</div>"
+            + "<div style='background:#fef2f2;border-left:4px solid #ef4444;border-radius:6px;padding:14px 18px;margin:24px 0'>"
+            + "<p style='color:#991b1b;font-size:14px;margin:0;font-weight:600'>🔒 Ce n'est pas vous ?</p>"
+            + "<p style='color:#7f1d1d;font-size:13px;margin:6px 0 0;line-height:1.5'>"
+            + "Ignorez cet email et <strong>changez immédiatement votre mot de passe</strong>. "
+            + "Ne communiquez jamais ce code à personne.</p>"
+            + "</div>"
+            + "<hr style='border:none;border-top:1px solid #e2e8f0;margin:24px 0'>"
+            + "<p style='color:#94a3b8;font-size:11px;text-align:center;margin:0'>"
+            + "Snack · Système de sécurité automatique · Ne pas répondre à cet email</p>"
+            + "</div></div>";
+    }
+
     public boolean sendTestEmail(String toEmail) {
         if (!isConfigured()) {
             log.warn("Brevo non configuré - test impossible");

@@ -74,15 +74,44 @@ export const AuthProvider = ({ children }) => {
    */
   const login = async (username, password) => {
     try {
-      const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, { username, password });
-      if (response.data && response.data.success) {
-        return completeLogin(response.data);
-      } else {
-        toast.error(response.data?.message || 'Échec de la connexion');
-        return { success: false, message: response.data?.message || 'Échec de la connexion' };
+      const deviceToken = localStorage.getItem('deviceToken');
+      const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, { username, password, deviceToken });
+      const data = response.data;
+
+      if (data?.requiresDeviceVerification) {
+        // Nouvel appareil — stocker l'userId pour la page de vérification
+        sessionStorage.setItem('deviceVerifyUserId', String(data.deviceVerificationUserId));
+        return { success: false, requiresDeviceVerification: true, userId: data.deviceVerificationUserId };
       }
+
+      if (data?.success) {
+        return completeLogin(data);
+      }
+
+      toast.error(data?.message || 'Échec de la connexion');
+      return { success: false, message: data?.message || 'Échec de la connexion' };
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Erreur lors de la connexion';
+      toast.error(message);
+      return { success: false, message };
+    }
+  };
+
+  const verifyDevice = async (userId, code) => {
+    try {
+      const response = await api.post(API_ENDPOINTS.AUTH.VERIFY_DEVICE, { userId, code });
+      const data = response.data;
+      if (data?.success) {
+        if (data.newDeviceToken) {
+          localStorage.setItem('deviceToken', data.newDeviceToken);
+        }
+        sessionStorage.removeItem('deviceVerifyUserId');
+        return completeLogin(data);
+      }
+      toast.error(data?.message || 'Code invalide');
+      return { success: false, message: data?.message };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Code invalide';
       toast.error(message);
       return { success: false, message };
     }
@@ -140,6 +169,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     resetPassword,
     updateUser,
+    verifyDevice,
     isAuthenticated: !!user,
   };
 

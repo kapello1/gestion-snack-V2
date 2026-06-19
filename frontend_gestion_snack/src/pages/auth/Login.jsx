@@ -65,18 +65,23 @@ const Login = () => {
 
   const handleChange = (e) => setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
 
+  const ROLE_MAP = {
+    ADMIN: '/admin/dashboard', CUSTOMER: '/customer/menu',
+    CASHIER: '/cashier/payments', WAITER: '/waiter/orders',
+    COOK: '/cook/orders', PROVIDER: '/provider/orders',
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const result = await login(formData.username, formData.password);
+      if (result.requiresDeviceVerification) {
+        navigate('/verify-device');
+        return;
+      }
       if (result.success) {
-        const map = {
-          ADMIN: '/admin/dashboard', CUSTOMER: '/customer/menu',
-          CASHIER: '/cashier/payments', WAITER: '/waiter/orders',
-          COOK: '/cook/orders', PROVIDER: '/provider/orders',
-        };
-        navigate(map[result.data.roleName] || '/dashboard');
+        navigate(ROLE_MAP[result.data.roleName] || '/dashboard');
       }
     } catch (err) {
       console.error('Erreur connexion:', err);

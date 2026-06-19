@@ -20,6 +20,8 @@ export const API_ENDPOINTS = {
     FORGOT_PASSWORD: '/auth/forgot-password',
     RESET_PASSWORD: '/auth/reset-password',
     VERIFY_RESET_CODE: '/auth/verify-reset-code',
+    VERIFY_DEVICE: '/auth/verify-device',
+    RESEND_DEVICE_CODE: '/auth/resend-device-code',
   },
   // Utilisateurs
   USERS: {
