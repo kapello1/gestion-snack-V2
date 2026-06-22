@@ -297,6 +297,11 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     setVS(S.LISTENING);
     echoTimerRef.current = setTimeout(() => {
       echoRef.current = false;
+      // Micro réellement ouvert : le son du TTS est terminé depuis ECHO_GUARD_MS,
+      // il n'y a plus d'écho acoustique possible. On désarme donc le filtre
+      // anti-écho par mots (lastTTSRef) qui sinon jette la parole de l'utilisateur
+      // dès qu'il réutilise des mots du menu que le bot vient de citer.
+      lastTTSRef.current = '';
       if (mountedRef.current && vsRef.current === S.LISTENING) startRec();
     }, ECHO_GUARD_MS);
   };
