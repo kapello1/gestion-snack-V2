@@ -23,6 +23,9 @@ const USE_CONTINUOUS = !(IS_IOS || IS_SAFARI);
 const ECHO_GUARD_MS  = IS_MOBILE ? 900 : 1500;
 // Délai post-audio : laisse le buffer hardware se vider avant de lancer l'echo guard
 const POST_TTS_MS    = IS_MOBILE ? 200 : 150;
+// Silence maximal toléré en écoute avant de recréer le moteur STT
+// (parade à l'endormissement de la Web Speech API sur longue session)
+const LISTEN_WATCHDOG_MS = 12000;
 
 const WELCOME = {
   fr: 'Bonjour et bienvenue au Snack Tiegni Bernard ! Je suis votre assistant vocal. En quoi puis-je vous aider ?',
@@ -61,6 +64,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const echoTimerRef = useRef(null);  // timer fin de garde anti-écho
   const echoRef      = useRef(false); // true = ignorer onresult
   const safetyRef    = useRef(null);  // timer sécurité anti-blocage
+  const watchdogRef  = useRef(null);  // watchdog écoute : recycle le moteur STT s'il s'endort
   const abortCtrlRef = useRef(null);  // AbortController — annule les fetches ElevenLabs en vol
   const lastTTSRef   = useRef('');    // dernier texte TTS — filtre anti-écho dans onresult
 
@@ -273,13 +277,33 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
   // ── Démarrer la reconnaissance ────────────────────────────────────────────
   const startRec = () => {
-    if (!mountedRef.current || !recRef.current) return;
+    if (!mountedRef.current) return;
     clearTimeout(rstTimerRef.current);
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    // Moteur NEUF à chaque démarrage : réutiliser le même objet sur une longue
+    // session fait "mourir" la reconnaissance de Chrome (plus aucun résultat émis).
+    try { recRef.current?.abort(); } catch {}
+    setupRec(SR);
     try {
       recRef.current.start();
     } catch (e) {
       if (e.name !== 'InvalidStateError') console.warn('rec.start:', e.name);
     }
+  };
+
+  // ── Watchdog d'écoute ─────────────────────────────────────────────────────
+  // Si aucun résultat n'arrive pendant LISTEN_WATCHDOG_MS en état LISTENING, on
+  // considère le moteur endormi et on le recycle. Réarmé à chaque onresult, donc
+  // ne se déclenche que sur un silence réellement prolongé.
+  const armWatchdog = () => {
+    clearTimeout(watchdogRef.current);
+    watchdogRef.current = setTimeout(() => {
+      if (!mountedRef.current || vsRef.current !== S.LISTENING) return;
+      console.warn('[STT] watchdog → recyclage du moteur');
+      startRec();
+      armWatchdog();
+    }, LISTEN_WATCHDOG_MS);
   };
 
   // ── Transition propre vers LISTENING ─────────────────────────────────────
@@ -292,6 +316,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     clearTimeout(silTimerRef.current);
     clearTimeout(rstTimerRef.current);   // ← annule tout timer onend stale
     clearTimeout(echoTimerRef.current);
+    clearTimeout(watchdogRef.current);
     txRef.current = '';
     echoRef.current = true;
     setVS(S.LISTENING);
@@ -302,7 +327,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       // anti-écho par mots (lastTTSRef) qui sinon jette la parole de l'utilisateur
       // dès qu'il réutilise des mots du menu que le bot vient de citer.
       lastTTSRef.current = '';
-      if (mountedRef.current && vsRef.current === S.LISTENING) startRec();
+      if (mountedRef.current && vsRef.current === S.LISTENING) { startRec(); armWatchdog(); }
     }, ECHO_GUARD_MS);
   };
 
@@ -316,6 +341,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     setTranscript('');
     clearTimeout(silTimerRef.current);
     clearTimeout(rstTimerRef.current);  // ← annule tout restart onend stale
+    clearTimeout(watchdogRef.current);  // ← on quitte l'écoute : stopper le watchdog
     setVS(S.PROCESSING);
     try { recRef.current?.stop(); } catch {}
 
@@ -391,7 +417,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     rec.interimResults = true;
     rec.lang           = LANG_MAP[langRef.current] || 'fr-FR';
 
-    rec.onstart = () => { errCountRef.current = 0; };
+    rec.onstart = () => { errCountRef.current = 0; console.log('[STT] onstart'); };
 
     rec.onresult = (event) => {
       if (!mountedRef.current) return;
@@ -399,6 +425,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       if (echoRef.current) return;               // ignorer l'écho du TTS
 
       errCountRef.current = 0;
+      armWatchdog();                             // activité détectée → réarmer le watchdog
       clearTimeout(silTimerRef.current);
 
       let interim = '';
@@ -437,6 +464,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
 
     rec.onerror = (e) => {
       if (!mountedRef.current) return;
+      console.warn('[STT] onerror:', e.error);
       // Erreurs transitoires : laisser onend relancer automatiquement
       if (e.error === 'no-speech' || e.error === 'aborted' || e.error === 'network') return;
       errCountRef.current++;
@@ -454,6 +482,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     // Relancer UNIQUEMENT en état LISTENING et hors garde anti-écho
     rec.onend = () => {
       if (!mountedRef.current) return;
+      console.log('[STT] onend - state=', vsRef.current, 'echo=', echoRef.current);
       if (vsRef.current === S.LISTENING && !echoRef.current) {
         rstTimerRef.current = setTimeout(() => {
           if (mountedRef.current && vsRef.current === S.LISTENING && !echoRef.current) startRec();
@@ -539,6 +568,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       clearTimeout(rstTimerRef.current);
       clearTimeout(echoTimerRef.current);
       clearTimeout(safetyRef.current);
+      clearTimeout(watchdogRef.current);
       cancelAnimationFrame(rafRef.current);
       cancelTTS();
       try { recRef.current?.abort(); } catch {}
