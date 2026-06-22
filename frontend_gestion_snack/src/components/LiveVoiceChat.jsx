@@ -275,6 +275,19 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     }
   };
 
+  // ── Démonter le moteur STT SANS déclencher nos handlers ───────────────────
+  // Détacher les callbacks avant abort() évite la boucle onend→relance→abort.
+  const killRec = () => {
+    const r = recRef.current;
+    if (!r) return;
+    r.onresult = null;
+    r.onerror  = null;
+    r.onend    = null;
+    r.onstart  = null;
+    try { r.abort(); } catch {}
+    recRef.current = null;
+  };
+
   // ── Démarrer la reconnaissance ────────────────────────────────────────────
   const startRec = () => {
     if (!mountedRef.current) return;
@@ -283,7 +296,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     if (!SR) return;
     // Moteur NEUF à chaque démarrage : réutiliser le même objet sur une longue
     // session fait "mourir" la reconnaissance de Chrome (plus aucun résultat émis).
-    try { recRef.current?.abort(); } catch {}
+    killRec();
     setupRec(SR);
     try {
       recRef.current.start();
@@ -550,7 +563,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     // à déclencher la boîte de permission). abort() est plus fiable que stop()
     // si la reconnaissance est encore en état "starting".
     clearTimeout(rstTimerRef.current);
-    try { recRef.current?.abort(); } catch {}
+    killRec();
 
     const welcome = WELCOME[langRef.current] || WELCOME.fr;
     setVS(S.SPEAKING);
@@ -571,7 +584,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       clearTimeout(watchdogRef.current);
       cancelAnimationFrame(rafRef.current);
       cancelTTS();
-      try { recRef.current?.abort(); } catch {}
+      killRec();
     };
   }, [started]); // eslint-disable-line react-hooks/exhaustive-deps
 
