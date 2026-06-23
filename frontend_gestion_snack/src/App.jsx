@@ -62,6 +62,9 @@ import CookOrders from './pages/cook/Orders';
 // Pages PROVIDER
 import ProviderOrders from './pages/provider/Orders';
 
+// Landing page publique
+import Landing from './pages/Landing';
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -292,7 +295,7 @@ function App() {
           />
 
           {/* Redirection par défaut */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<Landing />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
