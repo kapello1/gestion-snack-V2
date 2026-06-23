@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   UtensilsCrossed,
@@ -11,8 +12,18 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+
 const Landing = () => {
   const navigate = useNavigate();
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/products`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setProducts(Array.isArray(data) ? data.slice(0, 6) : []))
+      .catch(() => setProducts([]));
+  }, []);
 
   const goLogin = () => navigate('/login');
 
@@ -183,36 +194,37 @@ const Landing = () => {
           </button>
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-6">
-          {/* Déposez vos photos dans public/images/plat-1.jpg, plat-2.jpg, plat-3.jpg */}
-          {[
-            { img: '/images/plat-1.jpg', name: 'Burger maison',     price: '8,50 €' },
-            { img: '/images/plat-2.jpg', name: 'Pizza margherita',  price: '9,00 €' },
-            { img: '/images/plat-3.jpg', name: 'Boisson fraîche',   price: '2,50 €' },
-          ].map(({ img, name, price }) => (
-            <div
-              key={name}
-              className="rounded-2xl overflow-hidden"
-              style={{ backgroundColor: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}
-            >
-              {/* Image produit */}
-              <div className="relative h-44"
-                   style={{ background: 'linear-gradient(135deg, #312e81 0%, #4c1d95 100%)' }}>
-                <img
-                  src={img}
-                  alt={name}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
+        {products.length === 0 ? (
+          <p className="text-slate-500 text-sm text-center py-8">Menu bientôt disponible</p>
+        ) : (
+          <div className="grid sm:grid-cols-3 gap-6">
+            {products.map((p) => (
+              <div
+                key={p.productId ?? p.id ?? p.productName}
+                className="rounded-2xl overflow-hidden"
+                style={{ backgroundColor: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}
+              >
+                {/* Image produit */}
+                <div className="relative h-44"
+                     style={{ background: 'linear-gradient(135deg, #312e81 0%, #4c1d95 100%)' }}>
+                  {p.imageUrl && (
+                    <img
+                      src={p.imageUrl}
+                      alt={p.productName}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
+                </div>
+                {/* Infos */}
+                <div className="p-4 flex items-center justify-between">
+                  <span className="font-semibold text-white">{p.productName}</span>
+                  <span className="font-medium" style={{ color: '#f59e0b' }}>{p.unitPrice} €</span>
+                </div>
               </div>
-              {/* Infos */}
-              <div className="p-4 flex items-center justify-between">
-                <span className="font-semibold text-white">{name}</span>
-                <span className="font-medium" style={{ color: '#f59e0b' }}>{price}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ── PIED DE PAGE ───────────────────────────────────────────────────── */}
