@@ -348,6 +348,11 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const sendToBot = async () => {
     const text = txRef.current.trim();
     if (!text || !mountedRef.current) return;
+    // Verrou anti-chevauchement : on ne traite un envoi que si l'on est
+    // réellement en écoute. Un onresult résiduel survenant pendant que le bot
+    // traite ou parle déjà est ignoré (sinon il relance un second cycle qui
+    // casse le retour à l'écoute via un conflit de ttsId).
+    if (vsRef.current !== S.LISTENING) return;
 
     txRef.current = '';
     lastTTSRef.current = '';  // l'utilisateur a parlé → libérer le filtre anti-écho
