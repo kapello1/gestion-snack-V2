@@ -3,6 +3,8 @@ import { X, Mic, MicOff, Volume2, VolumeX, PhoneOff } from 'lucide-react';
 import { sendChatMessage } from '../utils/groqApi';
 import { useLanguage } from '../context/LanguageContext';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+
 // ── Constantes ────────────────────────────────────────────────────────────────
 const S = { LISTENING: 'listening', PROCESSING: 'processing', SPEAKING: 'speaking' };
 const LANG_MAP = { fr: 'fr-FR', nl: 'nl-NL', de: 'de-DE' };
@@ -223,28 +225,17 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       }
     };
 
-    const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
-    if (!apiKey) { fallback(); return; }
-
     // AbortController : annule le fetch dès que cancelTTS() est appelé
     const ctrl = new AbortController();
     abortCtrlRef.current = ctrl;
 
     try {
-      const res = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`
-          + `?optimize_streaming_latency=${EL_LATENCY}&output_format=mp3_44100_128`,
-        {
-          method: 'POST',
-          headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text,
-            model_id: EL_MODEL,
-            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-          }),
-          signal: ctrl.signal,
-        }
-      );
+      const res = await fetch(`${API_BASE}/ai/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: ctrl.signal,
+      });
 
       if (ttsIdRef.current !== myId || !mountedRef.current) return;
 
