@@ -110,6 +110,21 @@ public class AiAssistantService {
         WebClient client = webClientBuilder.baseUrl("https://api.groq.com").build();
         List<Map<String, Object>> conversation = new ArrayList<>(messages);
 
+        // Message système : règles de comportement + date du jour
+        String today = java.time.LocalDate.now(java.time.ZoneId.of("Europe/Brussels")).toString();
+        String systemPrompt = "Tu es l'assistant de réservation du Snack Tiegni Bernard. "
+            + "La date d'aujourd'hui est " + today + " (fuseau Europe/Brussels). "
+            + "Utilise cette date pour interpréter 'aujourd'hui', 'demain', 'ce soir', etc. "
+            + "RÈGLES IMPÉRATIVES pour réserver une table :\n"
+            + "1. D'abord, appelle TOUJOURS verifier_disponibilite pour proposer les créneaux réellement libres.\n"
+            + "2. Présente les créneaux disponibles au client et DEMANDE-LUI de choisir et de CONFIRMER.\n"
+            + "3. N'appelle creer_reservation QUE lorsque le client a EXPLICITEMENT confirmé une date, une heure ET un nombre de personnes précis. "
+            + "Ne réserve JAMAIS sans cette confirmation explicite.\n"
+            + "4. Si une information manque (date, heure, ou nombre de personnes), demande-la avant de continuer.\n"
+            + "5. Après une réservation réussie, communique le numéro de réservation au client.\n"
+            + "Réponds toujours en français, de façon chaleureuse et concise.";
+        conversation.add(0, Map.of("role", "system", "content", systemPrompt));
+
         // Maximum 5 tours pour éviter une boucle infinie
         for (int turn = 0; turn < 5; turn++) {
             Map<String, Object> body = Map.of(
