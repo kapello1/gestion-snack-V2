@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller;
 
+import com.joel.gestion_snack.service.AiAssistantService;
 import com.joel.gestion_snack.service.AiProxyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +17,7 @@ import java.util.Map;
 public class AiProxyController {
 
     private final AiProxyService aiProxyService;
+    private final AiAssistantService aiAssistantService;
 
     @PostMapping("/chat")
     @SuppressWarnings("unchecked")
@@ -27,6 +29,21 @@ public class AiProxyController {
         } catch (Exception e) {
             log.error("Proxy chat Groq: {}", e.getMessage());
             return ResponseEntity.status(502).body(Map.of("error", "Erreur du service de chat"));
+        }
+    }
+
+    @PostMapping("/assistant")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<?> assistant(@RequestBody Map<String, Object> body) {
+        try {
+            List<Map<String, Object>> messages = (List<Map<String, Object>>) body.get("messages");
+            Long customerId = body.get("customerId") != null
+                    ? Long.valueOf(body.get("customerId").toString()) : null;
+            String content = aiAssistantService.chatWithTools(messages, customerId);
+            return ResponseEntity.ok(Map.of("content", content));
+        } catch (Exception e) {
+            log.error("Proxy assistant: {}", e.getMessage());
+            return ResponseEntity.status(502).body(Map.of("error", "Erreur de l'assistant"));
         }
     }
 

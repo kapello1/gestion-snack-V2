@@ -4,7 +4,7 @@ import { API_ENDPOINTS } from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../utils/api';
-import { sendChatMessage } from '../utils/groqApi';
+import { sendChatMessage, sendAssistantMessage } from '../utils/groqApi';
 import LiveVoiceChat from './LiveVoiceChat';
 
 const Chatbot = () => {
@@ -217,7 +217,9 @@ const Chatbot = () => {
 
     try {
       const history = [...messages, userMsg].filter(m => m.sender !== 'error' && m.id !== 'welcome');
-      const botText = await sendChatMessage(history, products);
+      // Chat texte : on utilise l'assistant avec function calling (réservation réelle).
+      // customerId = user.ownerId (l'id du client lié au compte connecté), ou null si non connecté.
+      const botText = await sendAssistantMessage(history, user?.ownerId ?? null);
       const botMsgId = await saveMsg(botText, 'BOT');
       setMessages(prev => [...prev, { id: botMsgId, text: botText, sender: 'bot', timestamp: new Date() }]);
     } catch (err) {
