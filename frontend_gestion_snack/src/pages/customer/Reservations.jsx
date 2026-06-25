@@ -47,7 +47,22 @@ const ReservationWizard = ({ onClose, onCreated, customerId, username }) => {
       const res = await api.get(API_ENDPOINTS.RESERVATIONS.AVAILABILITY, {
         params: { date, guests },
       });
-      setSlots(res.data || []);
+      // Filtre les créneaux déjà passés si la date choisie est aujourd'hui (heure Europe/Brussels).
+      const allSlots = res.data || [];
+      const nowBE = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Brussels' }));
+      const todayBE = new Date(nowBE.getFullYear(), nowBE.getMonth(), nowBE.getDate());
+      const chosen = date ? new Date(date + 'T00:00:00') : null;
+      const isToday = chosen && chosen.getTime() === todayBE.getTime();
+      const MARGIN_MIN = 30; // ne pas proposer un créneau imminent (< 30 min)
+      const filtered = isToday
+        ? allSlots.filter(s => {
+            const [h, m] = String(s.time).split(':').map(Number);
+            const slotMinutes = h * 60 + m;
+            const nowMinutes = nowBE.getHours() * 60 + nowBE.getMinutes() + MARGIN_MIN;
+            return slotMinutes >= nowMinutes;
+          })
+        : allSlots;
+      setSlots(filtered);
       setStep(2);
     } catch {
       toast.error('Erreur lors du chargement des disponibilités');

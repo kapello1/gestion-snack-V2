@@ -86,6 +86,18 @@ const TableManagement = () => {
 
     const lastUpdated = new Date();
 
+    const handleCancelReservation = async (reservationId) => {
+        if (!window.confirm('Annuler cette réservation ?')) return;
+        try {
+            await api.post(API_ENDPOINTS.RESERVATIONS.CANCEL(reservationId));
+            toast.success('Réservation annulée');
+            queryClient.invalidateQueries({ queryKey: ['reservations', 'today'] });
+            queryClient.invalidateQueries({ queryKey: ['tables'] });
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Erreur lors de l'annulation");
+        }
+    };
+
     const handleReleaseTable = async (tableId) => {
         try {
             await api.post(API_ENDPOINTS.TABLES.RELEASE(tableId));
@@ -308,6 +320,12 @@ const TableManagement = () => {
                                                 {reservation.places} convive{reservation.places > 1 ? 's' : ''}
                                             </div>
                                         )}
+                                        <button
+                                            onClick={() => handleCancelReservation(reservation.reservationId)}
+                                            className="mt-2 w-full px-3 py-1.5 rounded-md text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-colors flex items-center justify-center gap-1"
+                                        >
+                                            Annuler la réservation
+                                        </button>
                                     </div>
                                 )}
 
