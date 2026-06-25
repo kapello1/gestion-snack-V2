@@ -278,6 +278,20 @@ const Chatbot = () => {
 
   const fmt = (d) => new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(d);
 
+  // Nettoie le markdown pour l'affichage et le TTS (retire *, **, ***, _, __, #, etc.)
+  const cleanMarkdown = (text) => {
+    if (!text) return text;
+    return text
+      .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')   // **bold**, *italic*, ***both***
+      .replace(/_{1,2}([^_]+)_{1,2}/g, '$1')       // __bold__, _italic_
+      .replace(/#{1,6}\s*/g, '')                    // # Headers
+      .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, ''))  // `code`
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')     // [text](url)
+      .replace(/^[-*+]\s/gm, '• ')                  // listes → bullet unicode
+      .replace(/^\d+\.\s/gm, (m) => m)             // listes numérotées (garder)
+      .trim();
+  };
+
   const hasRealMessages = messages.some(m => m.id !== 'welcome' && !String(m.id).startsWith('err-'));
 
   return (
@@ -370,7 +384,9 @@ const Chatbot = () => {
                           : 'bg-white text-gray-800 rounded-[20px] rounded-bl-sm border border-gray-100'
                       }`}>
                       {msg.sender === 'error' && <AlertCircle className="w-5 h-5 mb-1 text-red-500 inline-block mr-2" />}
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">{msg.text}</div>
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                        {msg.sender === 'bot' ? cleanMarkdown(msg.text) : msg.text}
+                      </div>
                       {msg.sender !== 'error' && (
                         <div className={`text-[10px] mt-1 text-right ${msg.sender === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
                           {fmt(msg.timestamp)}

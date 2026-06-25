@@ -169,7 +169,13 @@ public class ReservationServiceImpl implements IReservationService {
         reservation.setCreatedBy(dto.getCreatedBy());
         reservation = reservationRepository.save(reservation);
 
-        // Pas de table.setStatus(RESERVED) : disponibilité calculée par chevauchement uniquement
+        // Mettre la table à RESERVED si elle n'est pas déjà occupée
+        if (lockedTable.getStatus() != TableStatusType.OCCUPIED) {
+            lockedTable.setStatus(TableStatusType.RESERVED);
+            lockedTable.setUpdatedBy("SYSTEM");
+            diningTableRepository.save(lockedTable);
+            wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", lockedTable.getTableId());
+        }
 
         sendConfirmationEmail(customer, lockedTable, reservation);
         wsPublisher.publishReservationEvent("RESERVATION_CREATED", reservation.getReservationId());
@@ -201,6 +207,14 @@ public class ReservationServiceImpl implements IReservationService {
         reservation.setCustomer(customer);
         reservation.setTable(table);
         reservation = reservationRepository.save(reservation);
+
+        // Mettre la table à RESERVED si elle n'est pas déjà occupée
+        if (table.getStatus() != TableStatusType.OCCUPIED) {
+            table.setStatus(TableStatusType.RESERVED);
+            table.setUpdatedBy("SYSTEM");
+            diningTableRepository.save(table);
+            wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", table.getTableId());
+        }
 
         sendConfirmationEmail(customer, table, reservation);
         wsPublisher.publishReservationEvent("RESERVATION_CREATED", reservation.getReservationId());
@@ -249,15 +263,56 @@ public class ReservationServiceImpl implements IReservationService {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Réservation non trouvée : " + id));
 
+        DiningTable tableToFree = reservation.getTable();
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservation.setUpdatedBy("SYSTEM");
         reservation = reservationRepository.save(reservation);
 
-        // Pas de table.setStatus(FREE) : la réservation CANCELLED ne bloque plus aucun créneau,
-        // la disponibilité est recalculée dynamiquement à chaque requête /availability.
+        // Libérer la table si plus aucune réservation BOOKED sur celle-ci
+        if (tableToFree != null && tableToFree.getStatus() == TableStatusType.RESERVED) {
+            boolean hasOtherActive = reservationRepository.findByTable_TableId(tableToFree.getTableId())
+                    .stream()
+                    .filter(r -> !r.getReservationId().equals(id))
+                    .anyMatch(r -> r.getStatus() == ReservationStatus.BOOKED);
+            if (!hasOtherActive) {
+                tableToFree.setStatus(TableStatusType.FREE);
+                tableToFree.setUpdatedBy("SYSTEM");
+                diningTableRepository.save(tableToFree);
+                wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", tableToFree.getTableId());
+            }
+        }
 
         wsPublisher.publishReservationEvent("RESERVATION_CANCELLED", reservation.getReservationId());
         log.info("Réservation {} annulée", id);
+        return mapperUtil.toReservationDTO(reservation);
+    }
+
+    @Override
+    public ReservationDTO completeReservation(Long id) {
+        Reservation reservation = reservationRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Réservation non trouvée : " + id));
+
+        DiningTable tableToFreeOnComplete = reservation.getTable();
+        reservation.setStatus(ReservationStatus.COMPLETED);
+        reservation.setUpdatedBy("SYSTEM");
+        reservation = reservationRepository.save(reservation);
+
+        // Libérer la table si plus aucune réservation BOOKED sur celle-ci
+        if (tableToFreeOnComplete != null && tableToFreeOnComplete.getStatus() == TableStatusType.RESERVED) {
+            boolean hasOtherActive = reservationRepository.findByTable_TableId(tableToFreeOnComplete.getTableId())
+                    .stream()
+                    .filter(r -> !r.getReservationId().equals(id))
+                    .anyMatch(r -> r.getStatus() == ReservationStatus.BOOKED);
+            if (!hasOtherActive) {
+                tableToFreeOnComplete.setStatus(TableStatusType.FREE);
+                tableToFreeOnComplete.setUpdatedBy("SYSTEM");
+                diningTableRepository.save(tableToFreeOnComplete);
+                wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", tableToFreeOnComplete.getTableId());
+            }
+        }
+
+        wsPublisher.publishReservationEvent("RESERVATION_COMPLETED", reservation.getReservationId());
+        log.info("Réservation {} terminée (COMPLETED)", id);
         return mapperUtil.toReservationDTO(reservation);
     }
 

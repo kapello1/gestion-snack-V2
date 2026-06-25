@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Layout from '../../components/layout/Layout';
-import { Plus, Edit, Trash2, Utensils, Users, User, Phone, Mail, Hash, LogOut, Calendar, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, Utensils, Users, User, Phone, Mail, Hash, LogOut, Calendar, Clock, Timer } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
@@ -13,6 +13,30 @@ const fmtSlot = (iso) => {
     if (!iso) return '';
     const d = new Date(iso);
     return d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' });
+};
+
+// Compte à rebours temps réel
+const Countdown = ({ targetDate, label, colorClass }) => {
+    const [display, setDisplay] = useState('');
+    useEffect(() => {
+        const update = () => {
+            const diffMs = new Date(targetDate).getTime() - Date.now();
+            if (diffMs <= 0) { setDisplay('00:00:00'); return; }
+            const h = Math.floor(diffMs / 3600000);
+            const m = Math.floor((diffMs % 3600000) / 60000);
+            const s = Math.floor((diffMs % 60000) / 1000);
+            setDisplay(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+        };
+        update();
+        const id = setInterval(update, 1000);
+        return () => clearInterval(id);
+    }, [targetDate]);
+    return (
+        <div className={`flex items-center gap-1 text-xs font-bold ${colorClass}`}>
+            <Timer className="h-3 w-3" />
+            <span>{label} {display}</span>
+        </div>
+    );
 };
 
 const TablesAdminPage = () => {
@@ -288,6 +312,18 @@ const TablesAdminPage = () => {
                                             {fmtSlot(r.datetimeFrom)} → {fmtSlot(r.datetimeTo)}
                                         </div>
                                         <div className="text-xs text-gray-400">Rés. #{r.reservationId}</div>
+                                        {/* Compte à rebours */}
+                                        {(() => {
+                                            const now = Date.now();
+                                            const from = new Date(r.datetimeFrom).getTime();
+                                            const to = new Date(r.datetimeTo).getTime();
+                                            if (from <= now && to > now) {
+                                                return <Countdown targetDate={r.datetimeTo} label="Fin dans" colorClass="text-orange-600 mt-1" />;
+                                            } else if (from > now) {
+                                                return <Countdown targetDate={r.datetimeFrom} label="Début dans" colorClass="text-yellow-700 mt-1" />;
+                                            }
+                                            return null;
+                                        })()}
                                     </div>
                                 );
                             })()}

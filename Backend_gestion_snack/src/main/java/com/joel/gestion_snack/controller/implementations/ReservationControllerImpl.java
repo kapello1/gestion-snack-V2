@@ -98,6 +98,11 @@ public class ReservationControllerImpl {
         return ResponseEntity.ok(reservationService.cancelReservation(id));
     }
 
+    @PostMapping("/{id}/complete")
+    public ResponseEntity<ReservationDTO> completeReservation(@PathVariable Long id) {
+        return ResponseEntity.ok(reservationService.completeReservation(id));
+    }
+
     @GetMapping("/availability")
     @Operation(summary = "Obtenir les créneaux disponibles pour une date et un nombre de personnes")
     public ResponseEntity<List<AvailabilitySlotDTO>> getAvailability(

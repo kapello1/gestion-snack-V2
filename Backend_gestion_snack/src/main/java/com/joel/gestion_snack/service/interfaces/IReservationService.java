@@ -75,6 +75,11 @@ public interface IReservationService {
     ReservationDTO cancelReservation(Long id);
 
     /**
+     * Termine une réservation (client venu et reparti) : statut COMPLETED.
+     */
+    ReservationDTO completeReservation(Long id);
+
+    /**
      * Retourne les créneaux disponibles pour une date et un nombre de personnes donnés.
      * Les créneaux sont générés selon les horaires de service configurés dans le service.
      */

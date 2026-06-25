@@ -31,4 +31,5 @@ public class DiningTableDTO {
     private String reservedForCustomerPhone;
     private String reservedForCustomerEmail;
     private Integer reservationPlaces;
+    private java.time.LocalDateTime reservationDatetimeTo;
 }

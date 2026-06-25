@@ -1,11 +1,40 @@
 import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
-import { Search, Utensils, Users, X, CheckCircle, User, Phone, Mail, Hash } from 'lucide-react';
+import { Search, Utensils, Users, X, CheckCircle, User, Phone, Mail, Hash, Clock, Calendar, Timer } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, TABLE_STATUS, STATUS_COLORS } from '../../utils/constants';
 import { wsManager } from '../../lib/wsManager';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+const fmtSlot = (iso) => {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' });
+};
+
+const Countdown = ({ targetDate, label, colorClass }) => {
+  const [display, setDisplay] = useState('');
+  useEffect(() => {
+    const update = () => {
+      const diffMs = new Date(targetDate).getTime() - Date.now();
+      if (diffMs <= 0) { setDisplay('00:00:00'); return; }
+      const h = Math.floor(diffMs / 3600000);
+      const m = Math.floor((diffMs % 3600000) / 60000);
+      const s = Math.floor((diffMs % 60000) / 1000);
+      setDisplay(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [targetDate]);
+  return (
+    <div className={`flex items-center gap-1 text-xs font-bold ${colorClass}`}>
+      <Timer className="h-3 w-3" />
+      <span>{label} {display}</span>
+    </div>
+  );
+};
 
 const WaiterTablesPage = () => {
   const [tables, setTables] = useState([]);
@@ -14,6 +43,32 @@ const WaiterTablesPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const queryClient = useQueryClient();
+
+  // Réservations du jour
+  const todayStr = new Date().toISOString().split('T')[0];
+  const { data: todayReservations = [] } = useQuery({
+    queryKey: ['reservations', 'today-waiter'],
+    queryFn: async () => {
+      const res = await api.get(API_ENDPOINTS.RESERVATIONS.BY_DATE(todayStr)).catch(() => ({ data: [] }));
+      return (res.data || []).filter(r => r.status === 'BOOKED');
+    },
+    staleTime: Infinity,
+  });
+
+  const reservationByTable = todayReservations.reduce((map, r) => {
+    const existing = map[r.tableId];
+    if (!existing) { map[r.tableId] = r; return map; }
+    const nowMs = Date.now();
+    const fromMs = new Date(r.datetimeFrom).getTime();
+    const isCurrent = fromMs <= nowMs && new Date(r.datetimeTo).getTime() > nowMs;
+    const existFromMs = new Date(existing.datetimeFrom).getTime();
+    const existIsCurrent = existFromMs <= nowMs && new Date(existing.datetimeTo).getTime() > nowMs;
+    if (isCurrent && !existIsCurrent) { map[r.tableId] = r; return map; }
+    if (!isCurrent && existIsCurrent) return map;
+    if (fromMs < existFromMs) map[r.tableId] = r;
+    return map;
+  }, {});
 
   useEffect(() => {
     loadTables(true);
@@ -21,7 +76,10 @@ const WaiterTablesPage = () => {
 
   // Rafraîchissement instantané et silencieux sur tout événement WebSocket
   useEffect(() => {
-    return wsManager.onEvent(() => loadTables(false));
+    return wsManager.onEvent(() => {
+      loadTables(false);
+      queryClient.invalidateQueries({ queryKey: ['reservations', 'today-waiter'] });
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { filterTables(); }, [searchTerm, selectedStatus, tables]);
@@ -220,33 +278,57 @@ const WaiterTablesPage = () => {
                       </div>
                     )}
 
-                    {/* Reservation info */}
-                    {table.status === TABLE_STATUS.RESERVED && table.reservedForCustomerName && (
-                      <div className="p-3 bg-yellow-50 rounded-xl border border-yellow-200 text-sm space-y-1">
-                        <p className="font-bold text-yellow-800 mb-1">Réservation</p>
-                        <p className="text-gray-700 flex items-center gap-1">
-                          <User className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
-                          {table.reservedForCustomerName}
-                        </p>
-                        {table.reservedForCustomerPhone && (
-                          <p className="text-gray-600 flex items-center gap-1">
-                            <Phone className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
-                            {table.reservedForCustomerPhone}
+                    {/* Reservation info — données venant du DTO table OU des réservations du jour */}
+                    {(() => {
+                      const rTable = table.status === TABLE_STATUS.RESERVED && table.reservedForCustomerName ? table : null;
+                      const rDay = reservationByTable[table.tableId];
+                      const r = rTable || rDay;
+                      if (!r) return null;
+                      const name = rTable ? table.reservedForCustomerName : r.customerName;
+                      const phone = rTable ? table.reservedForCustomerPhone : null;
+                      const places = rTable ? table.reservationPlaces : r.places;
+                      const from = rTable ? table.activeReservationDate : r.datetimeFrom;
+                      const to = rTable ? table.reservationDatetimeTo : r.datetimeTo;
+                      const now = Date.now();
+                      const fromMs = from ? new Date(from).getTime() : 0;
+                      const toMs = to ? new Date(to).getTime() : 0;
+                      const inProgress = fromMs <= now && toMs > now;
+                      return (
+                        <div className={`p-3 rounded-xl border text-sm space-y-1 ${inProgress ? 'bg-orange-50 border-orange-200' : 'bg-yellow-50 border-yellow-200'}`}>
+                          <p className={`font-bold mb-1 flex items-center gap-1 ${inProgress ? 'text-orange-700' : 'text-yellow-800'}`}>
+                            <Calendar className="h-3.5 w-3.5" />
+                            {inProgress ? 'Réservation en cours' : 'Prochaine réservation'}
                           </p>
-                        )}
-                        {table.reservationPlaces > 0 && (
-                          <p className="text-gray-700 flex items-center gap-1 font-semibold">
-                            <Users className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
-                            {table.reservationPlaces} personne{table.reservationPlaces > 1 ? 's' : ''}
-                          </p>
-                        )}
-                        {table.activeReservationDate && (
-                          <p className="text-gray-500 text-xs flex items-center gap-1">
-                            🕐 {new Date(table.activeReservationDate).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                          {name && (
+                            <p className="text-gray-700 flex items-center gap-1">
+                              <User className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                              {name}
+                            </p>
+                          )}
+                          {phone && (
+                            <p className="text-gray-600 flex items-center gap-1">
+                              <Phone className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                              {phone}
+                            </p>
+                          )}
+                          {places > 0 && (
+                            <p className="text-gray-700 flex items-center gap-1 font-semibold">
+                              <Users className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                              {places} personne{places > 1 ? 's' : ''}
+                            </p>
+                          )}
+                          {from && (
+                            <p className="text-gray-500 text-xs flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {fmtSlot(from)}{to ? ` → ${fmtSlot(to)}` : ''}
+                            </p>
+                          )}
+                          {/* Compte à rebours */}
+                          {to && inProgress && <Countdown targetDate={to} label="Fin dans" colorClass="text-orange-600" />}
+                          {from && !inProgress && fromMs > now && <Countdown targetDate={from} label="Début dans" colorClass="text-yellow-700" />}
+                        </div>
+                      );
+                    })()}
 
                     {/* Actions */}
                     <div className="flex gap-2 pt-2">

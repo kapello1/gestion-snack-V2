@@ -5,7 +5,7 @@ import { ROLES, LABELS } from '../../utils/constants';
 import {
   Home, User, LogOut, Menu as MenuIcon, ShoppingCart, Utensils,
   CreditCard, ChefHat, Truck, Shield, Globe, ChevronDown,
-  CalendarDays, Star, ShoppingBag, Info, BookOpen,
+  CalendarDays, Star, ShoppingBag, Info, BookOpen, Activity,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import NotificationBell from '../NotificationBell';
@@ -57,6 +57,7 @@ const Navbar = () => {
           { path: '/admin/users',       label: t('nav.users'),              icon: User },
           { path: '/admin/products',    label: t('nav.products'),           icon: Utensils },
           { path: '/admin/orders',      label: t('nav.orders'),             icon: ShoppingCart },
+          { path: '/admin/logs',        label: 'Activité',                  icon: Activity },
           { path: '/admin/settings',    label: t('nav.restaurantSettings'), icon: Shield },
         ];
       case ROLES.CUSTOMER:

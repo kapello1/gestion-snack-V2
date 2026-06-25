@@ -153,6 +153,13 @@ export const API_ENDPOINTS = {
     BROADCAST: '/messages/broadcast',
     MARK_READ: (id) => `/messages/${id}/read`,
   },
+  // Logs d'audit
+  AUDIT_LOGS: {
+    BASE: '/audit-logs',
+    BY_TABLE: (tableName) => `/audit-logs/table/${tableName}`,
+    BY_ACTION: (action) => `/audit-logs/action/${action}`,
+    BY_USER: (username) => `/audit-logs/user/${username}`,
+  },
   // Stripe - paiements en ligne
   STRIPE: {
     CREATE_PAYMENT_INTENT: '/stripe/create-payment-intent',

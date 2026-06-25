@@ -209,12 +209,25 @@ public class DiningTableServiceImpl implements IDiningTableService {
 
     private void enrichWithReservationInfo(DiningTableDTO dto, Long tableId) {
         List<Reservation> reservations = reservationRepository.findByTable_TableId(tableId);
+        LocalDateTime now = LocalDateTime.now();
+
+        // Priorité : réservation en cours (commencée et pas encore terminée)
         Reservation activeRes = reservations.stream()
                 .filter(r -> r.getStatus() == ReservationStatus.BOOKED)
-                .filter(r -> r.getDatetimeFrom() != null && !r.getDatetimeFrom().isBefore(LocalDateTime.now()))
-                .sorted((r1, r2) -> r1.getDatetimeFrom().compareTo(r2.getDatetimeFrom()))
+                .filter(r -> r.getDatetimeFrom() != null && r.getDatetimeTo() != null)
+                .filter(r -> !r.getDatetimeFrom().isAfter(now) && r.getDatetimeTo().isAfter(now))
                 .findFirst()
                 .orElse(null);
+
+        // Sinon : prochaine réservation du jour
+        if (activeRes == null) {
+            activeRes = reservations.stream()
+                    .filter(r -> r.getStatus() == ReservationStatus.BOOKED)
+                    .filter(r -> r.getDatetimeFrom() != null && r.getDatetimeFrom().isAfter(now))
+                    .filter(r -> r.getDatetimeFrom().toLocalDate().equals(now.toLocalDate()))
+                    .min(java.util.Comparator.comparing(Reservation::getDatetimeFrom))
+                    .orElse(null);
+        }
 
         if (activeRes != null) {
             dto.setActiveReservationId(activeRes.getReservationId());
@@ -222,6 +235,7 @@ public class DiningTableServiceImpl implements IDiningTableService {
             dto.setReservedForCustomerName(
                     activeRes.getCustomer().getFirstName() + " " + activeRes.getCustomer().getLastName());
             dto.setActiveReservationDate(activeRes.getDatetimeFrom());
+            dto.setReservationDatetimeTo(activeRes.getDatetimeTo());
             dto.setReservedForCustomerPhone(activeRes.getCustomer().getPhone());
             dto.setReservedForCustomerEmail(activeRes.getCustomer().getEmail());
             dto.setReservationPlaces(activeRes.getPlaces());

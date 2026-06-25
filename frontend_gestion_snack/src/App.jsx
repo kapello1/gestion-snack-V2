@@ -38,6 +38,7 @@ import AdminStockAlerts from './pages/admin/StockAlerts';
 import AdminSupplyRequest from './pages/admin/SupplyRequest';
 import AdminSupplies from './pages/admin/Supplies';
 import AdminTickets from './pages/admin/Tickets';
+import AdminLogs from './pages/admin/Logs';
 
 // Pages CUSTOMER
 import CustomerMenu from './pages/customer/Menu';
@@ -61,6 +62,7 @@ import CookOrders from './pages/cook/Orders';
 
 // Pages PROVIDER
 import ProviderOrders from './pages/provider/Orders';
+import ProviderSupplies from './pages/provider/Supplies';
 
 // Landing page publique
 import Landing from './pages/Landing';
@@ -185,6 +187,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/admin/logs"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <AdminLogs />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Routes CUSTOMER */}
           <Route
@@ -280,6 +290,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={[ROLES.PROVIDER]}>
                 <ProviderOrders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/provider/supplies"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.PROVIDER]}>
+                <ProviderSupplies />
               </ProtectedRoute>
             }
           />
