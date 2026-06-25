@@ -27,7 +27,7 @@ public class AiAssistantService {
     @Value("${groq.api-key:}")
     private String groqApiKey;
 
-    private static final String GROQ_MODEL = "llama-3.3-70b-versatile";
+    private static final String GROQ_MODEL = "openai/gpt-oss-120b";
 
     // Déclaration des outils que le modèle peut appeler
     private List<Map<String, Object>> tools() {
