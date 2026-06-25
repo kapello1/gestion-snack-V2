@@ -209,11 +209,16 @@ const TableManagement = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wide ${table.status === 'FREE' ? 'bg-green-200 text-green-800' :
-                                        table.status === 'OCCUPIED' ? 'bg-red-200 text-red-800' :
-                                            'bg-yellow-200 text-yellow-800'
+                                    <div className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wide ${
+                                        reservation
+                                            ? isCurrentRes
+                                                ? 'bg-orange-200 text-orange-800'
+                                                : 'bg-yellow-200 text-yellow-800'
+                                            : table.status === 'FREE' ? 'bg-green-200 text-green-800'
+                                            : table.status === 'OCCUPIED' ? 'bg-red-200 text-red-800'
+                                            : 'bg-yellow-200 text-yellow-800'
                                         }`}>
-                                        {table.status}
+                                        {reservation ? 'RÉSERVÉ' : table.status}
                                     </div>
                                 </div>
 
