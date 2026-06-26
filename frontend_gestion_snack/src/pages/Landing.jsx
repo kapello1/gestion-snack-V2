@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
   UtensilsCrossed, ShoppingCart, CalendarCheck, Mic, Clock, MapPin, Phone,
   Calendar, ChevronRight, Star, Wifi, Shield, CreditCard, Truck,
@@ -58,11 +59,28 @@ const Counter = ({ target, suffix = '', duration = 2000 }) => {
   return <span ref={ref}>{count}{suffix}</span>;
 };
 
+const DASHBOARD_PATHS = {
+  ADMIN:    '/admin/dashboard',
+  CUSTOMER: '/customer/menu',
+  CASHIER:  '/cashier/payments',
+  WAITER:   '/waiter/orders',
+  COOK:     '/cook/orders',
+  PROVIDER: '/provider/orders',
+};
+
 const Landing = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  // Si déjà connecté, rediriger vers le tableau de bord
+  useEffect(() => {
+    if (user) {
+      navigate(DASHBOARD_PATHS[user.roleName] || '/customer/menu', { replace: true });
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     fetch(`${API_BASE}/products`)
@@ -231,11 +249,11 @@ const Landing = () => {
               Ouvert Lun–Sam 10:00–22:00
             </div>
 
-            <h1 className="text-5xl sm:text-6xl xl:text-7xl font-black leading-[1.05] text-white">
-              La meilleure<br />
-              <span style={{ backgroundImage: 'linear-gradient(135deg, #a78bfa, #f59e0b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <h1 className="text-[2rem] sm:text-5xl xl:text-7xl font-black leading-tight text-white">
+              La meilleure{' '}
+              <span style={{ display: 'inline-block', backgroundImage: 'linear-gradient(135deg, #a78bfa, #f59e0b)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent', color: 'transparent' }}>
                 expérience snack
-              </span><br />
+              </span>{' '}
               à Bruxelles
             </h1>
 

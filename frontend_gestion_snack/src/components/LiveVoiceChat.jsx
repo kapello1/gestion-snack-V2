@@ -225,14 +225,25 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       speakSynth(text, myId, onEnd);
     };
 
+    // iOS / Safari : l'autoplay policy bloque Audio.play() sauf geste utilisateur,
+    // et la Web Speech API est nativement supportée. On court-circuite ElevenLabs.
+    if (IS_IOS || IS_SAFARI) {
+      speakSynth(text, myId, onEnd);
+      return;
+    }
+
     const playBlob = async (blob) => {
       const url   = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
 
-      const done = () => {
+      const cleanup = () => {
         URL.revokeObjectURL(url);
         if (audioRef.current === audio) audioRef.current = null;
+      };
+
+      const done = () => {
+        cleanup();
         if (ttsIdRef.current !== myId || !mountedRef.current) return;
         setTimeout(() => {
           if (ttsIdRef.current === myId && mountedRef.current) onEnd();
@@ -240,19 +251,30 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       };
 
       audio.onended = done;
-      audio.onerror = () => {
-        URL.revokeObjectURL(url);
-        if (audioRef.current === audio) audioRef.current = null;
-        if (ttsIdRef.current !== myId || !mountedRef.current) return;
-        fallback();
+      audio.onerror = () => { cleanup(); if (ttsIdRef.current !== myId || !mountedRef.current) return; fallback(); };
+
+      // Détection d'échec silencieux : Samsung Internet / certains navigateurs Android
+      // résolvent audio.play() sans erreur mais ne jouent rien (onplaying jamais déclenché).
+      // Après SILENT_DETECT_MS ms sans onplaying, on bascule en fallback.
+      const SILENT_DETECT_MS = 2500;
+      let playingFired = false;
+      const silentTimer = setTimeout(() => {
+        if (!playingFired && ttsIdRef.current === myId && mountedRef.current) {
+          cleanup();
+          fallback();
+        }
+      }, SILENT_DETECT_MS);
+      audio.onplaying = () => {
+        playingFired = true;
+        clearTimeout(silentTimer);
       };
 
       try {
         await audio.play();
       } catch (playErr) {
+        clearTimeout(silentTimer);
         console.warn('Audio.play():', playErr.name, '→ fallback');
-        URL.revokeObjectURL(url);
-        if (audioRef.current === audio) audioRef.current = null;
+        cleanup();
         if (ttsIdRef.current !== myId || !mountedRef.current) return;
         fallback();
       }

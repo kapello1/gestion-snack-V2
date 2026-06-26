@@ -115,6 +115,8 @@ const TableManagement = () => {
         setSelectedCustomer(null);
     };
 
+    const customerFullName = (c) => `${c.firstName || ''} ${c.lastName || ''}`.trim();
+
     const searchCustomers = async (term) => {
         if (!term || term.length < 2) { setCustomerResults([]); return; }
         try {
@@ -122,11 +124,7 @@ const TableManagement = () => {
             const all = res.data || [];
             const low = term.toLowerCase();
             setCustomerResults(
-                all.filter(c =>
-                    (c.fullName || '').toLowerCase().includes(low) ||
-                    (c.email || '').toLowerCase().includes(low) ||
-                    (c.phone || '').includes(term)
-                ).slice(0, 8)
+                all.filter(c => customerFullName(c).toLowerCase().includes(low)).slice(0, 8)
             );
         } catch { setCustomerResults([]); }
     };
@@ -157,7 +155,7 @@ const TableManagement = () => {
                 places: resForm.places,
                 createdBy: 'WAITER',
             });
-            toast.success(`Table #${reservationModal.tableNumber} réservée pour ${selectedCustomer.fullName}`);
+            toast.success(`Table #${reservationModal.tableNumber} réservée pour ${customerFullName(selectedCustomer)}`);
             queryClient.invalidateQueries({ queryKey: ['reservations', 'today'] });
             queryClient.invalidateQueries({ queryKey: ['tables'] });
             closeReservationModal();
@@ -274,7 +272,7 @@ const TableManagement = () => {
 
                         const activeOrder = ordersByTable[table.tableId];
                         const customer = activeOrder?.customer || activeOrder?.customerInfo || null;
-                        const custName = customer?.fullName || customer?.username || activeOrder?.customerName || null;
+                        const custName = (customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || null : null) || customer?.username || activeOrder?.customerName || null;
                         const custPhone = customer?.phone || activeOrder?.customerPhone || null;
                         const custEmail = customer?.email || activeOrder?.customerEmail || null;
                         const custId = activeOrder?.customerId || customer?.customerId || null;
@@ -472,7 +470,7 @@ const TableManagement = () => {
                             {selectedCustomer ? (
                                 <div className="flex items-center justify-between px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
                                     <div>
-                                        <p className="font-semibold text-blue-800 text-sm">{selectedCustomer.fullName}</p>
+                                        <p className="font-semibold text-blue-800 text-sm">{customerFullName(selectedCustomer)}</p>
                                         <p className="text-xs text-blue-600">{selectedCustomer.email}</p>
                                     </div>
                                     <button onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); }} className="text-blue-400 hover:text-blue-700">
@@ -495,7 +493,7 @@ const TableManagement = () => {
                                                 <li key={c.customerId}
                                                     onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setCustomerResults([]); }}
                                                     className="px-3 py-2 cursor-pointer hover:bg-yellow-50 text-sm">
-                                                    <p className="font-medium text-gray-800">{c.fullName}</p>
+                                                    <p className="font-medium text-gray-800">{customerFullName(c)}</p>
                                                     <p className="text-gray-500 text-xs">{c.email} {c.phone ? `· ${c.phone}` : ''}</p>
                                                 </li>
                                             ))}
