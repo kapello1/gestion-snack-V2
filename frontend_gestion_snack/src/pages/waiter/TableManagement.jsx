@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import { Clock, Users, CheckCircle, XCircle, AlertCircle, RefreshCw, User, Phone, Mail, Hash, Calendar } from 'lucide-react';
+import { Clock, Users, CheckCircle, XCircle, AlertCircle, RefreshCw, User, Phone, Mail, Hash, Calendar, X, Search } from 'lucide-react';
 import api from '../../utils/api';
 import { wsManager } from '../../lib/wsManager';
 import { API_ENDPOINTS } from '../../config/api';
@@ -85,6 +85,88 @@ const TableManagement = () => {
     };
 
     const lastUpdated = new Date();
+
+    // ── Modal réservation ───────────────────────────────────────────────────
+    const [reservationModal, setReservationModal] = useState({ open: false, tableId: null, tableNumber: null, capacity: null });
+    const [resForm, setResForm] = useState({ date: '', timeFrom: '', places: 2 });
+    const [customerSearch, setCustomerSearch] = useState('');
+    const [customerResults, setCustomerResults] = useState([]);
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [resLoading, setResLoading] = useState(false);
+    const searchTimerRef = useRef(null);
+
+    const openReservationModal = (table) => {
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(Math.ceil(now.getMinutes() / 30) * 30 % 60).padStart(2, '0');
+        const roundedHH = now.getMinutes() > 30 ? String(now.getHours() + 1).padStart(2, '0') : hh;
+        setResForm({ date: dateStr, timeFrom: `${roundedHH}:${mm}`, places: 2 });
+        setCustomerSearch('');
+        setCustomerResults([]);
+        setSelectedCustomer(null);
+        setReservationModal({ open: true, tableId: table.tableId, tableNumber: table.tableNumber, capacity: table.capacity });
+    };
+
+    const closeReservationModal = () => {
+        setReservationModal({ open: false, tableId: null, tableNumber: null, capacity: null });
+        setCustomerSearch('');
+        setCustomerResults([]);
+        setSelectedCustomer(null);
+    };
+
+    const searchCustomers = async (term) => {
+        if (!term || term.length < 2) { setCustomerResults([]); return; }
+        try {
+            const res = await api.get(API_ENDPOINTS.CUSTOMERS.BASE);
+            const all = res.data || [];
+            const low = term.toLowerCase();
+            setCustomerResults(
+                all.filter(c =>
+                    (c.fullName || '').toLowerCase().includes(low) ||
+                    (c.email || '').toLowerCase().includes(low) ||
+                    (c.phone || '').includes(term)
+                ).slice(0, 8)
+            );
+        } catch { setCustomerResults([]); }
+    };
+
+    const handleCustomerSearchChange = (val) => {
+        setCustomerSearch(val);
+        setSelectedCustomer(null);
+        clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(() => searchCustomers(val), 350);
+    };
+
+    const handleSubmitReservation = async () => {
+        if (!selectedCustomer) { toast.error('Sélectionnez un client'); return; }
+        if (!resForm.date || !resForm.timeFrom) { toast.error('Date et heure requises'); return; }
+        if (!resForm.places || resForm.places < 1) { toast.error('Nombre de personnes requis'); return; }
+        if (reservationModal.capacity && resForm.places > reservationModal.capacity) {
+            toast.error(`Capacité max de cette table : ${reservationModal.capacity} pers.`); return;
+        }
+        const datetimeFrom = new Date(`${resForm.date}T${resForm.timeFrom}:00`);
+        const datetimeTo   = new Date(datetimeFrom.getTime() + 90 * 60 * 1000);
+        setResLoading(true);
+        try {
+            await api.post(API_ENDPOINTS.RESERVATIONS.BASE, {
+                customerId: selectedCustomer.customerId,
+                tableId: reservationModal.tableId,
+                datetimeFrom: datetimeFrom.toISOString().slice(0, 19),
+                datetimeTo:   datetimeTo.toISOString().slice(0, 19),
+                places: resForm.places,
+                createdBy: 'WAITER',
+            });
+            toast.success(`Table #${reservationModal.tableNumber} réservée pour ${selectedCustomer.fullName}`);
+            queryClient.invalidateQueries({ queryKey: ['reservations', 'today'] });
+            queryClient.invalidateQueries({ queryKey: ['tables'] });
+            closeReservationModal();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Erreur lors de la réservation');
+        } finally {
+            setResLoading(false);
+        }
+    };
 
     const handleCancelReservation = async (reservationId) => {
         if (!window.confirm('Annuler cette réservation ?')) return;
@@ -355,12 +437,8 @@ const TableManagement = () => {
                                     </button>
 
                                     <button
-                                        onClick={() => handleStatusChange(table.tableId, 'RESERVED')}
-                                        disabled={table.status === 'RESERVED'}
-                                        className={`flex flex-col items-center justify-center p-2 rounded transition-colors ${table.status === 'RESERVED'
-                                            ? 'bg-yellow-500 text-white cursor-default'
-                                            : 'bg-white border border-yellow-500 text-yellow-600 hover:bg-yellow-50'
-                                            }`}
+                                        onClick={() => openReservationModal(table)}
+                                        className="flex flex-col items-center justify-center p-2 rounded transition-colors bg-white border border-yellow-500 text-yellow-600 hover:bg-yellow-50"
                                     >
                                         <AlertCircle className="h-5 w-5 mb-1" />
                                         <span className="text-xs">Réserver</span>
@@ -371,6 +449,116 @@ const TableManagement = () => {
                     })}
                 </div>
             </div>
+
+            {/* ── Modal réservation ── */}
+            {reservationModal.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <div className="flex justify-between items-center mb-5">
+                            <h2 className="text-xl font-bold text-gray-800">
+                                Réserver table #{reservationModal.tableNumber}
+                                {reservationModal.capacity && (
+                                    <span className="ml-2 text-sm font-normal text-gray-500">({reservationModal.capacity} pers. max)</span>
+                                )}
+                            </h2>
+                            <button onClick={closeReservationModal} className="p-1 text-gray-400 hover:text-gray-700">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {/* Recherche client */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Client *</label>
+                            {selectedCustomer ? (
+                                <div className="flex items-center justify-between px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
+                                    <div>
+                                        <p className="font-semibold text-blue-800 text-sm">{selectedCustomer.fullName}</p>
+                                        <p className="text-xs text-blue-600">{selectedCustomer.email}</p>
+                                    </div>
+                                    <button onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); }} className="text-blue-400 hover:text-blue-700">
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={customerSearch}
+                                        onChange={e => handleCustomerSearchChange(e.target.value)}
+                                        placeholder="Rechercher par nom, email ou téléphone..."
+                                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                                    />
+                                    {customerResults.length > 0 && (
+                                        <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                            {customerResults.map(c => (
+                                                <li key={c.customerId}
+                                                    onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setCustomerResults([]); }}
+                                                    className="px-3 py-2 cursor-pointer hover:bg-yellow-50 text-sm">
+                                                    <p className="font-medium text-gray-800">{c.fullName}</p>
+                                                    <p className="text-gray-500 text-xs">{c.email} {c.phone ? `· ${c.phone}` : ''}</p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    {customerSearch.length >= 2 && customerResults.length === 0 && (
+                                        <p className="absolute mt-1 text-xs text-gray-400 px-1">Aucun client trouvé</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Date */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Date *</label>
+                            <input
+                                type="date"
+                                value={resForm.date}
+                                min={new Date().toISOString().split('T')[0]}
+                                onChange={e => setResForm(f => ({ ...f, date: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                            />
+                        </div>
+
+                        {/* Heure */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Heure de début * <span className="font-normal text-gray-400">(durée 1h30)</span></label>
+                            <input
+                                type="time"
+                                value={resForm.timeFrom}
+                                onChange={e => setResForm(f => ({ ...f, timeFrom: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                            />
+                        </div>
+
+                        {/* Nombre de personnes */}
+                        <div className="mb-6">
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre de couverts *</label>
+                            <input
+                                type="number"
+                                min={1}
+                                max={reservationModal.capacity || 20}
+                                value={resForm.places}
+                                onChange={e => setResForm(f => ({ ...f, places: parseInt(e.target.value) || 1 }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button onClick={closeReservationModal} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm">
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handleSubmitReservation}
+                                disabled={resLoading || !selectedCustomer || !resForm.date || !resForm.timeFrom}
+                                className="flex-1 py-2.5 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-colors text-sm"
+                            >
+                                {resLoading ? 'Enregistrement...' : 'Confirmer la réservation'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 };

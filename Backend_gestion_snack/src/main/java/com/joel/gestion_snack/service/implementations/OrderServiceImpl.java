@@ -313,6 +313,11 @@ public class OrderServiceImpl implements IOrderService {
         order = orderRepository.save(order);
 
         // Le trigger de la base de données restaurera automatiquement le stock
+        // Libérer la table si elle était liée à cette commande
+        if (order.getTable() != null) {
+            freeTableIfNeeded(order);
+            wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", order.getTable().getTableId());
+        }
         log.info("Commande annulée avec succès avec l'ID: {}", id);
         wsPublisher.publishOrderEvent("ORDER_CANCELLED", order.getOrderId());
         return toOrderDTOWithItems(order);

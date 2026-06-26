@@ -57,8 +57,10 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public List<MessageDTO> getNotificationsForUser(Long userId) {
+        // Exclure les messages chatbot (title=null ET notifType=null = échange chatbot pur)
         List<MessageDTO> personal = messageRepository.findByUserUserIdOrderBySentAtDesc(userId)
                 .stream()
+                .filter(m -> m.getTitle() != null || m.getNotifType() != null)
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
 

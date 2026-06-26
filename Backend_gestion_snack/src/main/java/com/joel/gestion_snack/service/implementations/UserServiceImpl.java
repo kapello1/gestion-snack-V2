@@ -70,11 +70,6 @@ public class UserServiceImpl implements IUserService {
                     return new EntityNotFoundException("Nom d'utilisateur ou mot de passe incorrect");
                 });
 
-        if (user.getRole().getRoleName() == RoleType.PROVIDER) {
-            log.warn("Tentative de connexion d'un fournisseur rejetée: {}", loginRequest.getUsername());
-            throw new IllegalArgumentException("L'accès est restreint pour les fournisseurs.");
-        }
-
         if (Boolean.FALSE.equals(user.getIsActive())) {
             log.warn("Tentative de connexion sur un compte inactif: {}", loginRequest.getUsername());
             throw new IllegalArgumentException("Compte inactif. Veuillez vérifier votre email ou contacter l'administrateur.");

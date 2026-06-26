@@ -141,38 +141,71 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   };
 
   // ── TTS fallback : speechSynthesis découpé en phrases (anti-coupure Android)
+  // Supporte Firefox (chargement asynchrone des voix) et Android Chrome (état "paused" collant).
   const speakSynth = (text, sessionId, onEnd) => {
     const synth = window.speechSynthesis;
     if (!synth) { onEnd(); return; }
+
+    // Android Chrome peut se retrouver bloqué en état "paused" après une longue session
+    try { synth.resume(); } catch {}
     synth.cancel();
 
-    const chunks = text.match(/[^.!?]+[.!?]*/g)?.map(s => s.trim()).filter(Boolean) || [text];
-
-    if (!chunks.length) { onEnd(); return; }
-
-    let idx = 0;
-    const next = () => {
+    const doSpeak = (voices) => {
       if (ttsIdRef.current !== sessionId || !mountedRef.current) return;
-      if (idx >= chunks.length) {
-        setTimeout(() => {
-          if (ttsIdRef.current === sessionId && mountedRef.current) onEnd();
-        }, POST_TTS_MS);
-        return;
-      }
-      const chunk = chunks[idx++];
-      const u = new SpeechSynthesisUtterance(chunk);
-      u.lang  = LANG_MAP[langRef.current] || 'fr-FR';
-      u.rate  = 1.0;
-      const words  = chunk.split(/\s+/).length;
-      const limit  = Math.max(2500, words * 380 + 800);
-      const timer  = setTimeout(() => {
-        if (ttsIdRef.current === sessionId && mountedRef.current) next();
-      }, limit);
-      u.onend   = () => { clearTimeout(timer); if (ttsIdRef.current === sessionId) setTimeout(next, IS_MOBILE ? 160 : 60); };
-      u.onerror = (e) => { clearTimeout(timer); if (e.error !== 'interrupted' && ttsIdRef.current === sessionId) setTimeout(next, 60); };
-      synth.speak(u);
+
+      const chunks = text.match(/[^.!?]+[.!?]*/g)?.map(s => s.trim()).filter(Boolean) || [text];
+      if (!chunks.length) { onEnd(); return; }
+
+      const targetLang = LANG_MAP[langRef.current] || 'fr-FR';
+      const langCode   = targetLang.split('-')[0];
+      // Cherche une voix pour la langue cible, sinon prend n'importe quelle voix disponible
+      const voice = voices.find(v => v.lang.startsWith(langCode))
+                 || voices.find(v => v.lang.startsWith('fr'))
+                 || voices[0]
+                 || null;
+
+      let idx = 0;
+      const next = () => {
+        if (ttsIdRef.current !== sessionId || !mountedRef.current) return;
+        if (idx >= chunks.length) {
+          setTimeout(() => {
+            if (ttsIdRef.current === sessionId && mountedRef.current) onEnd();
+          }, POST_TTS_MS);
+          return;
+        }
+        const chunk = chunks[idx++];
+        const u = new SpeechSynthesisUtterance(chunk);
+        u.lang = targetLang;
+        if (voice) u.voice = voice;
+        u.rate = 1.0;
+        // Resume avant chaque utterance pour déverrouiller Android Chrome
+        try { synth.resume(); } catch {}
+        const words = chunk.split(/\s+/).length;
+        const limit = Math.max(2500, words * 380 + 800);
+        const timer = setTimeout(() => {
+          if (ttsIdRef.current === sessionId && mountedRef.current) next();
+        }, limit);
+        u.onend   = () => { clearTimeout(timer); if (ttsIdRef.current === sessionId) setTimeout(next, IS_MOBILE ? 160 : 60); };
+        u.onerror = (e) => { clearTimeout(timer); if (e.error !== 'interrupted' && ttsIdRef.current === sessionId) setTimeout(next, 60); };
+        synth.speak(u);
+      };
+      next();
     };
-    next();
+
+    // Firefox/Edge chargent les voix de façon asynchrone : attendre voiceschanged si nécessaire
+    const voices = synth.getVoices();
+    if (voices.length > 0) {
+      doSpeak(voices);
+    } else {
+      let resolved = false;
+      const fallbackTimer = setTimeout(() => {
+        if (!resolved) { resolved = true; doSpeak(synth.getVoices()); }
+      }, 1500);
+      synth.addEventListener('voiceschanged', function onVoices() {
+        synth.removeEventListener('voiceschanged', onVoices);
+        if (!resolved) { resolved = true; clearTimeout(fallbackTimer); doSpeak(synth.getVoices()); }
+      }, { once: true });
+    }
   };
 
   // ── TTS principal : ElevenLabs streaming → Audio HTML, fallback → speechSynthesis ──
