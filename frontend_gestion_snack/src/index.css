@@ -156,6 +156,87 @@
 }
 
 /* ══════════════════════════════════════════════════════════
+   LANDING PAGE - EFFETS 3D & MOTION
+══════════════════════════════════════════════════════════ */
+
+/* Particules ascendantes hero */
+@keyframes rise {
+  0%   { transform: translateY(0) scale(1);       opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: .4; }
+  100% { transform: translateY(-120vh) scale(1.4); opacity: 0; }
+}
+.landing-particle {
+  position: absolute;
+  bottom: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: rise linear infinite;
+  will-change: transform;
+}
+
+/* Orbite circulaire (badge flottant hero) */
+@keyframes orbit {
+  from { transform: rotate(0deg)   translateX(54px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(54px) rotate(-360deg); }
+}
+.animate-orbit { animation: orbit 8s linear infinite; will-change: transform; }
+.animate-orbit-reverse { animation: orbit 12s linear infinite reverse; will-change: transform; }
+
+/* Scan line holographique sur carte 3D */
+@keyframes scanLine {
+  0%   { top: -10%; opacity: .7; }
+  80%  { opacity: .3; }
+  100% { top: 110%; opacity: 0; }
+}
+.landing-scan { animation: scanLine 2.5s linear infinite; }
+
+/* Entrée de texte mot par mot */
+@keyframes wordReveal {
+  from { opacity:0; transform:translateY(28px) rotateX(-30deg); }
+  to   { opacity:1; transform:translateY(0)    rotateX(0deg); }
+}
+.word-reveal { display:inline-block; animation:wordReveal .5s cubic-bezier(.22,1,.36,1) both; }
+
+/* Glow pulse violacé pour orbes */
+@keyframes glowPulse {
+  0%,100% { opacity: .18; transform: scale(1); }
+  50%     { opacity: .32; transform: scale(1.15); }
+}
+.animate-glow-pulse { animation: glowPulse 4s ease-in-out infinite; }
+.animate-glow-pulse-slow { animation: glowPulse 7s ease-in-out infinite; }
+
+/* Shimmer horizontal sur cartes verre */
+@keyframes shimmerSlide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+.landing-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.07) 50%, transparent 100%);
+  animation: shimmerSlide 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Tilt 3D cartes : calculé via JS → custom properties */
+.card-tilt {
+  transform-style: preserve-3d;
+  transition: transform .15s ease-out, box-shadow .15s ease-out;
+  will-change: transform;
+}
+.card-tilt:hover { box-shadow: 0 24px 60px rgba(0,0,0,.35); }
+
+/* Rotation lente orbe décorative hero */
+@keyframes rotateOrb {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.animate-rotate-orb { animation: rotateOrb 20s linear infinite; }
+.animate-rotate-orb-cw { animation: rotateOrb 14s linear infinite reverse; }
+
+/* ══════════════════════════════════════════════════════════
    MOBILE - animations simplifiées (< 1024px)
 ══════════════════════════════════════════════════════════ */
 @media (max-width: 1023px) {

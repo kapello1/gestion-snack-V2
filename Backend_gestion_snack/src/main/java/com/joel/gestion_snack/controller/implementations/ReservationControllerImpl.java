@@ -1,6 +1,7 @@
 package com.joel.gestion_snack.controller.implementations;
 
 import com.joel.gestion_snack.model.dto.AvailabilitySlotDTO;
+import com.joel.gestion_snack.model.dto.DiningTableDTO;
 import com.joel.gestion_snack.model.dto.ReservationDTO;
 import com.joel.gestion_snack.model.dto.ReservationRequestDTO;
 import com.joel.gestion_snack.model.entity.ReservationStatus;
@@ -101,6 +102,16 @@ public class ReservationControllerImpl {
     @PostMapping("/{id}/complete")
     public ResponseEntity<ReservationDTO> completeReservation(@PathVariable Long id) {
         return ResponseEntity.ok(reservationService.completeReservation(id));
+    }
+
+    @GetMapping("/available-tables")
+    @Operation(summary = "Tables disponibles pour un créneau donné")
+    public ResponseEntity<List<DiningTableDTO>> getAvailableTables(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam String time,
+            @RequestParam(defaultValue = "1") int guests) {
+        log.info("Tables disponibles : date={} time={} guests={}", date, time, guests);
+        return ResponseEntity.ok(reservationService.getAvailableTablesBySlot(date, time, guests));
     }
 
     @GetMapping("/availability")

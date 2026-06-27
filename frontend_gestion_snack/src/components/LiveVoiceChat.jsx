@@ -21,13 +21,15 @@ const IS_MOBILE = IS_IOS || /android/i.test(navigator.userAgent);
 const USE_CONTINUOUS = !(IS_IOS || IS_SAFARI);
 
 // Garde anti-écho : délai avant d'ouvrir le micro après le TTS
-// Desktop 1500ms : couvre écho matériel (50ms) + réverbération salle (≤800ms) + traitement STT (≤500ms)
 const ECHO_GUARD_MS  = IS_MOBILE ? 900 : 1500;
 // Délai post-audio : laisse le buffer hardware se vider avant de lancer l'echo guard
 const POST_TTS_MS    = IS_MOBILE ? 200 : 150;
-// Silence maximal toléré en écoute avant de recréer le moteur STT
-// (parade à l'endormissement de la Web Speech API sur longue session)
-const LISTEN_WATCHDOG_MS = 12000;
+// Watchdog réduit sur mobile (le moteur STT s'endort plus vite sur Android)
+const LISTEN_WATCHDOG_MS = IS_MOBILE ? 6000 : 12000;
+// Délai de restart après onend (évite InvalidStateError si le moteur n'est pas totalement arrêté)
+const RESTART_DELAY_MS = IS_MOBILE ? 380 : 250;
+// Timeout pour détecter que le moteur STT a démarré mais n'écoute pas réellement
+const START_CHECK_MS = 4000;
 
 const WELCOME = {
   fr: 'Bonjour et bienvenue au Snack Tiegni Bernard ! Je suis votre assistant vocal. En quoi puis-je vous aider ?',
@@ -50,7 +52,9 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const mountedRef   = useRef(false);
   const vsRef        = useRef(S.LISTENING); // état courant (synchrone)
   const mutedRef     = useRef(false);
-  const errCountRef  = useRef(0);
+  const errCountRef      = useRef(0);
+  const noSpeechCountRef = useRef(0);   // compteur no-speech consécutifs → force restart complet
+  const startCheckRef    = useRef(null); // timer : moteur démarré mais silencieux → recyclage
   const txRef        = useRef('');          // transcription accumulée
   const histRef      = useRef(chatHistory);
   const prodsRef     = useRef(products);
@@ -338,6 +342,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const startRec = () => {
     if (!mountedRef.current) return;
     clearTimeout(rstTimerRef.current);
+    clearTimeout(startCheckRef.current);
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     // Moteur NEUF à chaque démarrage : réutiliser le même objet sur une longue
@@ -346,8 +351,24 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     setupRec(SR);
     try {
       recRef.current.start();
+      // Détection du moteur "zombie" : démarré mais sans onstart ni résultat dans START_CHECK_MS.
+      // Fréquent sur certains Samsung (moteur démarre, puis reste silencieux sans onend).
+      startCheckRef.current = setTimeout(() => {
+        if (mountedRef.current && vsRef.current === S.LISTENING) {
+          console.warn('[STT] start-check watchdog → moteur zombie, recyclage');
+          startRec();
+          armWatchdog();
+        }
+      }, START_CHECK_MS);
     } catch (e) {
-      if (e.name !== 'InvalidStateError') console.warn('rec.start:', e.name);
+      if (e.name === 'InvalidStateError') {
+        // Moteur pas encore totalement arrêté → retry dans 300ms
+        rstTimerRef.current = setTimeout(() => {
+          if (mountedRef.current && vsRef.current === S.LISTENING) startRec();
+        }, 300);
+      } else {
+        console.warn('rec.start:', e.name);
+      }
     }
   };
 
@@ -481,7 +502,12 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     rec.interimResults = true;
     rec.lang           = LANG_MAP[langRef.current] || 'fr-FR';
 
-    rec.onstart = () => { errCountRef.current = 0; console.log('[STT] onstart'); };
+    rec.onstart = () => {
+      errCountRef.current = 0;
+      noSpeechCountRef.current = 0;
+      clearTimeout(startCheckRef.current); // moteur bien démarré → annuler le zombie-check
+      console.log('[STT] onstart');
+    };
 
     rec.onresult = (event) => {
       if (!mountedRef.current) return;
@@ -529,8 +555,22 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     rec.onerror = (e) => {
       if (!mountedRef.current) return;
       console.warn('[STT] onerror:', e.error);
-      // Erreurs transitoires : laisser onend relancer automatiquement
-      if (e.error === 'no-speech' || e.error === 'aborted' || e.error === 'network') return;
+      if (e.error === 'aborted') return; // onend va relancer
+
+      if (e.error === 'no-speech') {
+        noSpeechCountRef.current++;
+        // Après 4 erreurs no-speech consécutives, le moteur est probablement bloqué :
+        // forcer un recyclage complet plutôt qu'attendre onend seul.
+        if (noSpeechCountRef.current >= 4) {
+          console.warn('[STT] 4x no-speech → recyclage complet');
+          noSpeechCountRef.current = 0;
+          setTimeout(() => { if (mountedRef.current && vsRef.current === S.LISTENING) startRec(); }, 200);
+        }
+        return; // laisser onend relancer normalement sinon
+      }
+
+      if (e.error === 'network') return; // transitoire, onend relance
+
       errCountRef.current++;
       if (e.error === 'not-allowed' || e.error === 'permission-denied') {
         mountedRef.current = false;
@@ -543,14 +583,17 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       }
     };
 
-    // Relancer UNIQUEMENT en état LISTENING et hors garde anti-écho
+    // Relancer UNIQUEMENT en état LISTENING et hors garde anti-écho.
+    // RESTART_DELAY_MS plus long sur mobile pour éviter InvalidStateError
+    // si le moteur n'est pas encore entièrement arrêté.
     rec.onend = () => {
       if (!mountedRef.current) return;
+      clearTimeout(startCheckRef.current); // zombie-check inutile si onend déclenché
       console.log('[STT] onend - state=', vsRef.current, 'echo=', echoRef.current);
       if (vsRef.current === S.LISTENING && !echoRef.current) {
         rstTimerRef.current = setTimeout(() => {
           if (mountedRef.current && vsRef.current === S.LISTENING && !echoRef.current) startRec();
-        }, 250);
+        }, RESTART_DELAY_MS);
       }
     };
 
@@ -633,6 +676,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
       clearTimeout(echoTimerRef.current);
       clearTimeout(safetyRef.current);
       clearTimeout(watchdogRef.current);
+      clearTimeout(startCheckRef.current);
       cancelAnimationFrame(rafRef.current);
       cancelTTS();
       killRec();

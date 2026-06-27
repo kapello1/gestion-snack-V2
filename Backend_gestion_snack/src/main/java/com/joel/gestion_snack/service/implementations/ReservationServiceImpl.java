@@ -1,6 +1,7 @@
 package com.joel.gestion_snack.service.implementations;
 
 import com.joel.gestion_snack.model.dto.AvailabilitySlotDTO;
+import com.joel.gestion_snack.model.dto.DiningTableDTO;
 import com.joel.gestion_snack.model.dto.ReservationDTO;
 import com.joel.gestion_snack.model.dto.ReservationRequestDTO;
 import com.joel.gestion_snack.model.entity.*;
@@ -90,6 +91,19 @@ public class ReservationServiceImpl implements IReservationService {
     // ════════════════════════════════════════════════════════════════════════
     //  Disponibilités par créneaux
     // ════════════════════════════════════════════════════════════════════════
+
+    @Override @Transactional(readOnly = true)
+    public List<DiningTableDTO> getAvailableTablesBySlot(LocalDate date, String time, int guests) {
+        LocalTime slotTime  = LocalTime.parse(time, TIME_FMT);
+        LocalDateTime start = LocalDateTime.of(date, slotTime);
+        LocalDateTime end   = start.plusMinutes(SLOT_DURATION_MIN);
+        List<Long> occupied = reservationRepository.findOccupiedTableIdsDuringSlot(start, end);
+        return diningTableRepository.findAll().stream()
+                .filter(t -> t.getCapacity() >= guests && !occupied.contains(t.getTableId()))
+                .sorted(Comparator.comparingInt(DiningTable::getTableNumber))
+                .map(mapperUtil::toDiningTableDTO)
+                .collect(Collectors.toList());
+    }
 
     @Override @Transactional(readOnly = true)
     public List<AvailabilitySlotDTO> getAvailableSlots(LocalDate date, int guests) {

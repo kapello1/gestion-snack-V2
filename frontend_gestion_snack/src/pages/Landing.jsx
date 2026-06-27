@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -41,6 +41,34 @@ const FadeIn = ({ children, delay = 0, className = '' }) => {
   );
 };
 
+/* ── Système de particules hero (petits points flottants) ── */
+const PARTICLE_COUNT = 28;
+const particles = Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+  id: i,
+  left:  `${5 + ((i * 13 + 7) % 90)}%`,
+  size:  2 + (i % 4),
+  delay: `${(i * 0.37) % 7}s`,
+  dur:   `${8 + (i % 10)}s`,
+  color: i % 3 === 0 ? 'rgba(167,139,250,.55)' : i % 3 === 1 ? 'rgba(245,158,11,.45)' : 'rgba(99,102,241,.5)',
+}));
+
+/* ── Hook 3D tilt card ── */
+const useTilt = () => {
+  const ref = useRef(null);
+  const onMouseMove = useCallback((e) => {
+    const el = ref.current;
+    if (!el) return;
+    const { left, top, width, height } = el.getBoundingClientRect();
+    const x = (e.clientX - left) / width  - 0.5;  // -0.5 … 0.5
+    const y = (e.clientY - top)  / height - 0.5;
+    el.style.transform = `perspective(900px) rotateY(${x * 14}deg) rotateX(${-y * 10}deg) scale(1.025)`;
+  }, []);
+  const onMouseLeave = useCallback(() => {
+    if (ref.current) ref.current.style.transform = 'perspective(900px) rotateY(0deg) rotateX(0deg) scale(1)';
+  }, []);
+  return { ref, onMouseMove, onMouseLeave };
+};
+
 /* ── Compteur animé ── */
 const Counter = ({ target, suffix = '', duration = 2000 }) => {
   const [count, setCount] = useState(0);
@@ -57,6 +85,140 @@ const Counter = ({ target, suffix = '', duration = 2000 }) => {
     return () => clearInterval(id);
   }, [visible, target, duration]);
   return <span ref={ref}>{count}{suffix}</span>;
+};
+
+/* ── Carte de fonctionnalité avec tilt 3D ── */
+const FeatureCard = ({ Icon, color, title, badge, desc, bullets }) => {
+  const { ref, onMouseMove, onMouseLeave } = useTilt();
+  return (
+    <div ref={ref} onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}
+      className="card-tilt relative p-6 rounded-2xl h-full flex flex-col gap-4 landing-shimmer overflow-hidden"
+      style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.18)' }}>
+      {/* Orbe glow en coin */}
+      <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full blur-2xl opacity-20"
+        style={{ background: `radial-gradient(circle, ${color.includes('indigo') ? '#6366f1' : color.includes('violet') ? '#7c3aed' : color.includes('amber') ? '#f59e0b' : '#10b981'}, transparent)` }} />
+      {badge && (
+        <span className="absolute top-4 right-4 text-[10px] font-black px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: 'rgba(245,158,11,0.2)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>{badge}</span>
+      )}
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${color} shadow-lg`}>
+        <Icon className="h-6 w-6 text-white" />
+      </div>
+      <div>
+        <h3 className="font-bold text-white text-lg mb-2">{title}</h3>
+        <p className="text-slate-400 text-sm leading-relaxed">{desc}</p>
+      </div>
+      <ul className="mt-auto space-y-1.5">
+        {bullets.map(b => (
+          <li key={b} className="flex items-center gap-2 text-xs text-slate-400">
+            <CheckCircle className="h-3.5 w-3.5 text-violet-400 flex-shrink-0" />
+            {b}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+/* ── Carte 3D Hero (panneau droit) ── */
+const HeroCard = ({ goLogin }) => {
+  const { ref, onMouseMove, onMouseLeave } = useTilt();
+  return (
+    <div className="relative hidden lg:block">
+      {/* Halo de profondeur derrière la carte */}
+      <div className="absolute -inset-8 rounded-full blur-3xl opacity-25 animate-glow-pulse"
+        style={{ background: 'radial-gradient(circle, #7c3aed, transparent 70%)' }} />
+
+      {/* Carte principale avec tilt 3D */}
+      <div ref={ref} onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}
+        className="card-tilt relative rounded-3xl overflow-hidden shadow-2xl"
+        style={{
+          background: 'linear-gradient(135deg, #1e1b4b 0%, #2d1b69 50%, #4c1d95 100%)',
+          border: '1px solid rgba(139,92,246,0.3)',
+          transformStyle: 'preserve-3d',
+        }}>
+
+        {/* Image hero */}
+        <div className="relative h-[500px]">
+          <img src="/images/hero.jpg" alt="Snack Tiegni Bernard"
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={e => { e.currentTarget.style.display = 'none'; }} />
+
+          {/* Overlay dégradé */}
+          <div className="absolute inset-0"
+            style={{ background: 'linear-gradient(to top, rgba(7,5,24,0.85) 0%, rgba(7,5,24,0.3) 40%, transparent 70%)' }} />
+
+          {/* Placeholder si pas d'image */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+            <div className="w-24 h-24 rounded-2xl flex items-center justify-center mb-3"
+              style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+              <UtensilsCrossed className="h-12 w-12 text-violet-400 opacity-40" />
+            </div>
+          </div>
+
+          {/* Scan line holographique */}
+          <div className="landing-scan absolute left-0 right-0 h-0.5 pointer-events-none"
+            style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.6) 50%, transparent 100%)' }} />
+
+          {/* Badge commande en cours (flottant) */}
+          <div className="animate-float absolute top-5 left-5 rounded-2xl px-3.5 py-2.5 flex items-center gap-2.5"
+            style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+              <ShoppingCart className="h-4 w-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-white text-xs font-bold">Commande #1247</p>
+              <p className="text-emerald-400 text-[10px] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse block" /> En préparation
+              </p>
+            </div>
+          </div>
+
+          {/* Badge IA (flottant décalé) */}
+          <div className="animate-float-delay-2 absolute top-5 right-5 rounded-xl px-3 py-2 flex items-center gap-2"
+            style={{ background: 'rgba(245,158,11,0.15)', backdropFilter: 'blur(12px)', border: '1px solid rgba(245,158,11,0.3)' }}>
+            <Bot className="h-3.5 w-3.5 text-amber-400" />
+            <span className="text-amber-400 text-xs font-bold">IA active</span>
+          </div>
+
+          {/* Barre inférieure note + avatars */}
+          <div className="absolute bottom-4 left-4 right-4">
+            <div className="rounded-2xl p-4 backdrop-blur-md flex items-center gap-3"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <div className="p-2 rounded-xl" style={{ background: 'rgba(245,158,11,0.2)' }}>
+                <Star className="h-4 w-4 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">Note 4.9/5</p>
+                <p className="text-slate-400 text-xs">200+ avis vérifiés</p>
+              </div>
+              <div className="ml-auto flex -space-x-1.5">
+                {['M','T','I','P'].map(l => (
+                  <div key={l} className="w-7 h-7 rounded-full border-2 border-[#070518] flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>{l}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Badge réservation flottant au-dessus */}
+      <div className="animate-float-slow absolute -top-5 -right-5 rounded-2xl p-4 shadow-2xl"
+        style={{ background: 'linear-gradient(135deg, #1e1b4b, #2d1b69)', border: '1px solid rgba(139,92,246,0.4)' }}>
+        <div className="text-center">
+          <p className="text-2xl font-black text-white">500+</p>
+          <p className="text-xs text-violet-400 font-medium">tables réservées</p>
+        </div>
+      </div>
+
+      {/* Orbe décorative coin bas-gauche */}
+      <div className="absolute -bottom-6 -left-6 w-16 h-16 rounded-full flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.3), rgba(249,115,22,0.2))', border: '1px solid rgba(245,158,11,0.4)' }}>
+        <CalendarCheck className="h-7 w-7 text-amber-400" />
+      </div>
+    </div>
+  );
 };
 
 const DASHBOARD_PATHS = {
@@ -227,64 +389,96 @@ const Landing = () => {
 
       {/* ══ HERO ════════════════════════════════════════════════════════════════ */}
       <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
-        {/* Fond animé */}
+
+        {/* ─ Fond : orbes animés + grille ─ */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl opacity-20"
-            style={{ background: 'radial-gradient(circle, #7c3aed, transparent)' }} />
-          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full blur-3xl opacity-15"
-            style={{ background: 'radial-gradient(circle, #f59e0b, transparent)' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-3xl opacity-5"
-            style={{ background: 'radial-gradient(circle, #6366f1, transparent)' }} />
+          {/* Orbe principal violet */}
+          <div className="animate-glow-pulse absolute top-1/4 left-1/4 w-[480px] h-[480px] rounded-full blur-3xl"
+            style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.28), transparent 70%)' }} />
+          {/* Orbe ambre */}
+          <div className="animate-glow-pulse-slow absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl"
+            style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.22), transparent 70%)' }} />
+          {/* Orbe indigo central */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full blur-3xl opacity-6"
+            style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.18), transparent 70%)' }} />
+          {/* Anneau tournant 3D */}
+          <div className="animate-rotate-orb absolute top-1/3 right-1/4 w-64 h-64 opacity-10 border border-violet-400 rounded-full" />
+          <div className="animate-rotate-orb-cw absolute top-1/2 right-1/3 w-40 h-40 opacity-8 border border-amber-400/50 rounded-full" />
           {/* Grille subtile */}
-          <div className="absolute inset-0 opacity-5"
-            style={{ backgroundImage: 'linear-gradient(rgba(139,92,246,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.5) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+          <div className="absolute inset-0 opacity-[0.04]"
+            style={{ backgroundImage: 'linear-gradient(rgba(139,92,246,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.6) 1px, transparent 1px)', backgroundSize: '64px 64px' }} />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-8 py-20 grid lg:grid-cols-2 gap-16 items-center">
-          {/* Texte */}
+        {/* ─ Particules ascendantes ─ */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {particles.map(p => (
+            <div key={p.id} className="landing-particle"
+              style={{
+                left: p.left,
+                width: p.size,
+                height: p.size,
+                backgroundColor: p.color,
+                animationDuration: p.dur,
+                animationDelay: p.delay,
+              }} />
+          ))}
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-8 py-20 grid lg:grid-cols-2 gap-12 items-center">
+
+          {/* ─ Colonne texte ─ */}
           <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
-              style={{ backgroundColor: 'rgba(139,92,246,0.12)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
-              <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+            {/* Badge live */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold landing-shimmer relative overflow-hidden"
+              style={{ backgroundColor: 'rgba(139,92,246,0.12)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.35)' }}>
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
               Ouvert Lun–Sam 10:00–22:00
             </div>
 
+            {/* Titre avec reveal mot par mot */}
             <h1 className="text-[2rem] sm:text-5xl xl:text-7xl font-black leading-tight text-white">
-              La meilleure{' '}
-              <span style={{ display: 'inline-block', backgroundImage: 'linear-gradient(135deg, #a78bfa, #f59e0b)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent', color: 'transparent' }}>
-                expérience snack
-              </span>{' '}
-              à Bruxelles
+              <span className="word-reveal" style={{ animationDelay: '0.1s' }}>La </span>
+              <span className="word-reveal" style={{ animationDelay: '0.22s' }}>meilleure </span>
+              <br className="hidden sm:block" />
+              <span className="word-reveal" style={{ animationDelay: '0.34s', display: 'inline-block', backgroundImage: 'linear-gradient(135deg, #a78bfa 0%, #f59e0b 60%, #f97316 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent', color: 'transparent' }}>
+                expérience snack{' '}
+              </span>
+              <br />
+              <span className="word-reveal" style={{ animationDelay: '0.48s' }}>à </span>
+              <span className="word-reveal" style={{ animationDelay: '0.58s' }}>Bruxelles</span>
             </h1>
 
-            <p className="text-slate-400 text-lg leading-relaxed max-w-lg">
+            <p className="text-slate-400 text-lg leading-relaxed max-w-lg word-reveal" style={{ animationDelay: '0.7s' }}>
               Commandez en ligne, réservez votre table ou discutez avec notre assistant IA.
               Simple, rapide et disponible 24h/24 — parce que vous méritez le meilleur.
             </p>
 
-            <div className="flex flex-wrap gap-4">
+            {/* CTAs */}
+            <div className="flex flex-wrap gap-4 word-reveal" style={{ animationDelay: '0.85s' }}>
               <button onClick={goLogin}
-                className="flex items-center gap-2 px-7 py-4 rounded-2xl font-bold text-gray-900 text-base transition-all hover:scale-105 hover:shadow-2xl"
-                style={{ background: 'linear-gradient(135deg, #f59e0b, #f97316)', boxShadow: '0 8px 32px rgba(245,158,11,0.35)' }}>
-                <UtensilsCrossed className="h-5 w-5" />
-                Voir le menu
+                className="group relative flex items-center gap-2 px-7 py-4 rounded-2xl font-bold text-gray-900 text-base overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #f97316)', boxShadow: '0 8px 32px rgba(245,158,11,0.4)' }}>
+                <span className="absolute inset-0 bg-white/20 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700 skew-x-12" />
+                <UtensilsCrossed className="h-5 w-5 relative" />
+                <span className="relative">Voir le menu</span>
               </button>
               <button onClick={() => scrollTo('reservation')}
-                className="flex items-center gap-2 px-7 py-4 rounded-2xl font-bold text-white text-base transition-all hover:bg-white/10"
-                style={{ border: '1px solid rgba(139,92,246,0.5)' }}>
-                <CalendarCheck className="h-5 w-5 text-violet-400" />
+                className="group flex items-center gap-2 px-7 py-4 rounded-2xl font-bold text-white text-base transition-all duration-300 hover:scale-105"
+                style={{ border: '1px solid rgba(139,92,246,0.5)', background: 'rgba(139,92,246,0.08)' }}>
+                <CalendarCheck className="h-5 w-5 text-violet-400 group-hover:rotate-12 transition-transform" />
                 Réserver une table
               </button>
             </div>
 
-            {/* Mini-badges de confiance */}
+            {/* Badges de confiance */}
             <div className="flex flex-wrap items-center gap-4 pt-2">
               {[
                 { icon: Shield, text: 'Paiement sécurisé' },
                 { icon: CheckCircle, text: 'Confirmation immédiate' },
                 { icon: Mic, text: 'Assistant vocal IA' },
-              ].map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-1.5 text-xs text-slate-400">
+              ].map(({ icon: Icon, text }, i) => (
+                <div key={text} className="word-reveal flex items-center gap-1.5 text-xs text-slate-400"
+                  style={{ animationDelay: `${0.9 + i * 0.1}s` }}>
                   <Icon className="h-3.5 w-3.5 text-violet-400" />
                   <span>{text}</span>
                 </div>
@@ -292,51 +486,8 @@ const Landing = () => {
             </div>
           </div>
 
-          {/* Image / visuel hero */}
-          <div className="relative hidden lg:block">
-            <div className="relative h-[520px] rounded-3xl overflow-hidden shadow-2xl"
-              style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%)' }}>
-              <img
-                src="/images/hero.jpg"
-                alt="Snack Tiegni Bernard"
-                className="absolute inset-0 w-full h-full object-cover"
-                onError={e => { e.currentTarget.style.display = 'none'; }}
-              />
-              {/* Overlay gradient */}
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(7,5,24,0.8) 0%, transparent 60%)' }} />
-              {/* Placeholder si pas d'image */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white/30 pointer-events-none select-none">
-                <UtensilsCrossed className="h-20 w-20 mb-4 opacity-20" />
-                <p className="text-sm opacity-20">Ajoutez hero.jpg dans public/images/</p>
-              </div>
-              {/* Cartes flottantes */}
-              <div className="absolute bottom-6 left-6 right-6">
-                <div className="rounded-2xl p-4 backdrop-blur-md flex items-center gap-3"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                  <div className="p-2 rounded-xl bg-amber-500/20">
-                    <Star className="h-5 w-5 text-amber-400" />
-                  </div>
-                  <div>
-                    <p className="text-white font-bold text-sm">Note client 4.9/5</p>
-                    <p className="text-slate-400 text-xs">Basé sur 200+ avis vérifiés</p>
-                  </div>
-                  <div className="ml-auto flex -space-x-1">
-                    {['M','T','I','P'].map(l => (
-                      <div key={l} className="w-7 h-7 rounded-full border-2 border-[#070518] bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">{l}</div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-            {/* Badge réservation */}
-            <div className="absolute -top-4 -right-4 rounded-2xl p-4 shadow-xl"
-              style={{ backgroundColor: '#0f0d2a', border: '1px solid rgba(139,92,246,0.3)' }}>
-              <div className="text-center">
-                <p className="text-2xl font-black text-white">500+</p>
-                <p className="text-xs text-violet-400 font-medium">tables réservées</p>
-              </div>
-            </div>
-          </div>
+          {/* ─ Colonne droite : carte 3D ─ */}
+          <HeroCard goLogin={goLogin} />
         </div>
 
         {/* Scroll indicator */}
@@ -348,16 +499,24 @@ const Landing = () => {
       </section>
 
       {/* ══ STATISTIQUES ════════════════════════════════════════════════════════ */}
-      <section className="py-16 border-y" style={{ borderColor: 'rgba(139,92,246,0.15)', backgroundColor: 'rgba(139,92,246,0.04)' }}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map(({ value, suffix, label }) => (
-              <div key={label} className="text-center">
-                <p className="text-4xl sm:text-5xl font-black text-white mb-1">
-                  <Counter target={value} suffix={suffix} />
-                </p>
-                <p className="text-slate-400 text-sm font-medium">{label}</p>
-              </div>
+      <section className="py-16 relative overflow-hidden" style={{ borderTop: '1px solid rgba(139,92,246,0.15)', borderBottom: '1px solid rgba(139,92,246,0.15)' }}>
+        {/* Fond gradient animé */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(99,102,241,0.04) 50%, rgba(245,158,11,0.04) 100%)' }} />
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 relative">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {stats.map(({ value, suffix, label }, i) => (
+              <FadeIn key={label} delay={i * 80}>
+                <div className="card-tilt text-center p-6 rounded-2xl relative overflow-hidden landing-shimmer"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.18)' }}>
+                  <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full blur-xl opacity-30"
+                    style={{ background: i % 2 === 0 ? '#7c3aed' : '#f59e0b' }} />
+                  <p className="text-4xl sm:text-5xl font-black text-white mb-1 relative">
+                    <Counter target={value} suffix={suffix} />
+                  </p>
+                  <p className="text-slate-400 text-sm font-medium relative">{label}</p>
+                </div>
+              </FadeIn>
             ))}
           </div>
         </div>
@@ -374,30 +533,9 @@ const Landing = () => {
         </FadeIn>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {features.map(({ icon: Icon, color, bg, title, badge, desc, bullets }, i) => (
+          {features.map(({ icon: Icon, color, title, badge, desc, bullets }, i) => (
             <FadeIn key={title} delay={i * 100}>
-              <div className="relative p-6 rounded-2xl h-full flex flex-col gap-4 group hover:scale-[1.02] transition-transform duration-300"
-                style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.15)' }}>
-                {badge && (
-                  <span className="absolute top-4 right-4 text-[10px] font-black px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: 'rgba(245,158,11,0.2)', color: '#f59e0b' }}>{badge}</span>
-                )}
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${color} shadow-lg`}>
-                  <Icon className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white text-lg mb-2">{title}</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">{desc}</p>
-                </div>
-                <ul className="mt-auto space-y-1.5">
-                  {bullets.map(b => (
-                    <li key={b} className="flex items-center gap-2 text-xs text-slate-400">
-                      <CheckCircle className="h-3.5 w-3.5 text-violet-400 flex-shrink-0" />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <FeatureCard Icon={Icon} color={color} title={title} badge={badge} desc={desc} bullets={bullets} />
             </FadeIn>
           ))}
         </div>

@@ -1,6 +1,7 @@
 package com.joel.gestion_snack.service.interfaces;
 
 import com.joel.gestion_snack.model.dto.AvailabilitySlotDTO;
+import com.joel.gestion_snack.model.dto.DiningTableDTO;
 import com.joel.gestion_snack.model.dto.ReservationDTO;
 import com.joel.gestion_snack.model.dto.ReservationRequestDTO;
 import com.joel.gestion_snack.model.entity.ReservationStatus;
@@ -84,5 +85,8 @@ public interface IReservationService {
      * Les créneaux sont générés selon les horaires de service configurés dans le service.
      */
     List<AvailabilitySlotDTO> getAvailableSlots(LocalDate date, int guests);
+
+    /** Retourne les tables libres pour un créneau donné (date + heure + nb personnes). */
+    List<DiningTableDTO> getAvailableTablesBySlot(LocalDate date, String time, int guests);
 }
 
