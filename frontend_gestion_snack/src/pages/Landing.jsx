@@ -8,6 +8,7 @@ import {
   CheckCircle, Zap, Globe, Mail, Instagram, Facebook, Twitter,
   Menu as MenuIcon, X as XIcon,
 } from 'lucide-react';
+import { ContainerScroll } from '../components/ui/ContainerScroll';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -539,6 +540,41 @@ const Landing = () => {
             <div className="w-1.5 h-3 rounded-full bg-violet-400 animate-pulse" />
           </div>
         </div>
+      </section>
+
+      {/* ══ SCROLL 3D — APERÇU DE L'APPLICATION ════════════════════════════════ */}
+      <section className="overflow-hidden" style={{ backgroundColor: '#070518' }}>
+        <ContainerScroll
+          titleComponent={
+            <div className="mb-2">
+              <span className="block text-xs font-bold tracking-widest uppercase text-violet-400 mb-3">
+                Expérience utilisateur
+              </span>
+              <h2 className="text-3xl sm:text-5xl font-black text-white leading-tight">
+                Une application conçue{' '}
+                <span style={{
+                  backgroundImage: 'linear-gradient(135deg, #a78bfa 0%, #f59e0b 60%, #f97316 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}>
+                  pour vous
+                </span>
+              </h2>
+              <p className="text-slate-400 text-base mt-4 max-w-lg mx-auto">
+                Commandez, réservez et suivez vos plats depuis une interface intuitive,
+                optimisée pour tous les appareils.
+              </p>
+            </div>
+          }
+        >
+          <img
+            src="/mockup.jpeg"
+            alt="Aperçu de l'application Snack Tiegni Bernard"
+            className="w-full h-full object-cover object-top rounded-2xl"
+            draggable={false}
+          />
+        </ContainerScroll>
       </section>
 
       {/* ══ STATISTIQUES ════════════════════════════════════════════════════════ */}
