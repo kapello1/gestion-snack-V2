@@ -302,6 +302,7 @@ const Chatbot = () => {
           onMessagePair={handleLivePair}
           products={products}
           chatHistory={messages.filter(m => m.id !== 'welcome' && m.sender !== 'error')}
+          customerId={user?.ownerId ?? null}
         />
       )}
 

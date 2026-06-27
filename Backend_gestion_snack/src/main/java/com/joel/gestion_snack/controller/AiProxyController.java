@@ -39,7 +39,8 @@ public class AiProxyController {
             List<Map<String, Object>> messages = (List<Map<String, Object>>) body.get("messages");
             Long customerId = body.get("customerId") != null
                     ? Long.valueOf(body.get("customerId").toString()) : null;
-            String content = aiAssistantService.chatWithTools(messages, customerId);
+            boolean voiceMode = Boolean.TRUE.equals(body.get("voiceMode"));
+            String content = aiAssistantService.chatWithTools(messages, customerId, voiceMode);
             return ResponseEntity.ok(Map.of("content", content));
         } catch (Exception e) {
             log.error("Proxy assistant: {}", e.getMessage());

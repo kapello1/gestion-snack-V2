@@ -103,7 +103,7 @@ public class AiAssistantService {
      * exécute les outils demandés, et renvoie la réponse finale en texte.
      */
     @SuppressWarnings("unchecked")
-    public String chatWithTools(List<Map<String, Object>> messages, Long customerId) {
+    public String chatWithTools(List<Map<String, Object>> messages, Long customerId, boolean voiceMode) {
         if (groqApiKey == null || groqApiKey.isBlank())
             throw new IllegalStateException("GROQ_API_KEY non configurée");
 
@@ -122,7 +122,8 @@ public class AiAssistantService {
             + "Ne réserve JAMAIS sans cette confirmation explicite.\n"
             + "4. Si une information manque (date, heure, ou nombre de personnes), demande-la avant de continuer.\n"
             + "5. Après une réservation réussie, communique le numéro de réservation au client.\n"
-            + "Réponds toujours en français, de façon chaleureuse et concise.";
+            + "Réponds toujours en français, de façon chaleureuse et concise."
+            + (voiceMode ? " Mode vocal : 1 à 3 phrases courtes maximum, sans markdown ni émojis." : "");
         conversation.add(0, Map.of("role", "system", "content", systemPrompt));
 
         // Maximum 5 tours pour éviter une boucle infinie

@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react';
 import { X, Mic, MicOff, Volume2, VolumeX, PhoneOff } from 'lucide-react';
-import { sendChatMessage } from '../utils/groqApi';
+import { sendAssistantMessage } from '../utils/groqApi';
 import { useLanguage } from '../context/LanguageContext';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
@@ -38,7 +38,7 @@ const WELCOME = {
 };
 
 // ── Composant ─────────────────────────────────────────────────────────────────
-const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = [] }) => {
+const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = [], customerId = null }) => {
   const { language } = useLanguage();
 
   const [started,    setStarted]    = useState(false);
@@ -60,6 +60,9 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const prodsRef     = useRef(products);
   const pairRef      = useRef(onMessagePair);
   const langRef      = useRef(language);
+
+  const customerIdRef = useRef(customerId);
+  useEffect(() => { customerIdRef.current = customerId; }, [customerId]);
 
   const recRef       = useRef(null);  // SpeechRecognition
   const audioRef     = useRef(null);  // <Audio> ElevenLabs en cours
@@ -446,10 +449,10 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     const recentHistory = histRef.current.slice(-6);
 
     try {
-      const botText = await sendChatMessage(
+      const botText = await sendAssistantMessage(
         [...recentHistory, userMsg],
-        prodsRef.current,
-        true // voiceMode : pas d'emoji, pas de markdown
+        customerIdRef.current,
+        true // voiceMode : réponses courtes, sans markdown
       );
       clearTimeout(safetyRef.current);
       if (!mountedRef.current) return;

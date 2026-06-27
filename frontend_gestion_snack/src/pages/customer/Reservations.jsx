@@ -264,10 +264,10 @@ const ReservationWizard = ({ onClose, onCreated, customerId, username }) => {
                     {/* Légende */}
                     <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
                       <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded bg-violet-500 block" /> Disponible
+                        <span className="w-3 h-3 rounded bg-violet-400 block" /> Votre groupe
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded bg-gray-200 block" /> Occupée
+                        <span className="w-3 h-3 rounded bg-gray-200 block" /> Places libres
                       </span>
                     </div>
 

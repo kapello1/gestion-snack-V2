@@ -138,21 +138,140 @@ const HeroCard = ({ goLogin }) => {
           transformStyle: 'preserve-3d',
         }}>
 
-        {/* Image hero */}
+        {/* Mockup téléphone stylé — page d'accueil client */}
         <div className="relative h-[500px]">
-          <img src="/images/hero.jpg" alt="Snack Tiegni Bernard"
-            className="absolute inset-0 w-full h-full object-cover"
-            onError={e => { e.currentTarget.style.display = 'none'; }} />
-
-          {/* Overlay dégradé */}
+          {/* Fond ambiant */}
           <div className="absolute inset-0"
-            style={{ background: 'linear-gradient(to top, rgba(7,5,24,0.85) 0%, rgba(7,5,24,0.3) 40%, transparent 70%)' }} />
+            style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(99,102,241,0.18) 0%, transparent 70%)' }} />
 
-          {/* Placeholder si pas d'image */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
-            <div className="w-24 h-24 rounded-2xl flex items-center justify-center mb-3"
-              style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
-              <UtensilsCrossed className="h-12 w-12 text-violet-400 opacity-40" />
+          {/* Conteneur centré du téléphone */}
+          <div className="absolute inset-0 flex items-center justify-center select-none">
+            <div className="relative" style={{ width: '192px', height: '410px' }}>
+
+              {/* Cadre externe */}
+              <div className="absolute inset-0 rounded-[38px]"
+                style={{
+                  background: 'linear-gradient(145deg, #3d2b8a 0%, #1e1047 55%, #0e0824 100%)',
+                  border: '2px solid rgba(167,139,250,0.55)',
+                  boxShadow: '0 0 48px rgba(139,92,246,0.28), 0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.09)',
+                }} />
+
+              {/* Boutons volume (gauche) */}
+              <div className="absolute rounded-l-sm"
+                style={{ left: '-5px', top: '80px', width: '4px', height: '24px', background: '#251665' }} />
+              <div className="absolute rounded-l-sm"
+                style={{ left: '-5px', top: '112px', width: '4px', height: '24px', background: '#251665' }} />
+
+              {/* Bouton power (droite) */}
+              <div className="absolute rounded-r-sm"
+                style={{ right: '-5px', top: '100px', width: '4px', height: '38px', background: '#251665' }} />
+
+              {/* Écran */}
+              <div className="absolute overflow-hidden" style={{ inset: '5px', borderRadius: '33px' }}>
+                <div className="absolute inset-0 flex flex-col" style={{ background: '#f8f7ff' }}>
+
+                  {/* Dynamic Island + en-tête violet */}
+                  <div className="flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #7c3aed 100%)' }}>
+                    <div className="flex justify-center pt-2 pb-1">
+                      <div className="rounded-full" style={{ width: '52px', height: '14px', background: 'rgba(0,0,0,0.82)' }} />
+                    </div>
+                    <div className="flex items-center justify-between px-3 pb-2.5">
+                      <div>
+                        <p className="font-bold text-white" style={{ fontSize: '9px' }}>Bonjour 👋</p>
+                        <p className="text-white/70" style={{ fontSize: '7px' }}>Tiegni Bernard</p>
+                      </div>
+                      <div className="flex items-center justify-center rounded-full"
+                        style={{ width: '26px', height: '26px', background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.35)' }}>
+                        <span className="font-black text-white" style={{ fontSize: '7px' }}>TB</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Barre de recherche */}
+                  <div className="flex-shrink-0 px-2.5 py-1.5" style={{ background: 'white' }}>
+                    <div className="rounded-lg flex items-center gap-1.5 px-2 py-1.5"
+                      style={{ background: '#f1f0fb' }}>
+                      <span style={{ fontSize: '7px' }}>🔍</span>
+                      <span className="text-gray-400" style={{ fontSize: '7px' }}>Rechercher un plat...</span>
+                    </div>
+                  </div>
+
+                  {/* Catégories */}
+                  <div className="flex-shrink-0 flex gap-1.5 px-2.5 py-1.5"
+                    style={{ background: 'white', borderBottom: '1px solid #ede9fe' }}>
+                    {['🍟 Frites', '🥤 Boissons', '🍰 Desserts'].map((cat, i) => (
+                      <div key={i} className="rounded-full px-2 py-0.5 flex-shrink-0"
+                        style={i === 0
+                          ? { background: 'linear-gradient(135deg,#6366f1,#7c3aed)', color: 'white', fontSize: '6px', fontWeight: '700' }
+                          : { background: '#f3f4f6', color: '#6b7280', fontSize: '6px', fontWeight: '600' }}>
+                        {cat}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Grille produits */}
+                  <div className="flex-1 px-2 py-1.5 grid grid-cols-2 gap-1.5 overflow-hidden"
+                    style={{ background: '#f8f7ff', alignContent: 'start' }}>
+                    {[
+                      { name: 'Frites belges', price: '3.50€', emoji: '🍟', tag: '⭐ Top' },
+                      { name: 'Burger maison', price: '8.90€', emoji: '🍔', tag: null },
+                      { name: 'Coca-Cola',     price: '2.50€', emoji: '🥤', tag: null },
+                      { name: 'Gaufre belge',  price: '2.50€', emoji: '🧇', tag: '🔥 Nouveau' },
+                    ].map((p, i) => (
+                      <div key={i} className="rounded-xl flex flex-col overflow-hidden"
+                        style={{ background: 'white', boxShadow: '0 1px 5px rgba(99,102,241,0.1)' }}>
+                        <div className="flex items-center justify-center"
+                          style={{ height: '34px', background: 'linear-gradient(135deg,#ede9fe,#ddd6fe)' }}>
+                          <span style={{ fontSize: '18px', lineHeight: 1 }}>{p.emoji}</span>
+                        </div>
+                        <div className="px-1.5 py-1">
+                          {p.tag && (
+                            <span className="rounded-full px-1 py-0.5"
+                              style={{ fontSize: '5px', fontWeight: '700', background: '#fef3c7', color: '#92400e' }}>
+                              {p.tag}
+                            </span>
+                          )}
+                          <p className="font-bold text-gray-800 leading-tight mt-0.5" style={{ fontSize: '6px' }}>{p.name}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="font-black text-violet-600" style={{ fontSize: '7px' }}>{p.price}</span>
+                            <div className="flex items-center justify-center rounded-full"
+                              style={{ width: '14px', height: '14px', background: 'linear-gradient(135deg,#6366f1,#7c3aed)' }}>
+                              <span className="font-black text-white" style={{ fontSize: '10px', lineHeight: 1 }}>+</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Barre navigation bas */}
+                  <div className="flex-shrink-0 flex items-center justify-around px-1 py-2"
+                    style={{ background: 'white', borderTop: '1px solid #ede9fe' }}>
+                    {[
+                      { emoji: '🏠', label: 'Menu',      active: true },
+                      { emoji: '📅', label: 'Réserver',  active: false },
+                      { emoji: '📦', label: 'Commandes', active: false },
+                      { emoji: '👤', label: 'Profil',    active: false },
+                    ].map((tab, i) => (
+                      <div key={i} className="flex flex-col items-center gap-0.5">
+                        <span style={{ fontSize: '10px' }}>{tab.emoji}</span>
+                        <span style={{ fontSize: '5px', fontWeight: tab.active ? '700' : '500', color: tab.active ? '#7c3aed' : '#9ca3af' }}>
+                          {tab.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Reflet glossy écran */}
+                <div className="absolute inset-0 pointer-events-none"
+                  style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 55%)', borderRadius: '33px' }} />
+              </div>
+
+              {/* Reflet glossy cadre */}
+              <div className="absolute inset-0 rounded-[38px] pointer-events-none"
+                style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06) 0%, transparent 38%)' }} />
             </div>
           </div>
 

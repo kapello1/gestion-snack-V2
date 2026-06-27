@@ -30,7 +30,7 @@ export const sendChatMessage = async (messages, products = [], voiceMode = false
 };
 
 // Assistant avec function calling (réservation réelle). customerId = user.ownerId
-export const sendAssistantMessage = async (messages, customerId = null) => {
+export const sendAssistantMessage = async (messages, customerId = null, voiceMode = false) => {
   const formattedMessages = messages.map(msg => ({
     role: msg.sender === 'user' ? 'user' : 'assistant',
     content: msg.text
@@ -39,7 +39,7 @@ export const sendAssistantMessage = async (messages, customerId = null) => {
     const response = await fetch(`${API_BASE}/ai/assistant`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: formattedMessages, customerId })
+      body: JSON.stringify({ messages: formattedMessages, customerId, voiceMode })
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
