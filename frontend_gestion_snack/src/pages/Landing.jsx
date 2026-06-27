@@ -142,209 +142,108 @@ const FeatureCard = ({ Icon, color, title, badge, desc, bullets }) => {
   );
 };
 
-/* ── Carte 3D Hero (panneau droit) ── */
-const HeroCard = ({ goLogin }) => {
+/* ── Mockup téléphone hero (sans carte de fond) ── */
+const HeroCard = () => {
   const { ref, onMouseMove, onMouseLeave } = useTilt();
   return (
-    <div className="relative hidden lg:block">
-      {/* Halo de profondeur derrière la carte */}
-      <div className="absolute -inset-8 rounded-full blur-3xl opacity-25 animate-glow-pulse"
-        style={{ background: 'radial-gradient(circle, #7c3aed, transparent 70%)' }} />
+    <div className="relative hidden lg:flex flex-col items-center gap-5">
 
-      {/* Carte principale avec tilt 3D */}
+      {/* Halo ambiant derrière le téléphone */}
+      <div className="absolute -inset-16 rounded-full blur-3xl opacity-20 animate-glow-pulse pointer-events-none"
+        style={{ background: 'radial-gradient(circle, #7c3aed 0%, transparent 70%)' }} />
+
+      {/* Téléphone avec tilt 3D */}
       <div ref={ref} onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}
-        className="card-tilt relative rounded-3xl overflow-hidden shadow-2xl"
-        style={{
-          background: 'linear-gradient(135deg, #1e1b4b 0%, #2d1b69 50%, #4c1d95 100%)',
-          border: '1px solid rgba(139,92,246,0.3)',
-          transformStyle: 'preserve-3d',
-        }}>
+        className="card-tilt relative"
+        style={{ transformStyle: 'preserve-3d' }}>
 
-        {/* Mockup téléphone stylé — page d'accueil client */}
-        <div className="relative h-[500px]">
-          {/* Fond ambiant */}
-          <div className="absolute inset-0"
-            style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(99,102,241,0.18) 0%, transparent 70%)' }} />
+        {/* Badge commande (flottant gauche) */}
+        <div className="animate-float absolute -top-2 -left-32 z-10 rounded-2xl px-3 py-2.5 flex items-center gap-2"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)' }}>
+          <div className="w-7 h-7 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+            <ShoppingCart className="h-3.5 w-3.5 text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-white text-xs font-bold whitespace-nowrap">Commande #1247</p>
+            <p className="text-emerald-400 text-[10px] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse block" /> En préparation
+            </p>
+          </div>
+        </div>
 
-          {/* Conteneur centré du téléphone */}
-          <div className="absolute inset-0 flex items-center justify-center select-none">
-            <div className="relative" style={{ width: '192px', height: '410px' }}>
+        {/* Badge IA (flottant droite) */}
+        <div className="animate-float-delay-2 absolute -top-2 -right-24 z-10 rounded-xl px-3 py-2 flex items-center gap-2"
+          style={{ background: 'rgba(245,158,11,0.18)', backdropFilter: 'blur(14px)', border: '1px solid rgba(245,158,11,0.38)' }}>
+          <Bot className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
+          <span className="text-amber-400 text-xs font-bold">IA active</span>
+        </div>
 
-              {/* Cadre externe */}
-              <div className="absolute inset-0 rounded-[38px]"
-                style={{
-                  background: 'linear-gradient(145deg, #3d2b8a 0%, #1e1047 55%, #0e0824 100%)',
-                  border: '2px solid rgba(167,139,250,0.55)',
-                  boxShadow: '0 0 48px rgba(139,92,246,0.28), 0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.09)',
-                }} />
+        {/* Scan line holographique */}
+        <div className="landing-scan absolute left-6 right-6 h-0.5 z-10 pointer-events-none"
+          style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.7) 50%, transparent 100%)' }} />
 
-              {/* Boutons volume (gauche) */}
-              <div className="absolute rounded-l-sm"
-                style={{ left: '-5px', top: '80px', width: '4px', height: '24px', background: '#251665' }} />
-              <div className="absolute rounded-l-sm"
-                style={{ left: '-5px', top: '112px', width: '4px', height: '24px', background: '#251665' }} />
+        {/* Cadre téléphone */}
+        <div style={{ width: '240px', height: '500px', position: 'relative' }}>
 
-              {/* Bouton power (droite) */}
-              <div className="absolute rounded-r-sm"
-                style={{ right: '-5px', top: '100px', width: '4px', height: '38px', background: '#251665' }} />
+          {/* Cadre externe */}
+          <div className="absolute inset-0 rounded-[40px]"
+            style={{
+              background: 'linear-gradient(145deg, #3d2b8a 0%, #1e1047 55%, #0e0824 100%)',
+              border: '2px solid rgba(167,139,250,0.6)',
+              boxShadow: '0 0 60px rgba(139,92,246,0.35), 0 32px 80px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.1)',
+            }} />
 
-              {/* Écran */}
-              <div className="absolute overflow-hidden" style={{ inset: '5px', borderRadius: '33px' }}>
-                <div className="absolute inset-0 flex flex-col" style={{ background: '#f8f7ff' }}>
+          {/* Boutons volume (gauche) */}
+          <div className="absolute rounded-l-sm" style={{ left: '-5px', top: '92px',  width: '4px', height: '28px', background: '#251665' }} />
+          <div className="absolute rounded-l-sm" style={{ left: '-5px', top: '130px', width: '4px', height: '28px', background: '#251665' }} />
 
-                  {/* Dynamic Island + en-tête violet */}
-                  <div className="flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #7c3aed 100%)' }}>
-                    <div className="flex justify-center pt-2 pb-1">
-                      <div className="rounded-full" style={{ width: '52px', height: '14px', background: 'rgba(0,0,0,0.82)' }} />
-                    </div>
-                    <div className="flex items-center justify-between px-3 pb-2.5">
-                      <div>
-                        <p className="font-bold text-white" style={{ fontSize: '9px' }}>Bonjour 👋</p>
-                        <p className="text-white/70" style={{ fontSize: '7px' }}>Tiegni Bernard</p>
-                      </div>
-                      <div className="flex items-center justify-center rounded-full"
-                        style={{ width: '26px', height: '26px', background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.35)' }}>
-                        <span className="font-black text-white" style={{ fontSize: '7px' }}>TB</span>
-                      </div>
-                    </div>
-                  </div>
+          {/* Bouton power (droite) */}
+          <div className="absolute rounded-r-sm" style={{ right: '-5px', top: '114px', width: '4px', height: '44px', background: '#251665' }} />
 
-                  {/* Barre de recherche */}
-                  <div className="flex-shrink-0 px-2.5 py-1.5" style={{ background: 'white' }}>
-                    <div className="rounded-lg flex items-center gap-1.5 px-2 py-1.5"
-                      style={{ background: '#f1f0fb' }}>
-                      <span style={{ fontSize: '7px' }}>🔍</span>
-                      <span className="text-gray-400" style={{ fontSize: '7px' }}>Rechercher un plat...</span>
-                    </div>
-                  </div>
+          {/* Écran */}
+          <div className="absolute overflow-hidden" style={{ inset: '6px', borderRadius: '35px' }}>
 
-                  {/* Catégories */}
-                  <div className="flex-shrink-0 flex gap-1.5 px-2.5 py-1.5"
-                    style={{ background: 'white', borderBottom: '1px solid #ede9fe' }}>
-                    {['🍟 Frites', '🥤 Boissons', '🍰 Desserts'].map((cat, i) => (
-                      <div key={i} className="rounded-full px-2 py-0.5 flex-shrink-0"
-                        style={i === 0
-                          ? { background: 'linear-gradient(135deg,#6366f1,#7c3aed)', color: 'white', fontSize: '6px', fontWeight: '700' }
-                          : { background: '#f3f4f6', color: '#6b7280', fontSize: '6px', fontWeight: '600' }}>
-                        {cat}
-                      </div>
-                    ))}
-                  </div>
+            {/* Dynamic Island */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full z-10"
+              style={{ width: '62px', height: '16px', background: 'rgba(0,0,0,0.92)' }} />
 
-                  {/* Grille produits */}
-                  <div className="flex-1 px-2 py-1.5 grid grid-cols-2 gap-1.5 overflow-hidden"
-                    style={{ background: '#f8f7ff', alignContent: 'start' }}>
-                    {[
-                      { name: 'Frites belges', price: '3.50€', emoji: '🍟', tag: '⭐ Top' },
-                      { name: 'Burger maison', price: '8.90€', emoji: '🍔', tag: null },
-                      { name: 'Coca-Cola',     price: '2.50€', emoji: '🥤', tag: null },
-                      { name: 'Gaufre belge',  price: '2.50€', emoji: '🧇', tag: '🔥 Nouveau' },
-                    ].map((p, i) => (
-                      <div key={i} className="rounded-xl flex flex-col overflow-hidden"
-                        style={{ background: 'white', boxShadow: '0 1px 5px rgba(99,102,241,0.1)' }}>
-                        <div className="flex items-center justify-center"
-                          style={{ height: '34px', background: 'linear-gradient(135deg,#ede9fe,#ddd6fe)' }}>
-                          <span style={{ fontSize: '18px', lineHeight: 1 }}>{p.emoji}</span>
-                        </div>
-                        <div className="px-1.5 py-1">
-                          {p.tag && (
-                            <span className="rounded-full px-1 py-0.5"
-                              style={{ fontSize: '5px', fontWeight: '700', background: '#fef3c7', color: '#92400e' }}>
-                              {p.tag}
-                            </span>
-                          )}
-                          <p className="font-bold text-gray-800 leading-tight mt-0.5" style={{ fontSize: '6px' }}>{p.name}</p>
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="font-black text-violet-600" style={{ fontSize: '7px' }}>{p.price}</span>
-                            <div className="flex items-center justify-center rounded-full"
-                              style={{ width: '14px', height: '14px', background: 'linear-gradient(135deg,#6366f1,#7c3aed)' }}>
-                              <span className="font-black text-white" style={{ fontSize: '10px', lineHeight: 1 }}>+</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* Image réelle du mockup */}
+            <img
+              src="/mockup.jpeg"
+              alt="App Snack Tiegni Bernard"
+              className="absolute inset-0 w-full h-full object-cover object-top"
+            />
 
-                  {/* Barre navigation bas */}
-                  <div className="flex-shrink-0 flex items-center justify-around px-1 py-2"
-                    style={{ background: 'white', borderTop: '1px solid #ede9fe' }}>
-                    {[
-                      { emoji: '🏠', label: 'Menu',      active: true },
-                      { emoji: '📅', label: 'Réserver',  active: false },
-                      { emoji: '📦', label: 'Commandes', active: false },
-                      { emoji: '👤', label: 'Profil',    active: false },
-                    ].map((tab, i) => (
-                      <div key={i} className="flex flex-col items-center gap-0.5">
-                        <span style={{ fontSize: '10px' }}>{tab.emoji}</span>
-                        <span style={{ fontSize: '5px', fontWeight: tab.active ? '700' : '500', color: tab.active ? '#7c3aed' : '#9ca3af' }}>
-                          {tab.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Reflet glossy écran */}
-                <div className="absolute inset-0 pointer-events-none"
-                  style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 55%)', borderRadius: '33px' }} />
-              </div>
-
-              {/* Reflet glossy cadre */}
-              <div className="absolute inset-0 rounded-[38px] pointer-events-none"
-                style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06) 0%, transparent 38%)' }} />
-            </div>
+            {/* Reflet glossy écran */}
+            <div className="absolute inset-0 pointer-events-none"
+              style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.1) 0%, transparent 42%)', borderRadius: '35px' }} />
           </div>
 
-          {/* Scan line holographique */}
-          <div className="landing-scan absolute left-0 right-0 h-0.5 pointer-events-none"
-            style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.6) 50%, transparent 100%)' }} />
-
-          {/* Badge commande en cours (flottant) */}
-          <div className="animate-float absolute top-5 left-5 rounded-2xl px-3.5 py-2.5 flex items-center gap-2.5"
-            style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-              <ShoppingCart className="h-4 w-4 text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-white text-xs font-bold">Commande #1247</p>
-              <p className="text-emerald-400 text-[10px] flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse block" /> En préparation
-              </p>
-            </div>
-          </div>
-
-          {/* Badge IA (flottant décalé) */}
-          <div className="animate-float-delay-2 absolute top-5 right-5 rounded-xl px-3 py-2 flex items-center gap-2"
-            style={{ background: 'rgba(245,158,11,0.15)', backdropFilter: 'blur(12px)', border: '1px solid rgba(245,158,11,0.3)' }}>
-            <Bot className="h-3.5 w-3.5 text-amber-400" />
-            <span className="text-amber-400 text-xs font-bold">IA active</span>
-          </div>
-
-          {/* Barre inférieure note + avatars */}
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="rounded-2xl p-4 backdrop-blur-md flex items-center gap-3"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <div className="p-2 rounded-xl" style={{ background: 'rgba(245,158,11,0.2)' }}>
-                <Star className="h-4 w-4 text-amber-400" />
-              </div>
-              <div>
-                <p className="text-white font-bold text-sm">Note 4.9/5</p>
-                <p className="text-slate-400 text-xs">200+ avis vérifiés</p>
-              </div>
-              <div className="ml-auto flex -space-x-1.5">
-                {['M','T','I','P'].map(l => (
-                  <div key={l} className="w-7 h-7 rounded-full border-2 border-[#070518] flex items-center justify-center text-white text-xs font-bold"
-                    style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>{l}</div>
-                ))}
-              </div>
-            </div>
-          </div>
+          {/* Reflet glossy cadre */}
+          <div className="absolute inset-0 rounded-[40px] pointer-events-none"
+            style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.07) 0%, transparent 36%)' }} />
         </div>
       </div>
 
-      {/* Badge réservation flottant au-dessus */}
+      {/* Barre note sous le téléphone */}
+      <div className="w-[280px] rounded-2xl p-3.5 flex items-center gap-3"
+        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', backdropFilter: 'blur(12px)' }}>
+        <div className="p-2 rounded-xl flex-shrink-0" style={{ background: 'rgba(245,158,11,0.2)' }}>
+          <Star className="h-4 w-4 text-amber-400" />
+        </div>
+        <div>
+          <p className="text-white font-bold text-sm">Note 4.9/5</p>
+          <p className="text-slate-400 text-xs">200+ avis vérifiés</p>
+        </div>
+        <div className="ml-auto flex -space-x-1.5">
+          {['M','T','I','P'].map(l => (
+            <div key={l} className="w-7 h-7 rounded-full border-2 border-[#070518] flex items-center justify-center text-white text-xs font-bold"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>{l}</div>
+          ))}
+        </div>
+      </div>
+
+      {/* Badge réservation flottant */}
       <div className="animate-float-slow absolute -top-5 -right-5 rounded-2xl p-4 shadow-2xl"
         style={{ background: 'linear-gradient(135deg, #1e1b4b, #2d1b69)', border: '1px solid rgba(139,92,246,0.4)' }}>
         <div className="text-center">
@@ -353,10 +252,10 @@ const HeroCard = ({ goLogin }) => {
         </div>
       </div>
 
-      {/* Orbe décorative coin bas-gauche */}
-      <div className="absolute -bottom-6 -left-6 w-16 h-16 rounded-full flex items-center justify-center"
+      {/* Orbe décorative */}
+      <div className="absolute -bottom-4 -left-8 w-14 h-14 rounded-full flex items-center justify-center"
         style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.3), rgba(249,115,22,0.2))', border: '1px solid rgba(245,158,11,0.4)' }}>
-        <CalendarCheck className="h-7 w-7 text-amber-400" />
+        <CalendarCheck className="h-6 w-6 text-amber-400" />
       </div>
     </div>
   );
@@ -630,7 +529,7 @@ const Landing = () => {
 
           {/* ─ Colonne droite : carte 3D ─ (parallax inverse : flotte vers l'avant au scroll) */}
           <div style={{ transform: `translateY(${-scrollY * 0.09}px) rotateX(${scrollY * 0.012}deg)`, transformStyle: 'preserve-3d' }}>
-            <HeroCard goLogin={goLogin} />
+            <HeroCard />
           </div>
         </div>
 
