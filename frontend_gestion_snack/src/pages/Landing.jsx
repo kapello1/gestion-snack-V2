@@ -11,32 +11,43 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
-/* ── Petit hook pour animation au scroll ── */
-const useInView = (threshold = 0.15) => {
+/* ── Hook visibilité dans le viewport ── */
+const useInView = (threshold = 0.08) => {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
     if (!ref.current) return;
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVisible(true); }, { threshold });
-    obs.observe(ref.current);
-    return () => obs.disconnect();
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) setVisible(true); },
+      { threshold }
+    );
+    /* rAF : garantit que le navigateur a rendu l'état initial (opacity 0)
+       avant d'observer, sinon la transition ne se voit pas sur Chrome. */
+    const raf = requestAnimationFrame(() => { if (ref.current) obs.observe(ref.current); });
+    return () => { cancelAnimationFrame(raf); obs.disconnect(); };
   }, [threshold]);
   return [ref, visible];
 };
 
+/* ── Révélation 3D au scroll ──
+   Chaque section s'incline vers l'avant (rotateX) et remonte depuis le bas
+   dès qu'elle entre dans le viewport. perspective() sur l'élément lui-même
+   suffit pour l'effet 3D (identique à useTilt). */
 const FadeIn = ({ children, delay = 0, className = '' }) => {
   const [ref, visible] = useInView();
   return (
-    <div
-      ref={ref}
-      className={className}
-      style={{
-        transition: `opacity 0.7s ease ${delay}ms, transform 0.7s ease ${delay}ms`,
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(30px)',
-      }}
-    >
-      {children}
+    <div ref={ref} className={className} style={{ perspective: '1100px' }}>
+      <div style={{
+        transition: `opacity 0.85s ease ${delay}ms, transform 0.85s cubic-bezier(0.22,1,0.36,1) ${delay}ms`,
+        opacity:   visible ? 1 : 0,
+        transform: visible
+          ? 'translateY(0px) rotateX(0deg) scale(1)'
+          : 'translateY(64px) rotateX(16deg) scale(0.96)',
+        transformOrigin: 'center bottom',
+        willChange: 'opacity, transform',
+      }}>
+        {children}
+      </div>
     </div>
   );
 };
@@ -67,6 +78,17 @@ const useTilt = () => {
     if (ref.current) ref.current.style.transform = 'perspective(900px) rotateY(0deg) rotateX(0deg) scale(1)';
   }, []);
   return { ref, onMouseMove, onMouseLeave };
+};
+
+/* ── Hook position de défilement (parallax) ── */
+const useScrollY = () => {
+  const [scrollY, setScrollY] = useState(0);
+  useEffect(() => {
+    const handler = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handler, { passive: true });
+    return () => window.removeEventListener('scroll', handler);
+  }, []);
+  return scrollY;
 };
 
 /* ── Compteur animé ── */
@@ -355,6 +377,7 @@ const Landing = () => {
   const [products, setProducts] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const scrollY = useScrollY();
 
   // Si déjà connecté, rediriger vers le tableau de bord
   useEffect(() => {
@@ -509,8 +532,8 @@ const Landing = () => {
       {/* ══ HERO ════════════════════════════════════════════════════════════════ */}
       <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
 
-        {/* ─ Fond : orbes animés + grille ─ */}
-        <div className="absolute inset-0 pointer-events-none">
+        {/* ─ Fond : orbes animés + grille ─ (parallax : décalage +0.38 × scroll = fond glisse plus lentement) */}
+        <div className="absolute inset-0 pointer-events-none" style={{ transform: `translateY(${scrollY * 0.38}px)` }}>
           {/* Orbe principal violet */}
           <div className="animate-glow-pulse absolute top-1/4 left-1/4 w-[480px] h-[480px] rounded-full blur-3xl"
             style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.28), transparent 70%)' }} />
@@ -528,8 +551,8 @@ const Landing = () => {
             style={{ backgroundImage: 'linear-gradient(rgba(139,92,246,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.6) 1px, transparent 1px)', backgroundSize: '64px 64px' }} />
         </div>
 
-        {/* ─ Particules ascendantes ─ */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* ─ Particules ascendantes ─ (couche intermédiaire : 0.18 × scroll) */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ transform: `translateY(${scrollY * 0.18}px)` }}>
           {particles.map(p => (
             <div key={p.id} className="landing-particle"
               style={{
@@ -545,8 +568,8 @@ const Landing = () => {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-8 py-20 grid lg:grid-cols-2 gap-12 items-center">
 
-          {/* ─ Colonne texte ─ */}
-          <div className="space-y-8">
+          {/* ─ Colonne texte ─ (couche premier plan : glisse légèrement plus vite) */}
+          <div className="space-y-8" style={{ transform: `translateY(${-scrollY * 0.05}px)` }}>
             {/* Badge live */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold landing-shimmer relative overflow-hidden"
               style={{ backgroundColor: 'rgba(139,92,246,0.12)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.35)' }}>
@@ -605,8 +628,10 @@ const Landing = () => {
             </div>
           </div>
 
-          {/* ─ Colonne droite : carte 3D ─ */}
-          <HeroCard goLogin={goLogin} />
+          {/* ─ Colonne droite : carte 3D ─ (parallax inverse : flotte vers l'avant au scroll) */}
+          <div style={{ transform: `translateY(${-scrollY * 0.09}px) rotateX(${scrollY * 0.012}deg)`, transformStyle: 'preserve-3d' }}>
+            <HeroCard goLogin={goLogin} />
+          </div>
         </div>
 
         {/* Scroll indicator */}

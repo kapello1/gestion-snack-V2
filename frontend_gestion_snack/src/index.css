@@ -191,12 +191,16 @@
 }
 .landing-scan { animation: scanLine 2.5s linear infinite; }
 
-/* Entrée de texte mot par mot */
+/* Entrée de texte mot par mot — perspective via le parent hero (min-h-screen) */
 @keyframes wordReveal {
-  from { opacity:0; transform:translateY(28px) rotateX(-30deg); }
-  to   { opacity:1; transform:translateY(0)    rotateX(0deg); }
+  from { opacity:0; transform:perspective(600px) translateY(28px) rotateX(-28deg); }
+  to   { opacity:1; transform:perspective(600px) translateY(0)    rotateX(0deg); }
 }
-.word-reveal { display:inline-block; animation:wordReveal .5s cubic-bezier(.22,1,.36,1) both; }
+.word-reveal {
+  display: inline-block;
+  animation: wordReveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
 
 /* Glow pulse violacé pour orbes */
 @keyframes glowPulse {
@@ -208,15 +212,20 @@
 
 /* Shimmer horizontal sur cartes verre */
 @keyframes shimmerSlide {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(250%); }
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(280%); }
+}
+.landing-shimmer {
+  position: relative; /* requis pour ::after absolu */
+  overflow: hidden;
 }
 .landing-shimmer::after {
   content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.07) 50%, transparent 100%);
-  animation: shimmerSlide 3s ease-in-out infinite;
+  top: 0; bottom: 0;
+  width: 60%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.09) 50%, transparent 100%);
+  animation: shimmerSlide 3.5s ease-in-out infinite;
   pointer-events: none;
 }
 
@@ -246,6 +255,19 @@
   .animate-blob3 { animation: float 11s ease-in-out 6s infinite; }
   /* Rings : supprimés sur mobile (lourds, invisibles) */
   .animate-spin-slow, .animate-spin-slow-reverse { animation: none; }
-  /* Cartes photo : drift supprimé (elles sont cachées de toute façon) */
+  /* Cartes photo : drift supprimé */
   .animate-drift1, .animate-drift2, .animate-drift3 { animation: none; }
+  /* word-reveal : animation plus courte sur mobile */
+  .word-reveal { animation-duration: 0.45s; }
+}
+
+/* Accessibilité : respect du préférence mouvement réduit */
+@media (prefers-reduced-motion: reduce) {
+  .word-reveal, .landing-particle, .landing-scan,
+  .animate-glow-pulse, .animate-glow-pulse-slow,
+  .animate-rotate-orb, .animate-rotate-orb-cw,
+  .animate-orbit, .animate-orbit-reverse,
+  .landing-shimmer::after {
+    animation: none !important;
+  }
 }
