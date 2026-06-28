@@ -147,7 +147,7 @@ const FeatureCard = ({ Icon, color, title, badge, desc, bullets }) => {
 const HeroCard = () => {
   const { ref, onMouseMove, onMouseLeave } = useTilt();
   return (
-    <div className="relative hidden lg:flex flex-col items-center gap-5">
+    <div className="relative flex flex-col items-center gap-5 pt-8 lg:pt-0">
 
       {/* Halo ambiant derrière le téléphone */}
       <div className="absolute -inset-16 rounded-full blur-3xl opacity-20 animate-glow-pulse pointer-events-none"
@@ -158,8 +158,8 @@ const HeroCard = () => {
         className="card-tilt relative"
         style={{ transformStyle: 'preserve-3d' }}>
 
-        {/* Badge commande (flottant gauche) */}
-        <div className="animate-float absolute -top-2 -left-32 z-10 rounded-2xl px-3 py-2.5 flex items-center gap-2"
+        {/* Badge commande (flottant gauche) — masqué sur mobile car hors écran */}
+        <div className="animate-float hidden sm:flex absolute -top-2 -left-32 z-10 rounded-2xl px-3 py-2.5 items-center gap-2"
           style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)' }}>
           <div className="w-7 h-7 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
             <ShoppingCart className="h-3.5 w-3.5 text-emerald-400" />
@@ -172,8 +172,8 @@ const HeroCard = () => {
           </div>
         </div>
 
-        {/* Badge IA (flottant droite) */}
-        <div className="animate-float-delay-2 absolute -top-2 -right-24 z-10 rounded-xl px-3 py-2 flex items-center gap-2"
+        {/* Badge IA (flottant droite) — masqué sur mobile car hors écran */}
+        <div className="animate-float-delay-2 hidden sm:flex absolute -top-2 -right-24 z-10 rounded-xl px-3 py-2 items-center gap-2"
           style={{ background: 'rgba(245,158,11,0.18)', backdropFilter: 'blur(14px)', border: '1px solid rgba(245,158,11,0.38)' }}>
           <Bot className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
           <span className="text-amber-400 text-xs font-bold">IA active</span>
@@ -244,8 +244,8 @@ const HeroCard = () => {
         </div>
       </div>
 
-      {/* Badge réservation flottant */}
-      <div className="animate-float-slow absolute -top-5 -right-5 rounded-2xl p-4 shadow-2xl"
+      {/* Badge réservation flottant — masqué sur mobile */}
+      <div className="animate-float-slow hidden sm:block absolute -top-5 -right-5 rounded-2xl p-4 shadow-2xl"
         style={{ background: 'linear-gradient(135deg, #1e1b4b, #2d1b69)', border: '1px solid rgba(139,92,246,0.4)' }}>
         <div className="text-center">
           <p className="text-2xl font-black text-white">500+</p>
@@ -529,7 +529,7 @@ const Landing = () => {
           </div>
 
           {/* ─ Colonne droite : carte 3D ─ (parallax inverse : flotte vers l'avant au scroll) */}
-          <div style={{ transform: `translateY(${-scrollY * 0.09}px) rotateX(${scrollY * 0.012}deg)`, transformStyle: 'preserve-3d' }}>
+          <div className="flex justify-center" style={{ transform: `translateY(${-scrollY * 0.09}px) rotateX(${scrollY * 0.012}deg)`, transformStyle: 'preserve-3d' }}>
             <HeroCard />
           </div>
         </div>
@@ -569,7 +569,7 @@ const Landing = () => {
           }
         >
           <img
-            src="/suivi-commande.png"
+            src="/suivi-commande2.png"
             alt="Aperçu de l'application Snack Tiegni Bernard"
             className="w-full h-full object-cover object-top rounded-2xl"
             draggable={false}
