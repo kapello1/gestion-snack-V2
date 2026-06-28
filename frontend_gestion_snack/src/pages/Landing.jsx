@@ -273,18 +273,18 @@ const DASHBOARD_PATHS = {
 
 const Landing = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [products, setProducts] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const scrollY = useScrollY();
 
-  // Si déjà connecté, rediriger vers le tableau de bord
+  // Si déjà connecté (et auth résolue), rediriger vers le tableau de bord
   useEffect(() => {
-    if (user) {
+    if (!loading && user) {
       navigate(DASHBOARD_PATHS[user.roleName] || '/customer/menu', { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     fetch(`${API_BASE}/products`)
@@ -543,7 +543,7 @@ const Landing = () => {
       </section>
 
       {/* ══ SCROLL 3D — APERÇU DE L'APPLICATION ════════════════════════════════ */}
-      <section className="overflow-hidden" style={{ backgroundColor: '#070518' }}>
+      <section className="overflow-x-hidden pt-10" style={{ backgroundColor: '#070518' }}>
         <ContainerScroll
           titleComponent={
             <div className="mb-2">
@@ -569,7 +569,7 @@ const Landing = () => {
           }
         >
           <img
-            src="/mockup.jpeg"
+            src="/suivi-commande.png"
             alt="Aperçu de l'application Snack Tiegni Bernard"
             className="w-full h-full object-cover object-top rounded-2xl"
             draggable={false}
