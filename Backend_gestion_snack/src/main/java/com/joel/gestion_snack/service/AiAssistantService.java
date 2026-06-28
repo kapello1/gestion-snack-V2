@@ -27,7 +27,7 @@ public class AiAssistantService {
     @Value("${groq.api-key:}")
     private String groqApiKey;
 
-    private static final String GROQ_MODEL = "openai/gpt-oss-120b";
+    private static final String GROQ_MODEL = "llama-3.3-70b-versatile";
 
     // Déclaration des outils que le modèle peut appeler
     private List<Map<String, Object>> tools() {
@@ -112,17 +112,21 @@ public class AiAssistantService {
 
         // Message système : règles de comportement + date du jour
         String today = java.time.LocalDate.now(java.time.ZoneId.of("Europe/Brussels")).toString();
-        String systemPrompt = "Tu es l'assistant de réservation du Snack Tiegni Bernard. "
-            + "La date d'aujourd'hui est " + today + " (fuseau Europe/Brussels). "
-            + "Utilise cette date pour interpréter 'aujourd'hui', 'demain', 'ce soir', etc. "
-            + "RÈGLES IMPÉRATIVES pour réserver une table :\n"
-            + "1. D'abord, appelle TOUJOURS verifier_disponibilite pour proposer les créneaux réellement libres.\n"
-            + "2. Présente les créneaux disponibles au client et DEMANDE-LUI de choisir et de CONFIRMER.\n"
-            + "3. N'appelle creer_reservation QUE lorsque le client a EXPLICITEMENT confirmé une date, une heure ET un nombre de personnes précis. "
-            + "Ne réserve JAMAIS sans cette confirmation explicite.\n"
-            + "4. Si une information manque (date, heure, ou nombre de personnes), demande-la avant de continuer.\n"
-            + "5. Après une réservation réussie, communique le numéro de réservation au client.\n"
-            + "Réponds toujours en français, de façon chaleureuse et concise."
+        String systemPrompt = "Tu es l'assistant du Snack Tiegni Bernard à Bruxelles. "
+            + "Date du jour : " + today + " (Europe/Brussels). "
+            + "Interprète 'aujourd'hui', 'demain', 'ce soir', 'vendredi prochain', etc. par rapport à cette date.\n\n"
+            + "CAPACITÉS : tu peux renseigner sur le menu, les horaires, ET faire des réservations de table.\n\n"
+            + "PROCÉDURE DE RÉSERVATION (strictement dans cet ordre) :\n"
+            + "Étape 1 — Collecter : demande la date souhaitée ET le nombre de personnes (si pas déjà fournis).\n"
+            + "Étape 2 — Vérifier : appelle verifier_disponibilite(date, guests) pour obtenir les créneaux libres.\n"
+            + "Étape 3 — Proposer : présente les créneaux disponibles et demande au client lequel il choisit.\n"
+            + "Étape 4 — Confirmer : quand le client confirme un créneau précis, appelle creer_reservation(date, time, guests).\n"
+            + "Étape 5 — Annoncer : communique le numéro de réservation et les détails.\n\n"
+            + "RÈGLES IMPORTANTES :\n"
+            + "- N'appelle JAMAIS creer_reservation sans avoir d'abord appelé verifier_disponibilite.\n"
+            + "- N'appelle JAMAIS creer_reservation sans confirmation explicite du client.\n"
+            + "- Si une erreur survient lors de la réservation, explique-la clairement.\n"
+            + "- Réponds en français, de façon chaleureuse et concise."
             + (voiceMode ? " Mode vocal : 1 à 3 phrases courtes maximum, sans markdown ni émojis." : "");
         conversation.add(0, Map.of("role", "system", "content", systemPrompt));
 
@@ -133,8 +137,8 @@ public class AiAssistantService {
                     "messages", conversation,
                     "tools", tools(),
                     "tool_choice", "auto",
-                    "temperature", 0.3,
-                    "max_tokens", 700);
+                    "temperature", 0.2,
+                    "max_tokens", 1024);
 
             Map<String, Object> resp = client.post()
                     .uri("/openai/v1/chat/completions")

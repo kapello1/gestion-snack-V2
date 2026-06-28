@@ -1,5 +1,6 @@
-import { AlertCircle, Bot, Loader2, MessageSquare, Mic, RefreshCcw, Send, StopCircle, Trash2, User, X, Radio } from 'lucide-react';
+import { AlertCircle, Bot, Calendar, CalendarCheck, Loader2, MessageSquare, Mic, RefreshCcw, Send, StopCircle, Trash2, User, X, Radio } from 'lucide-react';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -7,9 +8,23 @@ import api from '../utils/api';
 import { sendChatMessage, sendAssistantMessage } from '../utils/groqApi';
 import LiveVoiceChat from './LiveVoiceChat';
 
+// ── Détection sémantique des messages liés aux réservations ──────────────────
+const RESERVATION_WORDS = ['réserv', 'table', 'créneau', 'place', 'personne', 'convive', 'soir', 'midi', 'dîner', 'déjeuner', 'booking', 'disponib'];
+const isReservationRelated = (text) => {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return RESERVATION_WORDS.some(k => lower.includes(k));
+};
+const isReservationSuccess = (text) => {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return lower.includes('confirmé') && (lower.includes('réservation') || lower.includes('numéro'));
+};
+
 const Chatbot = () => {
   const { user, isAuthenticated } = useAuth();
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
 
   const welcomeMsg = () => ({ id: 'welcome', text: t('chatbot.welcome'), sender: 'bot', timestamp: new Date() });
 
@@ -351,6 +366,20 @@ const Chatbot = () => {
             </div>
           </div>
 
+          {/* ── Raccourci réservation (toujours visible pour les clients connectés) ── */}
+          {isAuthenticated && user?.roleName === 'CUSTOMER' && (
+            <div className="px-3 py-2 flex items-center gap-2 border-b border-violet-100 bg-violet-50">
+              <button
+                onClick={() => navigate('/customer/reservations')}
+                className="flex items-center gap-1.5 text-xs font-semibold text-violet-700 bg-white border border-violet-200 px-3 py-1.5 rounded-lg hover:bg-violet-100 transition-colors shadow-sm"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                Réserver une table
+              </button>
+              <span className="text-[10px] text-violet-400 italic">ou demandez à l'assistant ci-dessous</span>
+            </div>
+          )}
+
           {/* Banner : pas de reconnaissance vocale */}
           {!voiceSupported && (
             <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-start gap-2">
@@ -409,6 +438,25 @@ const Chatbot = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Bouton réservation contextuel sous les messages bot pertinents */}
+                {msg.sender === 'bot' && isAuthenticated && user?.roleName === 'CUSTOMER' && isReservationRelated(msg.text) && (
+                  <div className="mt-1.5 ml-10">
+                    <button
+                      onClick={() => navigate('/customer/reservations')}
+                      className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors ${
+                        isReservationSuccess(msg.text)
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100'
+                      }`}
+                    >
+                      {isReservationSuccess(msg.text)
+                        ? <><CalendarCheck className="w-3.5 h-3.5" /> Voir mes réservations</>
+                        : <><Calendar className="w-3.5 h-3.5" /> Ouvrir la page de réservation</>
+                      }
+                    </button>
+                  </div>
+                )}
 
                 {msg.sender === 'error' && index === messages.length - 1 && (
                   <button onClick={handleRetry} className="mt-2 text-xs text-blue-600 font-bold hover:underline flex items-center gap-1 self-center">
