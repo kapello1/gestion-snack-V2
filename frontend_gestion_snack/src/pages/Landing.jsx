@@ -571,7 +571,7 @@ const Landing = () => {
           <img
             src="/suivi-commande2.png"
             alt="Aperçu de l'application Snack Tiegni Bernard"
-            className="w-full h-full object-cover object-top rounded-2xl"
+            className="w-full h-auto block rounded-2xl"
             draggable={false}
           />
         </ContainerScroll>
