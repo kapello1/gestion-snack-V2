@@ -349,5 +349,65 @@ public class CustomerServiceImpl implements ICustomerService {
         log.info("Email vérifié avec succès pour le client ID: {}", saved.getCustomerId());
         return mapperUtil.toCustomerDTO(saved);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomerDTO> searchByName(String name) {
+        if (name == null || name.isBlank()) return List.of();
+        return customerRepository
+                .findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(name, name)
+                .stream()
+                .map(mapperUtil::toCustomerDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public CustomerDTO quickRegister(String firstName, String lastName, String phone, String email) {
+        String resolvedEmail = (email != null && !email.isBlank())
+                ? email
+                : "invit_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12) + "@snack.local";
+
+        String base = (firstName.toLowerCase().replaceAll("[^a-z0-9]", "")
+                + "." + lastName.toLowerCase().replaceAll("[^a-z0-9]", ""));
+        if (base.length() > 30) base = base.substring(0, 30);
+        String username = base + "_" + (System.currentTimeMillis() % 100000);
+
+        Customer customer = new Customer();
+        customer.setFirstName(firstName);
+        customer.setLastName(lastName);
+        customer.setPhone(phone != null ? phone : "");
+        customer.setEmail(resolvedEmail);
+        customer.setUsername(username);
+        customer.setEmailVerified(true);
+        customer.setCreatedBy("WAITER");
+        customer = customerRepository.save(customer);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        final Long customerId = customer.getCustomerId();
+        customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new EntityNotFoundException("Client introuvable après save"));
+
+        if (userRepository.findByEmail(resolvedEmail).isEmpty()) {
+            Role customerRole = roleRepository.findAll().stream()
+                    .filter(r -> r.getRoleName() == RoleType.CUSTOMER).findFirst().orElse(null);
+            if (customerRole != null) {
+                User newUser = new User();
+                newUser.setOwnerId(customerId);
+                newUser.setUsername(username);
+                newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+                newUser.setEmail(resolvedEmail);
+                newUser.setRole(customerRole);
+                newUser.setIsActive(true);
+                newUser.setCreatedBy("WAITER");
+                userRepository.save(newUser);
+            }
+        }
+
+        wsPublisher.publishUserEvent("CUSTOMER_CREATED", customerId);
+        log.info("Client invité créé par le serveur - ID={}", customerId);
+        return mapperUtil.toCustomerDTO(customer);
+    }
 }
 

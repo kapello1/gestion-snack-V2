@@ -5,7 +5,7 @@ import { ROLES, LABELS } from '../../utils/constants';
 import {
   Home, User, LogOut, Menu as MenuIcon, ShoppingCart, Utensils,
   CreditCard, ChefHat, Truck, Shield, Globe, ChevronDown,
-  CalendarDays, Star, ShoppingBag, Info, BookOpen, Activity,
+  CalendarDays, Star, ShoppingBag, Info, BookOpen, Activity, Plus,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import NotificationBell from '../NotificationBell';
@@ -57,8 +57,9 @@ const Navbar = () => {
           { path: '/admin/users',       label: t('nav.users'),              icon: User },
           { path: '/admin/products',    label: t('nav.products'),           icon: Utensils },
           { path: '/admin/orders',      label: t('nav.orders'),             icon: ShoppingCart },
-          { path: '/admin/logs',        label: 'Activité',                  icon: Activity },
-          { path: '/admin/settings',    label: t('nav.restaurantSettings'), icon: Shield },
+          { path: '/admin/logs',          label: 'Activité',                    icon: Activity    },
+          { path: '/admin/transactions', label: 'Transactions',                icon: CreditCard  },
+          { path: '/admin/settings',    label: t('nav.restaurantSettings'),   icon: Shield      },
         ];
       case ROLES.CUSTOMER:
         return [
@@ -75,8 +76,9 @@ const Navbar = () => {
         ];
       case ROLES.WAITER:
         return [
-          { path: '/waiter/orders', label: t('nav.ordersToServe'),   icon: ShoppingCart },
-          { path: '/waiter/tables', label: t('nav.tableManagement'), icon: MenuIcon },
+          { path: '/waiter/new-order', label: 'Nouvelle commande',         icon: Plus         },
+          { path: '/waiter/orders',    label: t('nav.ordersToServe'),      icon: ShoppingCart },
+          { path: '/waiter/tables',    label: t('nav.tableManagement'),    icon: MenuIcon     },
         ];
       case ROLES.COOK:
         return [

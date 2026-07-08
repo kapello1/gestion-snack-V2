@@ -39,6 +39,10 @@ import AdminSupplyRequest from './pages/admin/SupplyRequest';
 import AdminSupplies from './pages/admin/Supplies';
 import AdminTickets from './pages/admin/Tickets';
 import AdminLogs from './pages/admin/Logs';
+import AdminTransactions from './pages/admin/Transactions';
+
+// Pages WAITER
+import WaiterNewOrder from './pages/waiter/NewOrder';
 
 // Pages CUSTOMER
 import CustomerMenu from './pages/customer/Menu';
@@ -195,6 +199,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/admin/transactions"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <AdminTransactions />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Routes CUSTOMER */}
           <Route
@@ -257,6 +269,14 @@ function App() {
           />
 
           {/* Routes WAITER */}
+          <Route
+            path="/waiter/new-order"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.WAITER]}>
+                <WaiterNewOrder />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/waiter/orders"
             element={

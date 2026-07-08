@@ -113,5 +113,27 @@ public class CustomerControllerImpl implements ICustomerController {
         customerService.verifyEmail(token);
         return ResponseEntity.ok(Map.of("message", "Email vérifié avec succès ! Vous pouvez maintenant vous connecter."));
     }
+
+    @GetMapping("/search")
+    @Operation(summary = "Rechercher des clients par prénom ou nom")
+    public ResponseEntity<List<CustomerDTO>> searchCustomers(@RequestParam String name) {
+        log.info("Recherche de clients par nom: {}", name);
+        return ResponseEntity.ok(customerService.searchByName(name));
+    }
+
+    @PostMapping("/quick-register")
+    @Operation(summary = "Inscription rapide d'un client par le serveur")
+    public ResponseEntity<CustomerDTO> quickRegister(@RequestBody Map<String, String> body) {
+        String firstName = body.get("firstName");
+        String lastName  = body.get("lastName");
+        String phone     = body.get("phone");
+        String email     = body.get("email");
+        if (firstName == null || firstName.isBlank() || lastName == null || lastName.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        log.info("Inscription rapide d'un client par le serveur: {} {}", firstName, lastName);
+        CustomerDTO customer = customerService.quickRegister(firstName, lastName, phone, email);
+        return ResponseEntity.status(HttpStatus.CREATED).body(customer);
+    }
 }
 

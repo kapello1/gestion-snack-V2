@@ -71,5 +71,9 @@ public interface ICustomerService {
      * @return DTO du client activé
      */
     CustomerDTO verifyEmail(String token);
+
+    List<CustomerDTO> searchByName(String name);
+
+    CustomerDTO quickRegister(String firstName, String lastName, String phone, String email);
 }
 

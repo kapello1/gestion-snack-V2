@@ -41,6 +41,8 @@ export const API_ENDPOINTS = {
     BY_USERNAME: (username) => `/customers/username/${username}`,
     VERIFY_EMAIL: (token) => `/customers/verify/${token}`,
     VERIFY_EMAIL_CODE: '/customers/verify-email-code',
+    SEARCH: (name) => `/customers/search?name=${encodeURIComponent(name)}`,
+    QUICK_REGISTER: '/customers/quick-register',
   },
   // Produits
   PRODUCTS: {
@@ -160,6 +162,11 @@ export const API_ENDPOINTS = {
     BY_TABLE: (tableName) => `/audit-logs/table/${tableName}`,
     BY_ACTION: (action) => `/audit-logs/action/${action}`,
     BY_USER: (username) => `/audit-logs/user/${username}`,
+  },
+  // Transactions
+  TRANSACTIONS: {
+    BASE: '/transactions',
+    REFUND: (id) => `/transactions/${id}/refund`,
   },
   // Stripe - paiements en ligne
   STRIPE: {

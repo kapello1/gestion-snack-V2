@@ -20,7 +20,7 @@ public class AiProxyService {
     @Value("${elevenlabs.voice-id:pNInz6obpgDQGcFmaJgB}") private String elevenLabsVoiceId;
     @Value("${elevenlabs.model-id:eleven_turbo_v2_5}") private String elevenLabsModelId;
 
-    private static final String GROQ_MODEL = "openai/gpt-oss-20b";
+    private static final String GROQ_MODEL = "openai/gpt-oss-120b";
 
     public AiProxyService(WebClient.Builder b) {
         this.groqClient = b.baseUrl("https://api.groq.com").build();
