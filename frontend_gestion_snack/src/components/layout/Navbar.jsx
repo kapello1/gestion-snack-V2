@@ -5,7 +5,7 @@ import { ROLES, LABELS } from '../../utils/constants';
 import {
   Home, User, LogOut, Menu as MenuIcon, ShoppingCart, Utensils,
   CreditCard, ChefHat, Truck, Shield, Globe, ChevronDown,
-  CalendarDays, Star, ShoppingBag, Info, BookOpen, Activity, Plus,
+  CalendarDays, Star, ShoppingBag, Info, BookOpen, Activity, Plus, AlertTriangle,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import NotificationBell from '../NotificationBell';
@@ -82,7 +82,8 @@ const Navbar = () => {
         ];
       case ROLES.COOK:
         return [
-          { path: '/cook/orders', label: t('nav.ordersToPrep'), icon: ChefHat },
+          { path: '/cook/orders',       label: t('nav.ordersToPrep'), icon: ChefHat       },
+          { path: '/cook/stock-alerts', label: 'Alertes stock',       icon: AlertTriangle  },
         ];
       case ROLES.PROVIDER:
         return [

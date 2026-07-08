@@ -63,6 +63,7 @@ import TableManagement from './pages/waiter/TableManagement';
 
 // Pages COOK
 import CookOrders from './pages/cook/Orders';
+import CookStockAlerts from './pages/cook/StockAlerts';
 
 // Pages PROVIDER
 import ProviderOrders from './pages/provider/Orders';
@@ -300,6 +301,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={[ROLES.COOK]}>
                 <CookOrders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/cook/stock-alerts"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.COOK]}>
+                <CookStockAlerts />
               </ProtectedRoute>
             }
           />

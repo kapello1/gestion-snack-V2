@@ -40,5 +40,14 @@ public interface IStockAlertService {
      * @return Liste des alertes du produit
      */
     List<StockAlertDTO> getAlertsByProduct(Long productId);
+
+    /**
+     * Crée une alerte manuelle déclenchée par le cuisinier.
+     * @param productId         ID du produit concerné
+     * @param requestedQuantity Quantité souhaitée par le cuisinier
+     * @param message           Message explicatif du cuisinier
+     * @param triggeredBy       Nom de l'utilisateur (cuisinier)
+     */
+    StockAlertDTO createManualAlert(Long productId, Integer requestedQuantity, String message, String triggeredBy);
 }
 

@@ -145,6 +145,13 @@ public class OrderControllerImpl {
         return ResponseEntity.ok(orderService.payOrder(id, requestDTO));
     }
 
+    @PostMapping("/{id}/start")
+    @Operation(summary = "Démarrer la préparation d'une commande (ACTIVE → IN_PREPARATION)")
+    public ResponseEntity<OrderDTO> startOrder(@PathVariable Long id) {
+        log.info("Requête POST pour démarrer la préparation de la commande ID: {}", id);
+        return ResponseEntity.ok(orderService.startOrder(id));
+    }
+
     @PutMapping("/{id}/status")
     @Operation(summary = "Changer le statut d'une commande (endpoint générique)")
     public ResponseEntity<OrderDTO> updateOrderStatus(
@@ -152,10 +159,11 @@ public class OrderControllerImpl {
             @RequestParam OrderStatus status) {
         log.info("Requête PUT pour changer le statut de la commande {} vers {}", id, status);
         return switch (status) {
-            case CLOSED -> ResponseEntity.ok(orderService.closeOrder(id));
-            case SERVED -> ResponseEntity.ok(orderService.serveOrder(id));
-            case CANCELLED -> ResponseEntity.ok(orderService.cancelOrder(id));
-            default -> ResponseEntity.badRequest().build();
+            case IN_PREPARATION -> ResponseEntity.ok(orderService.startOrder(id));
+            case CLOSED         -> ResponseEntity.ok(orderService.closeOrder(id));
+            case SERVED         -> ResponseEntity.ok(orderService.serveOrder(id));
+            case CANCELLED      -> ResponseEntity.ok(orderService.cancelOrder(id));
+            default             -> ResponseEntity.badRequest().build();
         };
     }
 }

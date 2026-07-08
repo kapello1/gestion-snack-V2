@@ -12,10 +12,11 @@ export const ROLES = {
 
 // Statuts des commandes
 export const ORDER_STATUS = {
-  ACTIVE: 'ACTIVE',
-  CLOSED: 'CLOSED',
-  SERVED: 'SERVED',
-  CANCELLED: 'CANCELLED',
+  ACTIVE:         'ACTIVE',
+  IN_PREPARATION: 'IN_PREPARATION',
+  CLOSED:         'CLOSED',
+  SERVED:         'SERVED',
+  CANCELLED:      'CANCELLED',
 };
 
 // Types de documents
@@ -67,10 +68,11 @@ export const LABELS = {
     [ROLES.PROVIDER]: 'Fournisseur',
   },
   ORDER_STATUS: {
-    [ORDER_STATUS.ACTIVE]: 'Active',
-    [ORDER_STATUS.CLOSED]: 'Prête',
-    [ORDER_STATUS.SERVED]: 'Servie',
-    [ORDER_STATUS.CANCELLED]: 'Annulée',
+    [ORDER_STATUS.ACTIVE]:         'En attente de préparation',
+    [ORDER_STATUS.IN_PREPARATION]: 'En cours de préparation',
+    [ORDER_STATUS.CLOSED]:         'Prête à servir',
+    [ORDER_STATUS.SERVED]:         'Servie au client',
+    [ORDER_STATUS.CANCELLED]:      'Annulée / Remboursée',
   },
   DOCUMENT_TYPE: {
     [DOCUMENT_TYPE.TICKET]: 'Ticket de caisse',
@@ -103,10 +105,11 @@ export const LABELS = {
 // Couleurs selon les statuts
 export const STATUS_COLORS = {
   ORDER: {
-    [ORDER_STATUS.ACTIVE]: 'bg-blue-100 text-blue-800',
-    [ORDER_STATUS.CLOSED]: 'bg-orange-100 text-orange-800',
-    [ORDER_STATUS.SERVED]: 'bg-green-100 text-green-800',
-    [ORDER_STATUS.CANCELLED]: 'bg-red-100 text-red-800',
+    [ORDER_STATUS.ACTIVE]:         'bg-yellow-100 text-yellow-800',
+    [ORDER_STATUS.IN_PREPARATION]: 'bg-orange-100 text-orange-800',
+    [ORDER_STATUS.CLOSED]:         'bg-blue-100 text-blue-800',
+    [ORDER_STATUS.SERVED]:         'bg-green-100 text-green-800',
+    [ORDER_STATUS.CANCELLED]:      'bg-red-100 text-red-800',
   },
   TABLE: {
     [TABLE_STATUS.FREE]: 'bg-green-100 text-green-800',

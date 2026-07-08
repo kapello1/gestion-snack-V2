@@ -9,7 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.http.HttpStatus;
+
 import java.util.List;
+import java.util.Map;
 
 /**
  * Implémentation du contrôleur pour la gestion des alertes de stock
@@ -56,6 +59,22 @@ public class StockAlertControllerImpl {
     public ResponseEntity<List<StockAlertDTO>> getAlertsByProduct(@PathVariable Long productId) {
         log.info("Requête GET pour récupérer les alertes du produit avec l'ID: {}", productId);
         return ResponseEntity.ok(stockAlertService.getAlertsByProduct(productId));
+    }
+
+    @PostMapping
+    @Operation(summary = "Créer une alerte manuelle (cuisinier)")
+    public ResponseEntity<?> createManualAlert(@RequestBody Map<String, Object> body) {
+        Long productId         = body.get("productId") != null ? Long.valueOf(body.get("productId").toString()) : null;
+        Integer requestedQty   = body.get("requestedQuantity") != null ? Integer.valueOf(body.get("requestedQuantity").toString()) : null;
+        String message         = body.get("message") != null ? body.get("message").toString() : null;
+        String triggeredBy     = body.get("triggeredBy") != null ? body.get("triggeredBy").toString() : "COOK";
+
+        if (productId == null || requestedQty == null || requestedQty <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("message", "productId et requestedQuantity (> 0) sont obligatoires"));
+        }
+        log.info("Alerte manuelle — produit {} qté {} par {}", productId, requestedQty, triggeredBy);
+        StockAlertDTO alert = stockAlertService.createManualAlert(productId, requestedQty, message, triggeredBy);
+        return ResponseEntity.status(HttpStatus.CREATED).body(alert);
     }
 }
 

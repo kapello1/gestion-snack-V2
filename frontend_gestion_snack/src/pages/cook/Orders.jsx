@@ -11,9 +11,10 @@ import { useNotifications } from '../../context/NotificationContext';
 import { wsManager } from '../../lib/wsManager';
 
 const STATUS_TABS = [
-  { key: 'ALL',    label: 'Toutes',       color: 'text-gray-700',   active: 'bg-white text-gray-900 shadow-md' },
-  { key: 'ACTIVE', label: 'À préparer',   color: 'text-orange-600', active: 'bg-white text-orange-600 shadow-md scale-105' },
-  { key: 'CLOSED', label: 'Prêtes',       color: 'text-green-600',  active: 'bg-white text-green-600 shadow-md scale-105' },
+  { key: 'ALL',            label: 'Toutes',         color: 'text-gray-700',   active: 'bg-white text-gray-900 shadow-md' },
+  { key: 'ACTIVE',         label: 'À préparer',     color: 'text-yellow-600', active: 'bg-white text-yellow-600 shadow-md scale-105' },
+  { key: 'IN_PREPARATION', label: 'En préparation', color: 'text-orange-600', active: 'bg-white text-orange-600 shadow-md scale-105' },
+  { key: 'CLOSED',         label: 'Prêtes',         color: 'text-blue-600',   active: 'bg-white text-blue-600 shadow-md scale-105' },
 ];
 
 const groupByDate = (orders) => {
@@ -62,9 +63,11 @@ const CookOrdersPage = () => {
     staleTime: Infinity, // Jamais périmé automatiquement - WS invalide le cache
   });
 
-  // Vue cuisine : ACTIVE (à préparer) + CLOSED (prêtes)
+  // Vue cuisine : ACTIVE + IN_PREPARATION + CLOSED
   const orders = rawOrders.filter(
-    o => o.status === ORDER_STATUS.ACTIVE || o.status === ORDER_STATUS.CLOSED
+    o => o.status === ORDER_STATUS.ACTIVE
+      || o.status === ORDER_STATUS.IN_PREPARATION
+      || o.status === ORDER_STATUS.CLOSED
   );
 
   const filteredOrders = searchTerm
@@ -79,13 +82,22 @@ const CookOrdersPage = () => {
 
   const sortedOrders = [...filteredOrders].sort((a, b) => new Date(a.orderDate) - new Date(b.orderDate));
 
+  const handleStart = async (orderId) => {
+    try {
+      await api.post(API_ENDPOINTS.ORDERS.START(orderId));
+      toast.success(`Commande #${orderId} — préparation commencée 🍳`);
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    } catch {
+      toast.error('Erreur lors du démarrage de la préparation');
+    }
+  };
+
   const handlePrepare = async (orderId) => {
     const order = orders.find(o => o.orderId === orderId);
     try {
       await api.post(API_ENDPOINTS.ORDERS.CLOSE(orderId));
-      toast.success(`Commande #${orderId} prête ! 🍽️`);
+      toast.success(`Commande #${orderId} prête à servir ! 🍽️`);
 
-      // Notification client (le WS mettra aussi à jour l'UI automatiquement)
       const customerId = order?.customerId || order?.customer?.customerId || order?.customer?.userId;
       if (customerId) {
         const items = (order?.orderItems || []).map(i => `${i.quantity}× ${i.productName}`).join(', ');
@@ -96,7 +108,6 @@ const CookOrdersPage = () => {
         });
       }
 
-      // Invalide toutes les queries ['orders', ...] → re-fetch immédiat
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch {
       toast.error('Erreur lors de la validation de la préparation');
@@ -104,7 +115,9 @@ const CookOrdersPage = () => {
   };
 
   const groups = groupByDate(sortedOrders);
-  const activeCount = orders.filter(o => o.status === ORDER_STATUS.ACTIVE).length;
+  const activeCount = orders.filter(
+    o => o.status === ORDER_STATUS.ACTIVE || o.status === ORDER_STATUS.IN_PREPARATION
+  ).length;
 
   if (isLoading) {
     return (
@@ -213,9 +226,14 @@ const CookOrdersPage = () => {
                   <div
                     key={order.orderId}
                     className={`group relative bg-white rounded-[2.5rem] shadow-sm hover:shadow-2xl transition-all duration-500 border overflow-hidden
-                      ${order.status === ORDER_STATUS.ACTIVE ? 'border-orange-100 hover:-translate-y-2' : 'border-green-100 opacity-80'}`}
+                      ${order.status === ORDER_STATUS.ACTIVE         ? 'border-yellow-200 hover:-translate-y-2'
+                      : order.status === ORDER_STATUS.IN_PREPARATION ? 'border-orange-200 hover:-translate-y-1'
+                      : 'border-blue-100 opacity-80'}`}
                   >
-                    <div className={`p-6 flex justify-between items-start ${order.status === ORDER_STATUS.ACTIVE ? 'bg-orange-50/50' : 'bg-green-50/50'}`}>
+                    <div className={`p-6 flex justify-between items-start
+                      ${order.status === ORDER_STATUS.ACTIVE         ? 'bg-yellow-50/60'
+                      : order.status === ORDER_STATUS.IN_PREPARATION ? 'bg-orange-50/60'
+                      : 'bg-blue-50/40'}`}>
                       <div>
                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Bon de Commande</span>
                         <h3 className="text-2xl font-black text-gray-900 leading-none">#{order.orderId}</h3>
@@ -230,9 +248,10 @@ const CookOrdersPage = () => {
                         }`}>
                           {LABELS.ORDER_TYPE[order.orderType]}
                         </span>
-                        <span className={`block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                          order.status === ORDER_STATUS.ACTIVE ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'
-                        }`}>
+                        <span className={`block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest
+                          ${order.status === ORDER_STATUS.ACTIVE         ? 'bg-yellow-100 text-yellow-700'
+                          : order.status === ORDER_STATUS.IN_PREPARATION ? 'bg-orange-100 text-orange-700'
+                          : 'bg-blue-100 text-blue-700'}`}>
                           {LABELS.ORDER_STATUS[order.status] || order.status}
                         </span>
                       </div>
@@ -263,18 +282,28 @@ const CookOrdersPage = () => {
 
                       {order.status === ORDER_STATUS.ACTIVE && (
                         <button
+                          onClick={() => handleStart(order.orderId)}
+                          className="w-full mt-2 flex items-center justify-center gap-3 py-4 bg-yellow-500 hover:bg-yellow-600 text-white font-black rounded-2xl shadow-xl shadow-yellow-100 transition-all active:scale-95"
+                        >
+                          <CheckCircle className="h-5 w-5" />
+                          COMMENCER LA PRÉPARATION
+                        </button>
+                      )}
+
+                      {order.status === ORDER_STATUS.IN_PREPARATION && (
+                        <button
                           onClick={() => handlePrepare(order.orderId)}
                           className="w-full mt-2 flex items-center justify-center gap-3 py-4 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl shadow-xl shadow-orange-100 transition-all active:scale-95"
                         >
                           <CheckCircle className="h-5 w-5" />
-                          TERMINER LA PRÉPARATION
+                          MARQUER COMME PRÊTE
                         </button>
                       )}
 
                       {order.status === ORDER_STATUS.CLOSED && (
-                        <div className="flex items-center justify-center gap-2 py-4 text-green-600 font-black text-sm">
+                        <div className="flex items-center justify-center gap-2 py-4 text-blue-600 font-black text-sm">
                           <CheckCircle className="h-5 w-5" />
-                          COMMANDE PRÊTE
+                          PRÊTE À SERVIR — EN ATTENTE DU SERVEUR
                         </div>
                       )}
                     </div>

@@ -5,8 +5,9 @@ import com.joel.gestion_snack.model.dto.TransactionDTO;
 import com.joel.gestion_snack.model.entity.OrderStatus;
 import com.joel.gestion_snack.model.entity.Transaction;
 import com.joel.gestion_snack.model.entity.TransactionStatusType;
+import com.joel.gestion_snack.service.interfaces.IOrderService;
 import com.joel.gestion_snack.repository.TransactionRepository;
-import com.joel.gestion_snack.service.implementations.OrderServiceImpl;
+import com.joel.gestion_snack.service.interfaces.IOrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,7 @@ import java.util.stream.Collectors;
 public class TransactionController {
 
     private final TransactionRepository transactionRepository;
-    private final OrderServiceImpl orderService;
+    private final IOrderService orderService;
 
     @GetMapping
     @Operation(summary = "Récupérer toutes les transactions triées par date décroissante")
@@ -63,21 +64,17 @@ public class TransactionController {
         String refundedBy = (body != null && body.get("refundedBy") != null) ? body.get("refundedBy") : "ADMIN";
 
         try {
+            Long orderId = transaction.getOrder().getOrderId();
             if (transaction.getStripePaymentIntentId() != null && !transaction.getStripePaymentIntentId().isBlank()) {
-                // Paiement Stripe : déléguer à la logique existante
-                OrderDTO order = orderService.refundOrder(transaction.getOrder().getOrderId(), refundedBy);
+                // Paiement Stripe : logique Stripe (reverseRevenue inclus)
+                OrderDTO order = orderService.refundOrder(orderId, refundedBy);
                 log.info("Remboursement Stripe effectué — transaction {}", id);
                 return ResponseEntity.ok(order);
             } else {
-                // Paiement en espèces : annuler manuellement
-                transaction.setStatus(TransactionStatusType.REFUNDED);
-                transaction.setUpdatedBy(refundedBy);
-                transactionRepository.save(transaction);
-
-                orderService.cancelOrder(transaction.getOrder().getOrderId());
-
-                log.info("Remboursement espèces enregistré — transaction {}", id);
-                return ResponseEntity.ok(Map.of("message", "Remboursement enregistré avec succès"));
+                // Paiement espèces/carte caisse : reverseRevenue inclus via refundCashOrder
+                OrderDTO order = orderService.refundCashOrder(orderId, refundedBy);
+                log.info("Remboursement espèces effectué — transaction {} / CA corrigé", id);
+                return ResponseEntity.ok(order);
             }
         } catch (IllegalStateException e) {
             log.warn("Remboursement refusé — transaction {}: {}", id, e.getMessage());

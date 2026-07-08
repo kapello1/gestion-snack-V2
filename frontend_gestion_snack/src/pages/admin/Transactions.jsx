@@ -15,10 +15,11 @@ const TRANSACTION_STATUS = {
 };
 
 const ORDER_STATUS_LABEL = {
-  ACTIVE:    { label: 'En attente',    color: 'text-orange-600 bg-orange-50 border-orange-200' },
-  CLOSED:    { label: 'Prêt à servir', color: 'text-blue-600 bg-blue-50 border-blue-200'       },
-  SERVED:    { label: 'Servi',         color: 'text-green-600 bg-green-50 border-green-200'    },
-  CANCELLED: { label: 'Annulé',        color: 'text-red-600 bg-red-50 border-red-200'          },
+  ACTIVE:         { label: 'En attente de préparation', color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
+  IN_PREPARATION: { label: 'En cours de préparation',   color: 'text-orange-600 bg-orange-50 border-orange-200' },
+  CLOSED:         { label: 'Prête à servir',            color: 'text-blue-600 bg-blue-50 border-blue-200'       },
+  SERVED:         { label: 'Servie au client',          color: 'text-green-600 bg-green-50 border-green-200'    },
+  CANCELLED:      { label: 'Annulée / Remboursée',      color: 'text-red-600 bg-red-50 border-red-200'          },
 };
 
 const PAYMENT_METHOD_LABEL = {

@@ -335,9 +335,12 @@ public class MapperUtil {
         dto.setAlertId(alert.getAlertId());
         dto.setProductId(alert.getProduct().getProductId());
         dto.setProductName(alert.getProduct().getProductName());
+        dto.setCurrentStock(alert.getProduct().getQuantityAvailable());
         dto.setMessage(alert.getMessage());
         dto.setAlertDate(alert.getAlertDate());
         dto.setResolved(alert.getResolved());
+        dto.setRequestedQuantity(alert.getRequestedQuantity());
+        dto.setTriggeredBy(alert.getTriggeredBy());
         return dto;
     }
 

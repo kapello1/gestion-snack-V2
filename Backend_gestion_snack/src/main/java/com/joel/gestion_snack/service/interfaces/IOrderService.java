@@ -136,4 +136,15 @@ public interface IOrderService {
      * Appelle l'API Stripe en premier, puis met à jour la transaction en REFUNDED.
      */
     OrderDTO refundOrder(Long orderId, String refundedBy);
+
+    /**
+     * Démarre la préparation d'une commande (ACTIVE → IN_PREPARATION).
+     */
+    OrderDTO startOrder(Long id);
+
+    /**
+     * Rembourse une commande réglée en espèces (sans Stripe).
+     * Marque la transaction REFUNDED, annule la commande et corrige le CA.
+     */
+    OrderDTO refundCashOrder(Long orderId, String refundedBy);
 }

@@ -16,8 +16,11 @@ public class StockAlertDTO {
     private Long alertId;
     private Long productId;
     private String productName;
+    private Integer currentStock;
     private String message;
     private LocalDateTime alertDate;
     private Boolean resolved;
+    private Integer requestedQuantity;
+    private String triggeredBy;
 }
 

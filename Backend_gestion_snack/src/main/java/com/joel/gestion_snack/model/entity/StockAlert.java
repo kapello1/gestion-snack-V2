@@ -36,5 +36,13 @@ public class StockAlert {
     
     @Column(name = "resolved", nullable = false)
     private Boolean resolved = false;
+
+    /** Quantité souhaitée saisie manuellement par le cuisinier (null pour les alertes automatiques) */
+    @Column(name = "requested_quantity")
+    private Integer requestedQuantity;
+
+    /** Qui a déclenché l'alerte : 'SYSTEM' (seuil automatique) ou 'COOK' (déclenchement manuel) */
+    @Column(name = "triggered_by", length = 20)
+    private String triggeredBy = "SYSTEM";
 }
 

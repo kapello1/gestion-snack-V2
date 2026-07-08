@@ -62,9 +62,10 @@ export const API_ENDPOINTS = {
     BY_STATUS_AND_DATE: (status, date) => `/orders/status/${status}/date/${date}`,
     BY_CUSTOMER_AND_DATE: (customerId, date) => `/orders/customer/${customerId}/date/${date}`,
     CANCEL: (id) => `/orders/${id}/cancel`,
-    CLOSE: (id) => `/orders/${id}/close`,
-    SERVE: (id) => `/orders/${id}/serve`,
-    PAY: (id) => `/orders/${id}/pay`,
+    START:  (id) => `/orders/${id}/start`,
+    CLOSE:  (id) => `/orders/${id}/close`,
+    SERVE:  (id) => `/orders/${id}/serve`,
+    PAY:    (id) => `/orders/${id}/pay`,
   },
   // Tables
   TABLES: {
@@ -109,11 +110,12 @@ export const API_ENDPOINTS = {
   },
   // Alertes de stock
   STOCK_ALERTS: {
-    BASE: '/stock-alerts',
-    BY_ID: (id) => `/stock-alerts/${id}`,
+    BASE:       '/stock-alerts',
+    BY_ID:      (id) => `/stock-alerts/${id}`,
     UNRESOLVED: '/stock-alerts/unresolved',
     BY_PRODUCT: (productId) => `/stock-alerts/product/${productId}`,
-    RESOLVE: (id) => `/stock-alerts/${id}/resolve`,
+    RESOLVE:    (id) => `/stock-alerts/${id}/resolve`,
+    CREATE:     '/stock-alerts',
   },
   // Chiffre d'affaires
   REVENUE: {

@@ -333,9 +333,9 @@ public class OrderServiceImpl implements IOrderService {
             return toOrderDTOWithItems(order);
         }
 
-        if (order.getStatus() != OrderStatus.ACTIVE) {
+        if (order.getStatus() != OrderStatus.ACTIVE && order.getStatus() != OrderStatus.IN_PREPARATION) {
             throw new IllegalStateException(
-                    "Seule une commande active peut être marquée comme prête (statut actuel: " + order.getStatus() + ")");
+                    "Seule une commande ACTIVE ou EN_PRÉPARATION peut être marquée prête (statut actuel: " + order.getStatus() + ")");
         }
 
         order.setStatus(OrderStatus.CLOSED);
@@ -579,6 +579,67 @@ public class OrderServiceImpl implements IOrderService {
             log.error("Erreur lors de la mise à jour du chiffre d'affaires", e);
             // Ne pas bloquer la fermeture de la commande si la mise à jour du CA échoue
         }
+    }
+
+    @Override
+    public OrderDTO startOrder(Long id) {
+        log.info("Démarrage de la préparation de la commande ID: {}", id);
+        Order order = findOrderOrThrow(id);
+
+        if (order.getStatus() == OrderStatus.IN_PREPARATION) {
+            log.warn("La commande {} est déjà en cours de préparation", id);
+            return toOrderDTOWithItems(order);
+        }
+        if (order.getStatus() != OrderStatus.ACTIVE) {
+            throw new IllegalStateException(
+                    "Seule une commande ACTIVE peut être démarrée (statut actuel: " + order.getStatus() + ")");
+        }
+
+        order.setStatus(OrderStatus.IN_PREPARATION);
+        order.setUpdatedBy("COOK");
+        order = orderRepository.save(order);
+
+        log.info("Commande {} passée EN_PRÉPARATION", id);
+        wsPublisher.publishOrderEvent("ORDER_IN_PREPARATION", order.getOrderId());
+        return toOrderDTOWithItems(order);
+    }
+
+    @Override
+    public OrderDTO refundCashOrder(Long orderId, String refundedBy) {
+        log.info("Remboursement espèces demandé pour commande {} par {}", orderId, refundedBy);
+        Order order = findOrderOrThrow(orderId);
+
+        if (order.getStatus() != OrderStatus.ACTIVE) {
+            throw new IllegalStateException(
+                    "Le remboursement n'est possible que pour les commandes en attente de préparation (statut: ACTIVE)");
+        }
+
+        Transaction transaction = transactionRepository
+                .findFirstByOrder_OrderIdAndStatus(orderId, TransactionStatusType.COMPLETED)
+                .orElseThrow(() -> new IllegalStateException("Aucun paiement complété trouvé pour la commande " + orderId));
+
+        if (transactionRepository.existsByOrder_OrderIdAndStatus(orderId, TransactionStatusType.REFUNDED)) {
+            throw new IllegalStateException("La commande " + orderId + " a déjà été remboursée");
+        }
+
+        transaction.setStatus(TransactionStatusType.REFUNDED);
+        transaction.setUpdatedBy(refundedBy != null ? refundedBy : "ADMIN");
+        transactionRepository.save(transaction);
+
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setUpdatedBy(refundedBy != null ? refundedBy : "ADMIN");
+        orderRepository.save(order);
+
+        if (order.getTable() != null) {
+            freeTableIfNeeded(order);
+            wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", order.getTable().getTableId());
+        }
+
+        reverseRevenue(order);
+
+        log.info("Commande {} remboursée (espèces) avec succès", orderId);
+        wsPublisher.publishOrderEvent("ORDER_REFUNDED", orderId);
+        return toOrderDTOWithItems(order);
     }
 
     /**
