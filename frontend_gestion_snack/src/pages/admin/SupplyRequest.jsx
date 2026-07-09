@@ -21,11 +21,11 @@ const AdminSupplyRequest = () => {
     const [loading,   setLoading]   = useState(true);
 
     const [formData, setFormData] = useState({
-        providerId:    '',
-        productId:     alertState.productId ? String(alertState.productId) : '',
-        quantity:      alertState.requestedQuantity ? String(alertState.requestedQuantity) : '',
-        unitCost:      '',   // prix d'achat fournisseur (inferieur au prix de vente)
-        supplyDate:    new Date().toISOString().split('T')[0],
+        providerId: '',
+        productId:  alertState.productId ? String(alertState.productId) : '',
+        quantity:   alertState.requestedQuantity ? String(alertState.requestedQuantity) : '',
+        unitCost:   alertState.productPurchasePrice ? String(alertState.productPurchasePrice) : '',
+        supplyDate: new Date().toISOString().split('T')[0],
     });
 
     const minQuantity = alertState.requestedQuantity || 1;
@@ -170,7 +170,16 @@ const AdminSupplyRequest = () => {
                             </label>
                             <select
                                 value={formData.productId}
-                                onChange={(e) => setFormData(prev => ({ ...prev, productId: e.target.value }))}
+                                onChange={(e) => {
+                                    const pid = e.target.value;
+                                    const prod = products.find(p => String(p.productId) === pid);
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        productId: pid,
+                                        // Pre-remplir le prix d'achat depuis la BD si disponible
+                                        unitCost: prod?.purchasePrice ? String(prod.purchasePrice) : prev.unitCost,
+                                    }));
+                                }}
                                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required
                             >

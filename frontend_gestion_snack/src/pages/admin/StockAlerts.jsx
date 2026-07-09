@@ -61,15 +61,16 @@ const StockAlertsPage = () => {
   const handleCreateSupplyOrder = (alert) => {
     navigate('/admin/supplies/new', {
       state: {
-        fromAlert:         true,
-        alertId:           alert.alertId,
-        productId:         alert.productId,
-        productName:       alert.productName,
-        productType:       alert.productType,
-        currentStock:      alert.currentStock,
-        alertThreshold:    alert.alertThreshold,
-        requestedQuantity: alert.requestedQuantity,
-        triggeredBy:       alert.triggeredBy,
+        fromAlert:            true,
+        alertId:              alert.alertId,
+        productId:            alert.productId,
+        productName:          alert.productName,
+        productType:          alert.productType,
+        currentStock:         alert.currentStock,
+        alertThreshold:       alert.alertThreshold,
+        requestedQuantity:    alert.requestedQuantity,
+        triggeredBy:          alert.triggeredBy,
+        productPurchasePrice: alert.purchasePrice ?? null,
       },
     });
   };

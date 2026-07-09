@@ -30,6 +30,9 @@ public class Product {
     
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
+
+    @Column(name = "purchase_price", precision = 12, scale = 2)
+    private BigDecimal purchasePrice;
     
     @Column(name = "quantity_available", nullable = false)
     private Integer quantityAvailable = 0;

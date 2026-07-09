@@ -77,6 +77,7 @@ public class MapperUtil {
         dto.setProductId(product.getProductId());
         dto.setProductName(product.getProductName());
         dto.setUnitPrice(product.getUnitPrice());
+        dto.setPurchasePrice(product.getPurchasePrice());
         dto.setQuantityAvailable(product.getQuantityAvailable());
         dto.setAlertThreshold(product.getAlertThreshold());
         dto.setCategoryId(product.getCategoryId());
@@ -100,6 +101,7 @@ public class MapperUtil {
         Product product = new Product();
         product.setProductName(dto.getProductName());
         product.setUnitPrice(dto.getUnitPrice());
+        product.setPurchasePrice(dto.getPurchasePrice());
         product.setQuantityAvailable(dto.getQuantityAvailable());
         product.setAlertThreshold(dto.getAlertThreshold());
         product.setCategoryId(dto.getCategoryId());
@@ -341,6 +343,7 @@ public class MapperUtil {
             dto.setAlertThreshold(product.getAlertThreshold());
             dto.setProductType(product.getProductType() != null ? product.getProductType().name() : null);
             dto.setProductPrice(product.getUnitPrice());
+            dto.setPurchasePrice(product.getPurchasePrice());
             dto.setImageUrl(product.getImageUrl());
         }
         dto.setMessage(alert.getMessage());

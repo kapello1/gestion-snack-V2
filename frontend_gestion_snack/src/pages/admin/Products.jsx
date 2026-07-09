@@ -31,6 +31,7 @@ const ProductsPage = () => {
   const [formData, setFormData] = useState({
     productName:       '',
     unitPrice:         '',
+    purchasePrice:     '',
     quantityAvailable: '',
     alertThreshold:    '',
     productType:       PRODUCT_TYPE.FOOD,
@@ -111,13 +112,13 @@ const ProductsPage = () => {
     setFormData({
       productName:       product.productName || '',
       unitPrice:         product.unitPrice?.toString() || '',
+      purchasePrice:     product.purchasePrice?.toString() || '',
       quantityAvailable: product.quantityAvailable?.toString() || '',
       alertThreshold:    product.alertThreshold?.toString() || '',
       productType:       product.productType || PRODUCT_TYPE.FOOD,
       description:       product.description || '',
       alergy:            product.alergy || '',
       imageUrl:          product.imageUrl || '',
-      // Lire la valeur réelle enregistrée en BD
       needsSauce:  isFood ? Boolean(product.needsSauce)  : false,
       needsViande: isFood ? Boolean(product.needsViande) : false,
     });
@@ -134,6 +135,7 @@ const ProductsPage = () => {
     setFormData({
       productName:       '',
       unitPrice:         '',
+      purchasePrice:     '',
       quantityAvailable: '',
       alertThreshold:    '',
       productType:       PRODUCT_TYPE.FOOD,
@@ -157,6 +159,7 @@ const ProductsPage = () => {
       const payload = {
         ...formData,
         unitPrice:         parseFloat(formData.unitPrice),
+        purchasePrice:     formData.purchasePrice ? parseFloat(formData.purchasePrice) : null,
         quantityAvailable: parseInt(formData.quantityAvailable),
         alertThreshold:    parseInt(formData.alertThreshold),
         needsSauce:  isFood ? formData.needsSauce  : false,
@@ -756,20 +759,54 @@ const ProductsPage = () => {
                   />
                 </div>
 
-                {/* Prix / Stock / Alerte */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                {/* Prix vente + Prix achat */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 ml-1">Prix (€) *</label>
+                    <label className="block text-sm font-bold text-gray-700 ml-1">
+                      Prix de vente (€) *
+                      <span className="ml-1 text-[10px] font-normal text-gray-400">Prix affiche au client</span>
+                    </label>
                     <input
                       type="number" step="0.01" min="0"
                       value={formData.unitPrice}
                       onChange={e => setFormData({ ...formData, unitPrice: e.target.value })}
                       className="w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-bold"
                       required
+                      placeholder="0.00"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 ml-1">Stock *</label>
+                    <label className="block text-sm font-bold text-gray-700 ml-1">
+                      Prix d'achat (€)
+                      <span className="ml-1 text-[10px] font-normal text-gray-400">Cout fournisseur</span>
+                    </label>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={formData.purchasePrice}
+                      onChange={e => setFormData({ ...formData, purchasePrice: e.target.value })}
+                      className={`w-full px-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-bold
+                        ${formData.purchasePrice && formData.unitPrice &&
+                          parseFloat(formData.purchasePrice) >= parseFloat(formData.unitPrice)
+                            ? 'ring-2 ring-orange-400 bg-orange-50'
+                            : ''}`}
+                      placeholder="0.00"
+                    />
+                    {/* Indicateur de marge */}
+                    {formData.purchasePrice && formData.unitPrice && parseFloat(formData.purchasePrice) > 0 && parseFloat(formData.unitPrice) > 0 && (
+                      parseFloat(formData.purchasePrice) >= parseFloat(formData.unitPrice)
+                        ? <p className="text-[10px] text-orange-600 ml-1 font-semibold">Attention : prix d'achat superieur ou egal au prix de vente - aucune marge !</p>
+                        : <p className="text-[10px] text-green-600 ml-1 font-semibold">
+                            Marge : {(parseFloat(formData.unitPrice) - parseFloat(formData.purchasePrice)).toFixed(2)} € / unite
+                            ({Math.round(((parseFloat(formData.unitPrice) - parseFloat(formData.purchasePrice)) / parseFloat(formData.unitPrice)) * 100)}%)
+                          </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stock / Alerte */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700 ml-1">Stock disponible *</label>
                     <input
                       type="number" min="0"
                       value={formData.quantityAvailable}
@@ -779,7 +816,7 @@ const ProductsPage = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 ml-1">Alerte *</label>
+                    <label className="block text-sm font-bold text-gray-700 ml-1">Seuil d'alerte *</label>
                     <input
                       type="number" min="0"
                       value={formData.alertThreshold}

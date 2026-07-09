@@ -19,6 +19,7 @@ public class StockAlertDTO {
     private String productName;
     private String productType;
     private BigDecimal productPrice;
+    private BigDecimal purchasePrice;
     private String imageUrl;
     private Integer currentStock;
     private Integer alertThreshold;

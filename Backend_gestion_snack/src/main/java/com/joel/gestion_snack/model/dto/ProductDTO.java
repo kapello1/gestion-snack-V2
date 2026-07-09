@@ -18,6 +18,7 @@ public class ProductDTO {
     private Long productId;
     private String productName;
     private BigDecimal unitPrice;
+    private BigDecimal purchasePrice;
     private Integer quantityAvailable;
     private Integer alertThreshold;
     private Long categoryId;
