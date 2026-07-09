@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
 import {
   AlertTriangle, Plus, CheckCircle, Package, Clock, Filter,
@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 const fmtDate = (d) => d ? new Date(d).toLocaleString('fr-FR', {
   day: '2-digit', month: '2-digit', year: 'numeric',
   hour: '2-digit', minute: '2-digit',
-}) : '—';
+}) : '-';
 
 const TRIGGERED_BY_LABEL = { SYSTEM: 'Automatique', COOK: 'Cuisinier' };
 const TRIGGERED_BY_COLOR = {
@@ -149,14 +149,14 @@ const CookStockAlertsPage = () => {
                   <option value="">Choisir un produit…</option>
                   {products.map(p => (
                     <option key={p.productId} value={p.productId}>
-                      {p.productName} — stock actuel : {p.quantityAvailable}
+                      {p.productName} - stock actuel : {p.quantityAvailable}
                     </option>
                   ))}
                 </select>
                 {selectedProduct && (
                   <p className={`text-xs mt-1 font-semibold ${selectedProduct.quantityAvailable <= 5 ? 'text-red-600' : 'text-gray-500'}`}>
                     Stock actuel : {selectedProduct.quantityAvailable} unité(s)
-                    {selectedProduct.quantityAvailable <= 5 && ' — CRITIQUE'}
+                    {selectedProduct.quantityAvailable <= 5 && ' - CRITIQUE'}
                   </p>
                 )}
               </div>

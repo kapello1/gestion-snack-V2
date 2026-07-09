@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
 import { RotateCcw, Search, Filter, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
 import api from '../../utils/api';
@@ -87,7 +87,7 @@ const AdminTransactionsPage = () => {
   };
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
+    if (!dateStr) return '-';
     return new Date(dateStr).toLocaleString('fr-FR', {
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
@@ -197,10 +197,10 @@ const AdminTransactionsPage = () => {
                         <td className="px-4 py-3 font-mono text-gray-500 text-xs">#{tx.idTransaction}</td>
                         <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(tx.transactionDate)}</td>
                         <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">
-                          {tx.customerFullName || <span className="text-gray-400 italic">—</span>}
+                          {tx.customerFullName || <span className="text-gray-400 italic">-</span>}
                         </td>
                         <td className="px-4 py-3 font-mono text-gray-500 text-xs">
-                          {tx.orderId ? `#${tx.orderId}` : '—'}
+                          {tx.orderId ? `#${tx.orderId}` : '-'}
                         </td>
                         <td className="px-4 py-3 text-gray-600">
                           {PAYMENT_METHOD_LABEL[tx.paymentMethod] || tx.paymentMethod}
@@ -219,7 +219,7 @@ const AdminTransactionsPage = () => {
                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${ordStatus.color || 'text-gray-600 bg-gray-50 border-gray-200'}`}>
                               {ordStatus.label || tx.orderStatus}
                             </span>
-                          ) : '—'}
+                          ) : '-'}
                         </td>
                         <td className="px-4 py-3">
                           {canRefund && (

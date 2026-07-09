@@ -74,8 +74,8 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
   const echoRef      = useRef(false); // true = ignorer onresult
   const safetyRef    = useRef(null);  // timer sécurité anti-blocage
   const watchdogRef  = useRef(null);  // watchdog écoute : recycle le moteur STT s'il s'endort
-  const abortCtrlRef = useRef(null);  // AbortController — annule les fetches ElevenLabs en vol
-  const lastTTSRef   = useRef('');    // dernier texte TTS — filtre anti-écho dans onresult
+  const abortCtrlRef = useRef(null);  // AbortController - annule les fetches ElevenLabs en vol
+  const lastTTSRef   = useRef('');    // dernier texte TTS - filtre anti-écho dans onresult
 
   const orbRef  = useRef(null);
   const r1Ref   = useRef(null);

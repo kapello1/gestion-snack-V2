@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
 import { Search, Utensils, Users, X, CheckCircle, User, Phone, Mail, Hash, Clock, Calendar, Timer } from 'lucide-react';
 import api from '../../utils/api';
@@ -278,7 +278,7 @@ const WaiterTablesPage = () => {
                       </div>
                     )}
 
-                    {/* Reservation info — données venant du DTO table OU des réservations du jour */}
+                    {/* Reservation info - données venant du DTO table OU des réservations du jour */}
                     {(() => {
                       const rTable = table.status === TABLE_STATUS.RESERVED && table.reservedForCustomerName ? table : null;
                       const rDay = reservationByTable[table.tableId];

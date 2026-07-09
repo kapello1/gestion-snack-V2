@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Lock, Mail, ArrowLeft } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -19,7 +19,7 @@ const ForgotPassword = () => {
     setLoading(true);
     try {
       await api.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, { email });
-      // Toujours rediriger (même si l'email n'existe pas — sécurité)
+      // Toujours rediriger (même si l'email n'existe pas - sécurité)
       sessionStorage.setItem('resetEmail', email);
       navigate('/verify-reset-code');
     } catch (error) {

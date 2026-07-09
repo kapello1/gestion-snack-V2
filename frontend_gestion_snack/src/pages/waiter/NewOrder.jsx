@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Layout from '../../components/layout/Layout';
 import {
   Search, UserPlus, X, ShoppingCart, Plus, Minus, Trash2,
-  Check, ChevronRight, User, Phone, Utensils, Droplets, Sparkles,
+  Check, ChevronRight, User, Phone, Utensils, Droplets,
+  CalendarDays, Info, Mail,
 } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
@@ -11,26 +12,26 @@ import { PRODUCT_TYPE } from '../../utils/constants';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-// ─── Fallback extras ───────────────────────────────────────────────────────────
-const FALLBACK_SAUCES   = [
+// ── Fallback extras ─────────────────────────────────────────────────────────────
+const FALLBACK_SAUCES = [
   { sauceId: 'f1', name: 'Mayonnaise belge', price: 0.50 },
-  { sauceId: 'f2', name: 'Sauce américaine', price: 0.50 },
+  { sauceId: 'f2', name: 'Sauce americaine', price: 0.50 },
   { sauceId: 'f3', name: 'Sauce andalouse',  price: 0.50 },
   { sauceId: 'f4', name: 'Ketchup',          price: 0.30 },
 ];
-const FALLBACK_VIANDES  = [
-  { viandeId: 'f1', name: 'Bœuf haché',  price: 2.50 },
+const FALLBACK_VIANDES = [
+  { viandeId: 'f1', name: 'Boeuf hache', price: 2.50 },
   { viandeId: 'f2', name: 'Poulet',      price: 2.00 },
   { viandeId: 'f3', name: 'Merguez',     price: 2.50 },
   { viandeId: 'f4', name: 'Fricadelle',  price: 1.50 },
 ];
 const FALLBACK_DESSERTS = [
-  { dessertId: 'f1', name: 'Gaufre belge',   price: 2.50 },
-  { dessertId: 'f2', name: 'Spéculoos glacé', price: 2.00 },
+  { dessertId: 'f1', name: 'Gaufre belge',    price: 2.50 },
+  { dessertId: 'f2', name: 'Speculoos glace', price: 2.00 },
   { dessertId: 'f3', name: 'Tiramisu',        price: 3.50 },
 ];
 
-// ─── ExtraCheckbox ─────────────────────────────────────────────────────────────
+// ── ExtraCheckbox ───────────────────────────────────────────────────────────────
 const EXTRA_COLORS = {
   orange: { outer: 'border-orange-400 bg-orange-50 text-orange-800', inner: 'border-orange-500 bg-orange-500' },
   red:    { outer: 'border-red-400 bg-red-50 text-red-800',         inner: 'border-red-500 bg-red-500' },
@@ -59,59 +60,93 @@ const ExtraCheckbox = ({ item, idKey, selected, onToggle, color = 'orange' }) =>
   );
 };
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
+// ── ProductTile ─────────────────────────────────────────────────────────────────
+const ProductTile = ({ product, onSelect }) => (
+  <button
+    type="button"
+    onClick={onSelect}
+    disabled={product.quantityAvailable <= 0}
+    className={`bg-white rounded-2xl border overflow-hidden text-left transition-all active:scale-95
+      ${product.quantityAvailable <= 0
+        ? 'border-gray-100 opacity-50 cursor-not-allowed'
+        : 'border-gray-200 hover:border-blue-300 hover:shadow-md cursor-pointer'}`}
+  >
+    {product.imageUrl ? (
+      <img src={product.imageUrl} alt={product.productName} className="w-full h-28 object-cover" />
+    ) : (
+      <div className="w-full h-28 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+        <Utensils className="h-8 w-8 text-gray-300" />
+      </div>
+    )}
+    <div className="p-3">
+      <p className="font-bold text-sm text-gray-900 leading-tight line-clamp-2">{product.productName}</p>
+      <p className="font-black text-blue-600 text-sm mt-1">{Number(product.unitPrice).toFixed(2)} €</p>
+      {product.quantityAvailable <= 0 && (
+        <p className="text-xs text-red-500 font-semibold mt-1">Epuise</p>
+      )}
+    </div>
+  </button>
+);
+
+// ── Main Page ───────────────────────────────────────────────────────────────────
 const WaiterNewOrderPage = () => {
-  const { user } = useAuth();
+  const { user }  = useAuth();
   const navigate  = useNavigate();
 
-  // ── customer step ──────────────────────────────────────────────────────────
-  const [nameQuery,       setNameQuery]       = useState('');
-  const [searchResults,   setSearchResults]   = useState([]);
-  const [searching,       setSearching]       = useState(false);
+  // ── customer step ─────────────────────────────────────────────────────────
+  const [nameQuery,        setNameQuery]        = useState('');
+  const [searchResults,    setSearchResults]    = useState([]);
+  const [searching,        setSearching]        = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [showNewForm,     setShowNewForm]     = useState(false);
-  const [newForm,         setNewForm]         = useState({ firstName: '', lastName: '', phone: '' });
-  const [savingCustomer,  setSavingCustomer]  = useState(false);
+  const [showNewForm,      setShowNewForm]      = useState(false);
+  const [newForm,          setNewForm]          = useState({ firstName: '', lastName: '', phone: '', email: '' });
+  const [savingCustomer,   setSavingCustomer]   = useState(false);
   const searchTimeout = useRef(null);
 
-  // ── menu ──────────────────────────────────────────────────────────────────
+  // ── reservation du jour ───────────────────────────────────────────────────
+  const [todayReservation,    setTodayReservation]    = useState(null);
+  const [checkingReservation, setCheckingReservation] = useState(false);
+
+  // ── menu ─────────────────────────────────────────────────────────────────
   const [products,         setProducts]         = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loadingProducts,  setLoadingProducts]  = useState(false);
   const [menuSearch,       setMenuSearch]       = useState('');
   const [selectedType,     setSelectedType]     = useState('');
 
-  // ── extras ────────────────────────────────────────────────────────────────
+  // ── extras ───────────────────────────────────────────────────────────────
   const [sauces,   setSauces]   = useState([]);
   const [viandes,  setViandes]  = useState([]);
   const [desserts, setDesserts] = useState([]);
 
   // ── product modal ─────────────────────────────────────────────────────────
-  const [modalProduct,    setModalProduct]    = useState(null);
-  const [selSauces,       setSelSauces]       = useState([]);
-  const [selViandes,      setSelViandes]      = useState([]);
-  const [selDesserts,     setSelDesserts]     = useState([]);
+  const [modalProduct, setModalProduct] = useState(null);
+  const [selSauces,    setSelSauces]    = useState([]);
+  const [selViandes,   setSelViandes]   = useState([]);
+  const [selDesserts,  setSelDesserts]  = useState([]);
 
-  // ── cart (local state, NOT localStorage) ─────────────────────────────────
+  // ── cart ──────────────────────────────────────────────────────────────────
   const [cart, setCart] = useState([]);
 
   // ── order form ────────────────────────────────────────────────────────────
-  const [freeTables,   setFreeTables]   = useState([]);
-  const [tableId,      setTableId]      = useState('');
-  const [guestCount,   setGuestCount]   = useState(1);
-  const [payMethod,    setPayMethod]    = useState('CASH');
-  const [submitting,   setSubmitting]   = useState(false);
+  const [allTables,  setAllTables]  = useState([]);   // tables FREE
+  const [tableId,    setTableId]    = useState('');
+  const [guestCount, setGuestCount] = useState(1);
+  const [payMethod,  setPayMethod]  = useState('CASH');
+  const [submitting, setSubmitting] = useState(false);
 
-  // ── load menu + extras + tables on mount ──────────────────────────────────
+  // Tables filtrees par capacite >= guestCount (quand pas de reservation pre-remplie)
+  const availableTables = allTables.filter(t => (t.capacity ?? 999) >= parseInt(guestCount, 10));
+
+  // ── montage ───────────────────────────────────────────────────────────────
   useEffect(() => {
     loadProducts();
     loadExtras();
     loadFreeTables();
   }, []);
 
-  useEffect(() => { filterProducts(); }, [menuSearch, selectedType, products]);
+  useEffect(() => { filterProducts(); }, [menuSearch, selectedType, products]); // eslint-disable-line
 
-  // reset extras when modal opens
   useEffect(() => {
     if (modalProduct) { setSelSauces([]); setSelViandes([]); setSelDesserts([]); }
   }, [modalProduct]);
@@ -132,7 +167,7 @@ const WaiterNewOrderPage = () => {
         api.get(API_ENDPOINTS.DESSERTS.AVAILABLE),
         api.get(API_ENDPOINTS.VIANDES.AVAILABLE),
       ]);
-      setSauces(s.status  === 'fulfilled' && s.value.data?.length > 0 ? s.value.data : FALLBACK_SAUCES);
+      setSauces(s.status   === 'fulfilled' && s.value.data?.length > 0 ? s.value.data : FALLBACK_SAUCES);
       setDesserts(d.status === 'fulfilled' && d.value.data?.length > 0 ? d.value.data : FALLBACK_DESSERTS);
       setViandes(v.status  === 'fulfilled' && v.value.data?.length > 0 ? v.value.data : FALLBACK_VIANDES);
     } catch {
@@ -143,8 +178,8 @@ const WaiterNewOrderPage = () => {
   const loadFreeTables = async () => {
     try {
       const res = await api.get(API_ENDPOINTS.TABLES.BASE);
-      setFreeTables((res.data || []).filter(t => t.status === 'FREE'));
-    } catch { setFreeTables([]); }
+      setAllTables((res.data || []).filter(t => t.status === 'FREE'));
+    } catch { setAllTables([]); }
   };
 
   const filterProducts = () => {
@@ -154,7 +189,44 @@ const WaiterNewOrderPage = () => {
     setFilteredProducts(list);
   };
 
-  // ── dynamic customer search ───────────────────────────────────────────────
+  // ── Verification reservation du jour pour le client selectionne ───────────
+  const checkTodayReservation = async (customer) => {
+    if (!customer?.customerId) return;
+    setCheckingReservation(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await api.get(API_ENDPOINTS.RESERVATIONS.BY_CUSTOMER(customer.customerId));
+      const reservations = res.data || [];
+      const todayRes = reservations.find(r => {
+        const resDate = r.reservationDate
+          ? (typeof r.reservationDate === 'string'
+              ? r.reservationDate.split('T')[0]
+              : new Date(r.reservationDate).toISOString().split('T')[0])
+          : (r.datetimeFrom
+              ? (typeof r.datetimeFrom === 'string'
+                  ? r.datetimeFrom.split('T')[0]
+                  : new Date(r.datetimeFrom).toISOString().split('T')[0])
+              : null);
+        return resDate === today && r.status !== 'CANCELLED';
+      });
+      if (todayRes) {
+        setTodayReservation(todayRes);
+        const tId = todayRes.tableId ?? todayRes.table?.tableId;
+        const nb  = todayRes.numberOfGuests ?? todayRes.places;
+        if (tId)  setTableId(String(tId));
+        if (nb)   setGuestCount(nb);
+        toast.info(`Reservation du jour - Table ${tId ?? '?'}, ${nb ?? '?'} couvert(s) pre-remplis`);
+      } else {
+        setTodayReservation(null);
+      }
+    } catch {
+      setTodayReservation(null);
+    } finally {
+      setCheckingReservation(false);
+    }
+  };
+
+  // ── recherche dynamique client ────────────────────────────────────────────
   const handleNameQuery = (val) => {
     setNameQuery(val);
     clearTimeout(searchTimeout.current);
@@ -173,11 +245,23 @@ const WaiterNewOrderPage = () => {
     setSelectedCustomer(c);
     setNameQuery('');
     setSearchResults([]);
+    setTodayReservation(null);
+    setTableId('');
+    setGuestCount(1);
+    checkTodayReservation(c);
   };
 
   const handleQuickRegister = async () => {
     if (!newForm.firstName.trim() || !newForm.lastName.trim()) {
-      toast.warning('Le prénom et le nom sont obligatoires');
+      toast.warning('Le prenom et le nom sont obligatoires');
+      return;
+    }
+    if (!newForm.email.trim()) {
+      toast.warning("L'adresse email est obligatoire");
+      return;
+    }
+    if (!tableId) {
+      toast.warning('Veuillez selectionner une table');
       return;
     }
     setSavingCustomer(true);
@@ -186,16 +270,18 @@ const WaiterNewOrderPage = () => {
         firstName: newForm.firstName.trim(),
         lastName:  newForm.lastName.trim(),
         phone:     newForm.phone.trim() || null,
+        email:     newForm.email.trim(),
       });
       setSelectedCustomer(res.data);
       setShowNewForm(false);
-      setNewForm({ firstName: '', lastName: '', phone: '' });
-      toast.success(`Client "${res.data.firstName} ${res.data.lastName}" créé`);
-    } catch { toast.error('Erreur lors de la création du client'); }
-    finally { setSavingCustomer(false); }
+      setNewForm({ firstName: '', lastName: '', phone: '', email: '' });
+      toast.success(`Client "${res.data.firstName} ${res.data.lastName}" cree`);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Erreur lors de la creation du client');
+    } finally { setSavingCustomer(false); }
   };
 
-  // ── cart helpers ─────────────────────────────────────────────────────────
+  // ── cart helpers ──────────────────────────────────────────────────────────
   const computeItemPrice = (product, sauceSel, viandeSel, dessertSel) => {
     const base = Number(product.unitPrice) || 0;
     return base
@@ -205,10 +291,14 @@ const WaiterNewOrderPage = () => {
   };
 
   const addToCart = (product, sauceSel = [], viandeSel = [], dessertSel = []) => {
-    if (product.quantityAvailable <= 0) { toast.error('Produit épuisé'); return; }
+    if (product.quantityAvailable <= 0) { toast.error('Produit epuise'); return; }
     const totalPrice  = computeItemPrice(product, sauceSel, viandeSel, dessertSel);
-    const extrasLabel = [...sauceSel.map(s => s.name), ...viandeSel.map(v => v.name), ...dessertSel.map(d => d.name)].join(', ');
-    const cartKey     = `${product.productId}_${extrasLabel}`;
+    const extrasLabel = [
+      ...sauceSel.map(s => s.name),
+      ...viandeSel.map(v => v.name),
+      ...dessertSel.map(d => d.name),
+    ].join(', ');
+    const cartKey = `${product.productId}_${extrasLabel}`;
     setCart(prev => {
       const existing = prev.find(i => i.cartKey === cartKey);
       if (existing) {
@@ -218,7 +308,7 @@ const WaiterNewOrderPage = () => {
         toast.success(`${product.productName} +1`);
         return prev.map(i => i.cartKey === cartKey ? { ...i, quantity: i.quantity + 1 } : i);
       }
-      toast.success(`${product.productName} ajouté`);
+      toast.success(`${product.productName} ajoute`);
       return [...prev, {
         cartKey, productId: product.productId, productName: product.productName,
         unitPrice: totalPrice, basePrice: Number(product.unitPrice),
@@ -245,11 +335,11 @@ const WaiterNewOrderPage = () => {
       prev.some(i => i[idKey] === item[idKey]) ? prev.filter(i => i[idKey] !== item[idKey]) : [...prev, item]
     );
 
-  // ── order submission ──────────────────────────────────────────────────────
+  // ── submission ────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!selectedCustomer) { toast.warning('Veuillez sélectionner un client'); return; }
+    if (!selectedCustomer) { toast.warning('Veuillez selectionner un client'); return; }
     if (cart.length === 0)  { toast.warning('Le panier est vide'); return; }
-    if (!tableId)           { toast.warning('Veuillez sélectionner une table'); return; }
+    if (!tableId)           { toast.warning('Veuillez selectionner une table'); return; }
 
     setSubmitting(true);
     try {
@@ -268,14 +358,13 @@ const WaiterNewOrderPage = () => {
         })),
       };
       await api.post(API_ENDPOINTS.ORDERS.BASE, payload);
-      toast.success('Commande passée avec succès !');
+      toast.success('Commande passee avec succes !');
       navigate('/waiter/orders');
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Erreur lors de la soumission de la commande');
     } finally { setSubmitting(false); }
   };
 
-  // ── UI ────────────────────────────────────────────────────────────────────
   const foodProducts  = filteredProducts.filter(p => p.productType === PRODUCT_TYPE.FOOD);
   const drinkProducts = filteredProducts.filter(p => p.productType === PRODUCT_TYPE.DRINK);
 
@@ -283,54 +372,97 @@ const WaiterNewOrderPage = () => {
     <Layout>
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div>
           <h1 className="text-2xl font-black text-gray-900">Nouvelle commande</h1>
-          <p className="text-sm text-gray-500 mt-1">Commande au nom du client — sur place</p>
+          <p className="text-sm text-gray-500 mt-1">Commande au nom du client - sur place</p>
         </div>
 
-        {/* ══════════════ ÉTAPE 1 : CLIENT ══════════════ */}
+        {/* ══ ETAPE 1 : CLIENT ══ */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
           <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
             <User className="h-5 w-5 text-blue-600" /> Client
           </h2>
 
           {selectedCustomer ? (
-            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-              <div>
-                <p className="font-bold text-blue-900">{selectedCustomer.firstName} {selectedCustomer.lastName}</p>
-                {selectedCustomer.phone && (
-                  <p className="text-sm text-blue-600 flex items-center gap-1">
-                    <Phone className="h-3 w-3" /> {selectedCustomer.phone}
-                  </p>
-                )}
+            <>
+              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                <div>
+                  <p className="font-bold text-blue-900">{selectedCustomer.firstName} {selectedCustomer.lastName}</p>
+                  {selectedCustomer.phone && (
+                    <p className="text-sm text-blue-600 flex items-center gap-1">
+                      <Phone className="h-3 w-3" /> {selectedCustomer.phone}
+                    </p>
+                  )}
+                  {selectedCustomer.email && (
+                    <p className="text-xs text-blue-500 flex items-center gap-1">
+                      <Mail className="h-3 w-3" /> {selectedCustomer.email}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCustomer(null);
+                    setTodayReservation(null);
+                    setTableId('');
+                    setGuestCount(1);
+                  }}
+                  className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-500"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedCustomer(null)}
-                className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-500"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+
+              {/* Indicateur verification reservation */}
+              {checkingReservation && (
+                <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                  <span className="animate-spin inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full" />
+                  Verification des reservations du jour...
+                </p>
+              )}
+
+              {/* Bandeau reservation trouvee */}
+              {todayReservation && !checkingReservation && (
+                <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-start gap-3">
+                  <CalendarDays className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-green-800 text-sm">Reservation du jour detectee</p>
+                    <p className="text-green-600 text-xs mt-0.5">
+                      Table {todayReservation.tableId ?? todayReservation.table?.tableId ?? '?'} -
+                      {' '}{todayReservation.numberOfGuests ?? todayReservation.places ?? '?'} couvert(s)
+                    </p>
+                    <p className="text-green-500 text-xs mt-0.5">Table et couverts pre-remplis automatiquement.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Pas de reservation : message informatif */}
+              {!todayReservation && !checkingReservation && (
+                <p className="text-xs text-gray-400 flex items-center gap-1">
+                  <Info className="h-3.5 w-3.5" />
+                  Aucune reservation aujourd'hui - selectionnez une table disponible ci-dessous.
+                </p>
+              )}
+            </>
           ) : (
             <>
-              {/* Search bar */}
+              {/* Barre de recherche */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
                   value={nameQuery}
                   onChange={e => handleNameQuery(e.target.value)}
-                  placeholder="Rechercher un client par prénom ou nom…"
+                  placeholder="Rechercher un client par prenom ou nom..."
                   className="w-full pl-9 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {searching && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">Recherche…</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">Recherche...</span>
                 )}
               </div>
 
-              {/* Results */}
+              {/* Resultats */}
               {searchResults.length > 0 && (
                 <ul className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
                   {searchResults.map(c => (
@@ -343,6 +475,7 @@ const WaiterNewOrderPage = () => {
                         <div>
                           <p className="font-semibold text-sm text-gray-900">{c.firstName} {c.lastName}</p>
                           {c.phone && <p className="text-xs text-gray-500">{c.phone}</p>}
+                          {c.email && <p className="text-xs text-gray-400">{c.email}</p>}
                         </div>
                         <ChevronRight className="h-4 w-4 text-gray-400" />
                       </button>
@@ -351,25 +484,26 @@ const WaiterNewOrderPage = () => {
                 </ul>
               )}
               {nameQuery.length > 1 && !searching && searchResults.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-2">Aucun client trouvé</p>
+                <p className="text-sm text-gray-500 text-center py-2">Aucun client trouve</p>
               )}
 
-              {/* New client form */}
+              {/* Formulaire nouveau client */}
               {!showNewForm ? (
                 <button
                   type="button"
                   onClick={() => setShowNewForm(true)}
                   className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 mt-1"
                 >
-                  <UserPlus className="h-4 w-4" /> Client sans compte — saisir ses informations
+                  <UserPlus className="h-4 w-4" /> Client sans compte - saisir ses informations
                 </button>
               ) : (
                 <div className="border border-dashed border-blue-300 rounded-xl p-4 space-y-3 bg-blue-50">
                   <p className="text-sm font-bold text-blue-800 mb-1">Nouveau client</p>
+
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       type="text"
-                      placeholder="Prénom *"
+                      placeholder="Prenom *"
                       value={newForm.firstName}
                       onChange={e => setNewForm(p => ({ ...p, firstName: e.target.value }))}
                       className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -382,25 +516,93 @@ const WaiterNewOrderPage = () => {
                       className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
+
+                  {/* Email obligatoire */}
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="email"
+                      placeholder="Adresse email *"
+                      value={newForm.email}
+                      onChange={e => setNewForm(p => ({ ...p, email: e.target.value }))}
+                      className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-blue-600 flex items-center gap-1 -mt-1">
+                    <Info className="h-3 w-3" /> Email utilise pour les notifications et verifications du compte
+                  </p>
+
                   <input
                     type="tel"
-                    placeholder="Téléphone (optionnel)"
+                    placeholder="Telephone (optionnel)"
                     value={newForm.phone}
                     onChange={e => setNewForm(p => ({ ...p, phone: e.target.value }))}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <div className="flex gap-3">
+
+                  {/* Table + couverts pour le nouveau client */}
+                  <div className="pt-2 border-t border-blue-200">
+                    <p className="text-xs font-bold text-blue-700 mb-2 uppercase tracking-wider">Placement</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-blue-600 font-semibold block mb-1">Couverts *</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={guestCount}
+                          onChange={e => {
+                            setGuestCount(Number(e.target.value));
+                            setTableId('');
+                          }}
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-blue-600 font-semibold block mb-1">
+                          Table *{guestCount > 1 && <span className="text-gray-400 font-normal"> (cap. >= {guestCount})</span>}
+                        </label>
+                        <select
+                          value={tableId}
+                          onChange={e => setTableId(e.target.value)}
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Choisir une table</option>
+                          {availableTables.map(t => (
+                            <option key={t.tableId} value={t.tableId}>
+                              Table {t.tableNumber} - {t.capacity} place{t.capacity > 1 ? 's' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {availableTables.length === 0 && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {allTables.length === 0
+                              ? 'Aucune table disponible'
+                              : `Aucune table libre pour ${guestCount} couvert(s)`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-1">
                     <button
                       type="button"
                       onClick={handleQuickRegister}
                       disabled={savingCustomer}
                       className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm disabled:opacity-60"
                     >
-                      {savingCustomer ? 'Enregistrement…' : 'Enregistrer le client'}
+                      {savingCustomer ? 'Enregistrement...' : 'Enregistrer le client'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setShowNewForm(false); setNewForm({ firstName: '', lastName: '', phone: '' }); }}
+                      onClick={() => {
+                        setShowNewForm(false);
+                        setNewForm({ firstName: '', lastName: '', phone: '', email: '' });
+                        setTableId('');
+                        setGuestCount(1);
+                      }}
                       className="px-4 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-200"
                     >
                       Annuler
@@ -412,10 +614,9 @@ const WaiterNewOrderPage = () => {
           )}
         </section>
 
-        {/* ══════════════ ÉTAPE 2 : MENU ══════════════ */}
+        {/* ══ ETAPE 2 : MENU ══ */}
         {selectedCustomer && (
           <section className="space-y-4">
-            {/* Menu search + filter */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -423,12 +624,16 @@ const WaiterNewOrderPage = () => {
                   type="text"
                   value={menuSearch}
                   onChange={e => setMenuSearch(e.target.value)}
-                  placeholder="Rechercher dans le menu…"
+                  placeholder="Rechercher dans le menu..."
                   className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="flex gap-2">
-                {[{ label: 'Tout', val: '' }, { label: 'Plats', val: PRODUCT_TYPE.FOOD }, { label: 'Boissons', val: PRODUCT_TYPE.DRINK }].map(tab => (
+                {[
+                  { label: 'Tout',     val: '' },
+                  { label: 'Plats',    val: PRODUCT_TYPE.FOOD },
+                  { label: 'Boissons', val: PRODUCT_TYPE.DRINK },
+                ].map(tab => (
                   <button
                     key={tab.val}
                     type="button"
@@ -443,10 +648,9 @@ const WaiterNewOrderPage = () => {
             </div>
 
             {loadingProducts ? (
-              <p className="text-center text-gray-400 py-10">Chargement du menu…</p>
+              <p className="text-center text-gray-400 py-10">Chargement du menu...</p>
             ) : (
               <div className="space-y-6">
-                {/* Food */}
                 {(!selectedType || selectedType === PRODUCT_TYPE.FOOD) && foodProducts.length > 0 && (
                   <div>
                     <h3 className="flex items-center gap-2 text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">
@@ -459,7 +663,6 @@ const WaiterNewOrderPage = () => {
                     </div>
                   </div>
                 )}
-                {/* Drinks */}
                 {(!selectedType || selectedType === PRODUCT_TYPE.DRINK) && drinkProducts.length > 0 && (
                   <div>
                     <h3 className="flex items-center gap-2 text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">
@@ -473,21 +676,21 @@ const WaiterNewOrderPage = () => {
                   </div>
                 )}
                 {filteredProducts.length === 0 && (
-                  <p className="text-center text-gray-400 py-10">Aucun produit trouvé</p>
+                  <p className="text-center text-gray-400 py-10">Aucun produit trouve</p>
                 )}
               </div>
             )}
           </section>
         )}
 
-        {/* ══════════════ ÉTAPE 3 : PANIER + SOUMISSION ══════════════ */}
+        {/* ══ ETAPE 3 : PANIER + SOUMISSION ══ */}
         {selectedCustomer && cart.length > 0 && (
           <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
             <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
               <ShoppingCart className="h-5 w-5 text-blue-600" /> Panier
             </h2>
 
-            {/* Cart items */}
+            {/* Articles */}
             <ul className="divide-y divide-gray-100">
               {cart.map(item => (
                 <li key={item.cartKey} className="flex items-center gap-3 py-3">
@@ -499,26 +702,17 @@ const WaiterNewOrderPage = () => {
                     <p className="text-sm font-bold text-blue-600">{(item.unitPrice * item.quantity).toFixed(2)} €</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => updateQty(item.cartKey, item.quantity - 1)}
-                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-                    >
+                    <button type="button" onClick={() => updateQty(item.cartKey, item.quantity - 1)}
+                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center">
                       <Minus className="h-3.5 w-3.5" />
                     </button>
                     <span className="w-5 text-center text-sm font-bold">{item.quantity}</span>
-                    <button
-                      type="button"
-                      onClick={() => updateQty(item.cartKey, item.quantity + 1)}
-                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-                    >
+                    <button type="button" onClick={() => updateQty(item.cartKey, item.quantity + 1)}
+                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center">
                       <Plus className="h-3.5 w-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => updateQty(item.cartKey, 0)}
-                      className="w-7 h-7 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 flex items-center justify-center"
-                    >
+                    <button type="button" onClick={() => updateQty(item.cartKey, 0)}
+                      className="w-7 h-7 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 flex items-center justify-center">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -532,43 +726,87 @@ const WaiterNewOrderPage = () => {
               <span className="text-xl font-black text-blue-700">{getTotal().toFixed(2)} €</span>
             </div>
 
-            {/* Table + guest count + payment */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1.5">Table *</label>
-                <select
-                  value={tableId}
-                  onChange={e => setTableId(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Choisir une table</option>
-                  {freeTables.map(t => (
-                    <option key={t.tableId} value={t.tableId}>Table {t.tableNumber}</option>
-                  ))}
-                </select>
+            {/* Placement - reservation pre-remplie */}
+            {todayReservation ? (
+              <div className="bg-green-50 rounded-xl p-4 border border-green-100">
+                <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <CalendarDays className="h-3.5 w-3.5" /> Placement - reservation du jour
+                </p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-green-600">Couverts</p>
+                    <p className="font-black text-green-800">{guestCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-green-600">Table reservee</p>
+                    <p className="font-black text-green-800">
+                      Table {todayReservation.tableId ?? todayReservation.table?.tableId ?? '?'}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1.5">Couverts</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={guestCount}
-                  onChange={e => setGuestCount(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            ) : (
+              /* Placement - selection manuelle */
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 space-y-3">
+                <p className="text-xs font-bold text-blue-700 uppercase tracking-wider">Placement</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1.5">
+                      Nombre de couverts
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={guestCount}
+                      onChange={e => {
+                        setGuestCount(Number(e.target.value));
+                        setTableId('');
+                      }}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1.5">
+                      Table *{guestCount > 1 && <span className="text-gray-400 font-normal normal-case"> (cap. >= {guestCount})</span>}
+                    </label>
+                    <select
+                      value={tableId}
+                      onChange={e => setTableId(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="">Choisir une table</option>
+                      {availableTables.map(t => (
+                        <option key={t.tableId} value={t.tableId}>
+                          Table {t.tableNumber} - {t.capacity} place{t.capacity > 1 ? 's' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {availableTables.length === 0 && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {allTables.length === 0
+                          ? 'Aucune table disponible'
+                          : `Aucune table libre pour ${guestCount} couvert(s)`}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1.5">Paiement</label>
-                <select
-                  value={payMethod}
-                  onChange={e => setPayMethod(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="CASH">Espèces</option>
-                  <option value="CARD">Carte bancaire</option>
-                </select>
-              </div>
+            )}
+
+            {/* Methode de paiement */}
+            <div>
+              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1.5">
+                Methode de paiement
+              </label>
+              <select
+                value={payMethod}
+                onChange={e => setPayMethod(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="CASH">Especes</option>
+                <option value="CARD">Carte bancaire</option>
+              </select>
             </div>
 
             <button
@@ -577,95 +815,64 @@ const WaiterNewOrderPage = () => {
               disabled={submitting}
               className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl text-base shadow-lg shadow-blue-100 transition-all active:scale-95 disabled:opacity-60 disabled:shadow-none"
             >
-              {submitting ? 'Soumission…' : `Commander pour ${selectedCustomer.firstName} — ${getTotal().toFixed(2)} €`}
+              {submitting
+                ? 'Soumission...'
+                : `Commander pour ${selectedCustomer.firstName} - ${getTotal().toFixed(2)} €`}
             </button>
           </section>
         )}
       </div>
 
-      {/* ══════════════ MODAL EXTRAS ══════════════ */}
+      {/* ══ MODAL EXTRAS ══ */}
       {modalProduct && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-            {/* Header */}
             <div className="flex items-center justify-between px-6 pt-5 pb-4 flex-shrink-0">
               <div>
                 <h3 className="font-black text-lg text-gray-900">{modalProduct.productName}</h3>
                 <p className="text-sm text-gray-500">{Number(modalProduct.unitPrice).toFixed(2)} € de base</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setModalProduct(null)}
-                className="p-2 rounded-xl hover:bg-gray-100"
-              >
+              <button type="button" onClick={() => setModalProduct(null)} className="p-2 rounded-xl hover:bg-gray-100">
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
 
-            {/* Extras */}
             <div className="overflow-y-auto px-6 pb-4 space-y-5 flex-1">
-              {/* Viandes */}
               {modalProduct.productType === PRODUCT_TYPE.FOOD && viandes.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-2 flex items-center gap-1">
-                    🥩 Viandes
-                  </p>
+                  <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-2">Viandes</p>
                   <div className="grid grid-cols-1 gap-2">
                     {viandes.map(v => (
-                      <ExtraCheckbox
-                        key={v.viandeId}
-                        item={v}
-                        idKey="viandeId"
-                        selected={selViandes}
-                        onToggle={item => toggleExtra(selViandes, setSelViandes, item, 'viandeId')}
-                        color="red"
-                      />
+                      <ExtraCheckbox key={v.viandeId} item={v} idKey="viandeId" selected={selViandes}
+                        onToggle={item => toggleExtra(selViandes, setSelViandes, item, 'viandeId')} color="red" />
                     ))}
                   </div>
                 </div>
               )}
-              {/* Sauces */}
-              {modalProduct.productType === PRODUCT_TYPE.FOOD && modalProduct.needsSauce && sauces.length > 0 && (
+              {modalProduct.productType === PRODUCT_TYPE.FOOD && sauces.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-2 flex items-center gap-1">
-                    🫙 Sauces
-                  </p>
+                  <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-2">Sauces</p>
                   <div className="grid grid-cols-1 gap-2">
                     {sauces.map(s => (
-                      <ExtraCheckbox
-                        key={s.sauceId}
-                        item={s}
-                        idKey="sauceId"
-                        selected={selSauces}
-                        onToggle={item => toggleExtra(selSauces, setSelSauces, item, 'sauceId')}
-                        color="orange"
-                      />
+                      <ExtraCheckbox key={s.sauceId} item={s} idKey="sauceId" selected={selSauces}
+                        onToggle={item => toggleExtra(selSauces, setSelSauces, item, 'sauceId')} color="orange" />
                     ))}
                   </div>
                 </div>
               )}
-              {/* Desserts */}
               {desserts.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-2 flex items-center gap-1">
-                    🍰 Desserts
-                  </p>
+                  <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-2">Desserts</p>
                   <div className="grid grid-cols-1 gap-2">
                     {desserts.map(d => (
-                      <ExtraCheckbox
-                        key={d.dessertId}
-                        item={d}
-                        idKey="dessertId"
-                        selected={selDesserts}
-                        onToggle={item => toggleExtra(selDesserts, setSelDesserts, item, 'dessertId')}
-                        color="purple"
-                      />
+                      <ExtraCheckbox key={d.dessertId} item={d} idKey="dessertId" selected={selDesserts}
+                        onToggle={item => toggleExtra(selDesserts, setSelDesserts, item, 'dessertId')} color="purple" />
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Price recap */}
+              {/* Recap prix */}
               <div className="bg-blue-600 rounded-2xl p-4 text-white">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-blue-200">Base</span>
@@ -686,7 +893,6 @@ const WaiterNewOrderPage = () => {
               </div>
             </div>
 
-            {/* Footer */}
             <div className="px-6 pb-6 pt-2 flex gap-4 flex-shrink-0 border-t border-gray-100">
               <button
                 type="button"
@@ -695,7 +901,9 @@ const WaiterNewOrderPage = () => {
                 className="flex-1 flex items-center justify-center gap-2 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-100 transition-all active:scale-95 disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none"
               >
                 <ShoppingCart className="h-5 w-5" />
-                {modalProduct.quantityAvailable <= 0 ? 'Épuisé' : `Ajouter — ${(Number(modalProduct.unitPrice) + extrasModalTotal()).toFixed(2)} €`}
+                {modalProduct.quantityAvailable <= 0
+                  ? 'Epuise'
+                  : `Ajouter - ${(Number(modalProduct.unitPrice) + extrasModalTotal()).toFixed(2)} €`}
               </button>
               <button
                 type="button"
@@ -711,37 +919,5 @@ const WaiterNewOrderPage = () => {
     </Layout>
   );
 };
-
-// ─── ProductTile ───────────────────────────────────────────────────────────────
-const ProductTile = ({ product, onSelect }) => (
-  <button
-    type="button"
-    onClick={onSelect}
-    disabled={product.quantityAvailable <= 0}
-    className={`bg-white rounded-2xl border overflow-hidden text-left transition-all active:scale-95
-      ${product.quantityAvailable <= 0
-        ? 'border-gray-100 opacity-50 cursor-not-allowed'
-        : 'border-gray-200 hover:border-blue-300 hover:shadow-md cursor-pointer'}`}
-  >
-    {product.imageUrl ? (
-      <img
-        src={product.imageUrl}
-        alt={product.productName}
-        className="w-full h-28 object-cover"
-      />
-    ) : (
-      <div className="w-full h-28 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-        <Utensils className="h-8 w-8 text-gray-300" />
-      </div>
-    )}
-    <div className="p-3">
-      <p className="font-bold text-sm text-gray-900 leading-tight line-clamp-2">{product.productName}</p>
-      <p className="font-black text-blue-600 text-sm mt-1">{Number(product.unitPrice).toFixed(2)} €</p>
-      {product.quantityAvailable <= 0 && (
-        <p className="text-xs text-red-500 font-semibold mt-1">Épuisé</p>
-      )}
-    </div>
-  </button>
-);
 
 export default WaiterNewOrderPage;

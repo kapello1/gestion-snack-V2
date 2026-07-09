@@ -333,9 +333,16 @@ public class MapperUtil {
             return null;
         StockAlertDTO dto = new StockAlertDTO();
         dto.setAlertId(alert.getAlertId());
-        dto.setProductId(alert.getProduct().getProductId());
-        dto.setProductName(alert.getProduct().getProductName());
-        dto.setCurrentStock(alert.getProduct().getQuantityAvailable());
+        Product product = alert.getProduct();
+        if (product != null) {
+            dto.setProductId(product.getProductId());
+            dto.setProductName(product.getProductName());
+            dto.setCurrentStock(product.getQuantityAvailable());
+            dto.setAlertThreshold(product.getAlertThreshold());
+            dto.setProductType(product.getProductType() != null ? product.getProductType().name() : null);
+            dto.setProductPrice(product.getUnitPrice());
+            dto.setImageUrl(product.getImageUrl());
+        }
         dto.setMessage(alert.getMessage());
         dto.setAlertDate(alert.getAlertDate());
         dto.setResolved(alert.getResolved());

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
 import {
   Search, Calendar, Plus, X, ChevronLeft, Users, Clock, CheckCircle, AlertCircle,
@@ -254,7 +254,7 @@ const ReservationWizard = ({ onClose, onCreated, customerId, username }) => {
               ) : (
                 <>
                   <p className="text-xs text-gray-500">
-                    {availTables.length} table{availTables.length > 1 ? 's' : ''} disponible{availTables.length > 1 ? 's' : ''} — cliquez pour choisir la vôtre
+                    {availTables.length} table{availTables.length > 1 ? 's' : ''} disponible{availTables.length > 1 ? 's' : ''} - cliquez pour choisir la vôtre
                   </p>
 
                   {/* Plan de salle visuel */}
@@ -306,7 +306,7 @@ const ReservationWizard = ({ onClose, onCreated, customerId, username }) => {
                 <div>
                   <p className="font-bold text-gray-800">Table {selectedTable.tableNumber}</p>
                   <p className="text-sm text-gray-500">{selectedTable.capacity} places · {fmtDayLong(date)}</p>
-                  <p className="text-sm font-semibold text-violet-600">{selectedSlot.time} — durée 1h30</p>
+                  <p className="text-sm font-semibold text-violet-600">{selectedSlot.time} - durée 1h30</p>
                 </div>
               </div>
 

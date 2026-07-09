@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import Layout from '../../components/layout/Layout';
@@ -85,7 +85,7 @@ const CookOrdersPage = () => {
   const handleStart = async (orderId) => {
     try {
       await api.post(API_ENDPOINTS.ORDERS.START(orderId));
-      toast.success(`Commande #${orderId} — préparation commencée 🍳`);
+      toast.success(`Commande #${orderId} - préparation commencée 🍳`);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch {
       toast.error('Erreur lors du démarrage de la préparation');
@@ -303,7 +303,7 @@ const CookOrdersPage = () => {
                       {order.status === ORDER_STATUS.CLOSED && (
                         <div className="flex items-center justify-center gap-2 py-4 text-blue-600 font-black text-sm">
                           <CheckCircle className="h-5 w-5" />
-                          PRÊTE À SERVIR — EN ATTENTE DU SERVEUR
+                          PRÊTE À SERVIR - EN ATTENTE DU SERVEUR
                         </div>
                       )}
                     </div>

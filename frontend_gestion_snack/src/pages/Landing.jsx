@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -158,7 +158,7 @@ const HeroCard = () => {
         className="card-tilt relative"
         style={{ transformStyle: 'preserve-3d' }}>
 
-        {/* Badge commande (flottant gauche) — masqué sur mobile car hors écran */}
+        {/* Badge commande (flottant gauche) - masqué sur mobile car hors écran */}
         <div className="animate-float hidden sm:flex absolute -top-2 -left-32 z-10 rounded-2xl px-3 py-2.5 items-center gap-2"
           style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)' }}>
           <div className="w-7 h-7 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
@@ -172,7 +172,7 @@ const HeroCard = () => {
           </div>
         </div>
 
-        {/* Badge IA (flottant droite) — masqué sur mobile car hors écran */}
+        {/* Badge IA (flottant droite) - masqué sur mobile car hors écran */}
         <div className="animate-float-delay-2 hidden sm:flex absolute -top-2 -right-24 z-10 rounded-xl px-3 py-2 items-center gap-2"
           style={{ background: 'rgba(245,158,11,0.18)', backdropFilter: 'blur(14px)', border: '1px solid rgba(245,158,11,0.38)' }}>
           <Bot className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
@@ -244,7 +244,7 @@ const HeroCard = () => {
         </div>
       </div>
 
-      {/* Badge réservation flottant — masqué sur mobile */}
+      {/* Badge réservation flottant - masqué sur mobile */}
       <div className="animate-float-slow hidden sm:block absolute -top-5 -right-5 rounded-2xl p-4 shadow-2xl"
         style={{ background: 'linear-gradient(135deg, #1e1b4b, #2d1b69)', border: '1px solid rgba(139,92,246,0.4)' }}>
         <div className="text-center">
@@ -318,7 +318,7 @@ const Landing = () => {
     {
       icon: ShoppingCart, color: 'from-indigo-500 to-blue-600', bg: 'bg-indigo-50',
       title: 'Commande en ligne', badge: null,
-      desc: 'Parcourez notre carte, personnalisez vos plats (sauces, viandes, desserts) et payez en quelques clics — sur place ou à emporter.',
+      desc: 'Parcourez notre carte, personnalisez vos plats (sauces, viandes, desserts) et payez en quelques clics - sur place ou à emporter.',
       bullets: ['Menu complet avec filtres', 'Personnalisation des plats', 'Paiement sécurisé par carte'],
     },
     {
@@ -330,7 +330,7 @@ const Landing = () => {
     {
       icon: Bot, color: 'from-amber-500 to-orange-500', bg: 'bg-amber-50',
       title: 'Assistant IA vocal', badge: 'NOUVEAU',
-      desc: "Notre chatbot intelligent répond à vos questions sur le menu, les horaires et vos réservations — par texte ou par voix, en français, néerlandais et allemand.",
+      desc: "Notre chatbot intelligent répond à vos questions sur le menu, les horaires et vos réservations - par texte ou par voix, en français, néerlandais et allemand.",
       bullets: ['Reconnaissance vocale', 'Réservation via l\'IA', 'Multilingue FR/NL/DE'],
     },
     {
@@ -492,7 +492,7 @@ const Landing = () => {
 
             <p className="text-slate-400 text-lg leading-relaxed max-w-lg word-reveal" style={{ animationDelay: '0.7s' }}>
               Commandez en ligne, réservez votre table ou discutez avec notre assistant IA.
-              Simple, rapide et disponible 24h/24 — parce que vous méritez le meilleur.
+              Simple, rapide et disponible 24h/24 - parce que vous méritez le meilleur.
             </p>
 
             {/* CTAs */}
@@ -542,7 +542,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* ══ SCROLL 3D — APERÇU DE L'APPLICATION ════════════════════════════════ */}
+      {/* ══ SCROLL 3D - APERÇU DE L'APPLICATION ════════════════════════════════ */}
       <section className="overflow-x-hidden pt-10" style={{ backgroundColor: '#070518' }}>
         <ContainerScroll
           titleComponent={
@@ -781,7 +781,7 @@ const Landing = () => {
               <h2 className="text-3xl font-black text-white mb-4">Votre assistant snack,<br />disponible 24h/24</h2>
               <p className="text-slate-400 leading-relaxed mb-8">
                 Notre chatbot IA comprend le français, le néerlandais et l'allemand.
-                Posez vos questions sur le menu, les allergènes, les horaires — ou
+                Posez vos questions sur le menu, les allergènes, les horaires - ou
                 laissez-le vous faire une réservation directement dans la conversation.
               </p>
               <ul className="space-y-3 mb-8">
