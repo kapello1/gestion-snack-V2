@@ -139,6 +139,15 @@ public class ProviderServiceImpl implements IProviderService {
         // Mise à jour du statut du bon de commande
         providerProduct.setStatus(SupplyStatus.VALIDATED);
         providerProduct.setValidatedAt(LocalDateTime.now());
+
+        // Calculer totalAmount si absent (anciennes commandes sans ce champ)
+        if (providerProduct.getTotalAmount() == null && providerProduct.getUnitPrice() != null) {
+            providerProduct.setTotalAmount(
+                providerProduct.getUnitPrice()
+                    .multiply(java.math.BigDecimal.valueOf(providerProduct.getQuantity()))
+            );
+        }
+
         providerProduct = providerProductRepository.save(providerProduct);
 
         // Mise à jour du stock

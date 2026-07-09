@@ -346,7 +346,29 @@ public class UserServiceImpl implements IUserService {
         if (requestDTO.getPinUpToDate() != null) {
             user.setPinUpToDate(requestDTO.getPinUpToDate());
         }
-        user.setUpdatedBy(requestDTO.getCreatedBy());
+        user.setUpdatedBy(requestDTO.getCreatedBy() != null ? requestDTO.getCreatedBy() : "ADMIN");
+
+        // Synchroniser email + username sur l'entité liée (Employee / Customer)
+        if (user.getOwnerId() != null) {
+            RoleType roleType = user.getRole() != null ? user.getRole().getRoleName() : null;
+            if (roleType == RoleType.CUSTOMER) {
+                customerRepository.findById(user.getOwnerId()).ifPresent(c -> {
+                    c.setEmail(requestDTO.getEmail());
+                    c.setUsername(requestDTO.getUsername());
+                    c.setUpdatedBy("ADMIN");
+                    customerRepository.save(c);
+                    log.info("[UPDATE_USER] Email/username synchronises sur Customer ID={}", c.getCustomerId());
+                });
+            } else if (roleType != null && roleType != RoleType.ADMIN && roleType != RoleType.PROVIDER) {
+                employeeRepository.findById(user.getOwnerId()).ifPresent(emp -> {
+                    emp.setEmail(requestDTO.getEmail());
+                    emp.setUsername(requestDTO.getUsername());
+                    emp.setUpdatedBy("ADMIN");
+                    employeeRepository.save(emp);
+                    log.info("[UPDATE_USER] Email/username synchronises sur Employee ID={}", emp.getEmployeeId());
+                });
+            }
+        }
 
         user = userRepository.save(user);
         log.info("[UPDATE_USER] Succès - userId={}", user.getUserId());

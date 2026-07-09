@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Layout from '../../components/layout/Layout';
 import {
   Search, Package, CheckCircle, Calendar, Clock, Tag,
-  ShoppingCart, TrendingUp, Image as ImageIcon, Info
+  ShoppingCart, Image as ImageIcon, Info
 } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
@@ -99,9 +99,17 @@ const ProviderOrdersPage = () => {
     }
   };
 
+  // Calcule le montant d'une commande avec fallback pour l'ancien data sans totalAmount
+  const getAmount = (s) => {
+    if (s.totalAmount != null) return Number(s.totalAmount);
+    const unitCost = s.unitPrice != null ? Number(s.unitPrice)
+      : s.purchasePrice != null ? Number(s.purchasePrice) : 0;
+    return unitCost * (s.quantity || 0);
+  };
+
   const totalValidated = supplies
     .filter(s => s.status === 'VALIDATED')
-    .reduce((acc, s) => acc + (s.totalAmount || 0), 0);
+    .reduce((acc, s) => acc + getAmount(s), 0);
 
   const pendingCount = supplies.filter(s => !s.status || s.status === 'PENDING').length;
 
@@ -172,9 +180,11 @@ const ProviderOrdersPage = () => {
             filteredSupplies.map(supply => {
               const status = supply.status || 'PENDING';
               const isPending = status === 'PENDING';
-              const margin = supply.unitSalePrice && supply.unitPrice
-                ? supply.unitSalePrice - supply.unitPrice
-                : null;
+              // Prix d'achat : unitPrice du bon de commande, sinon prix achat du produit
+              const displayPrice = supply.unitPrice != null ? Number(supply.unitPrice)
+                : supply.purchasePrice != null ? Number(supply.purchasePrice) : null;
+              const displayTotal = supply.totalAmount != null ? Number(supply.totalAmount)
+                : displayPrice != null ? displayPrice * (supply.quantity || 0) : null;
 
               return (
                 <div
@@ -245,31 +255,18 @@ const ProviderOrdersPage = () => {
                     </div>
 
                     {/* Colonne prix + action */}
-                    <div className="flex flex-col items-end justify-between gap-3 min-w-[180px]">
+                    <div className="flex flex-col items-end justify-between gap-3 min-w-[170px]">
                       <div className="text-right space-y-1">
                         <div className="text-sm text-gray-500">
                           Quantite: <span className="font-bold text-gray-900">{supply.quantity}</span>
                         </div>
                         <div className="text-sm text-gray-500">
-                          Prix achat: <span className="font-semibold text-gray-800">
-                            {supply.unitPrice != null ? `${Number(supply.unitPrice).toFixed(2)} €` : 'N/A'}
+                          Prix unitaire: <span className="font-semibold text-gray-800">
+                            {displayPrice != null ? `${displayPrice.toFixed(2)} €` : '-'}
                           </span>
                         </div>
-                        {supply.unitSalePrice != null && (
-                          <div className="text-sm text-gray-500">
-                            Prix vente: <span className="font-semibold text-gray-700">
-                              {Number(supply.unitSalePrice).toFixed(2)} €
-                            </span>
-                          </div>
-                        )}
-                        {margin != null && (
-                          <div className={`text-xs flex items-center gap-1 justify-end ${margin > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            <TrendingUp className="h-3 w-3" />
-                            Marge: {margin > 0 ? '+' : ''}{Number(margin).toFixed(2)} €/u
-                          </div>
-                        )}
                         <div className="text-xl font-bold text-blue-600 mt-1">
-                          {supply.totalAmount != null ? `${Number(supply.totalAmount).toFixed(2)} €` : 'N/A'}
+                          {displayTotal != null ? `${displayTotal.toFixed(2)} €` : '-'}
                         </div>
                         <div className="text-xs text-gray-400">Montant total</div>
                       </div>

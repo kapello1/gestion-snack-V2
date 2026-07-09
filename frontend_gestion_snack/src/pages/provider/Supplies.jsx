@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Layout from '../../components/layout/Layout';
 import {
   Package, Truck, Search, Calendar, CheckCircle, Clock,
-  BarChart2, Tag, TrendingUp, Info, Image as ImageIcon
+  BarChart2, Tag, Info, Image as ImageIcon
 } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
@@ -68,9 +68,16 @@ const ProviderSuppliesPage = () => {
     return matchSearch && matchStatus;
   });
 
+  const getAmount = (s) => {
+    if (s.totalAmount != null) return Number(s.totalAmount);
+    const unitCost = s.unitPrice != null ? Number(s.unitPrice)
+      : s.purchasePrice != null ? Number(s.purchasePrice) : 0;
+    return unitCost * (s.quantity || 0);
+  };
+
   const totalValidated = supplies
     .filter(s => s.status === 'VALIDATED')
-    .reduce((acc, s) => acc + (s.totalAmount || 0), 0);
+    .reduce((acc, s) => acc + getAmount(s), 0);
 
   const pendingCount = supplies.filter(s => !s.status || s.status === 'PENDING').length;
 
@@ -159,9 +166,11 @@ const ProviderSuppliesPage = () => {
           ) : (
             filtered.map(s => {
               const status = s.status || 'PENDING';
-              const margin = s.unitSalePrice && s.unitPrice
-                ? Number(s.unitSalePrice) - Number(s.unitPrice)
-                : null;
+              // Prix d'achat : unitPrice du bon de commande, sinon prix achat du produit
+              const displayPrice = s.unitPrice != null ? Number(s.unitPrice)
+                : s.purchasePrice != null ? Number(s.purchasePrice) : null;
+              const displayTotal = s.totalAmount != null ? Number(s.totalAmount)
+                : displayPrice != null ? displayPrice * (s.quantity || 0) : null;
 
               return (
                 <div
@@ -231,25 +240,12 @@ const ProviderSuppliesPage = () => {
                         Qte: <span className="font-bold text-gray-900">{s.quantity}</span>
                       </div>
                       <div className="text-sm text-gray-500">
-                        Prix achat: <span className="font-semibold text-gray-800">
-                          {s.unitPrice != null ? `${Number(s.unitPrice).toFixed(2)} €` : 'N/A'}
+                        Prix unitaire: <span className="font-semibold text-gray-800">
+                          {displayPrice != null ? `${displayPrice.toFixed(2)} €` : '-'}
                         </span>
                       </div>
-                      {s.unitSalePrice != null && (
-                        <div className="text-sm text-gray-500">
-                          Prix vente: <span className="font-semibold text-gray-700">
-                            {Number(s.unitSalePrice).toFixed(2)} €
-                          </span>
-                        </div>
-                      )}
-                      {margin != null && (
-                        <div className={`text-xs flex items-center gap-1 ${margin > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                          <TrendingUp className="h-3 w-3" />
-                          Marge: {margin > 0 ? '+' : ''}{margin.toFixed(2)} €/u
-                        </div>
-                      )}
                       <div className="text-lg font-bold text-blue-600 mt-1">
-                        {s.totalAmount != null ? `${Number(s.totalAmount).toFixed(2)} €` : 'N/A'}
+                        {displayTotal != null ? `${displayTotal.toFixed(2)} €` : '-'}
                       </div>
                       <div className="text-xs text-gray-400">Montant total</div>
 

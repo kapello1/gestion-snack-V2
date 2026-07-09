@@ -1,5 +1,5 @@
 // Context d'authentification
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import { API_ENDPOINTS } from '../config/api';
 import { toast } from 'react-toastify';
@@ -18,6 +18,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const userRef = useRef(null);
 
   // Auto-logout constant
   const AUTO_LOGOUT_TIME = 15 * 60 * 1000; // 15 minutes of inactivity
@@ -147,9 +148,37 @@ export const AuthProvider = ({ children }) => {
    * Mettre à jour les informations utilisateur
    */
   const updateUser = (userData) => {
+    userRef.current = userData;
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
   };
+
+  // Synchroniser le ref quand user change (utile pour les listeners WS)
+  useEffect(() => { userRef.current = user; }, [user]);
+
+  // Ecouter les evenements WebSocket sur le topic "users" pour rafraichir
+  // les donnees du user connecte en temps reel (ex: changement de role ou email par admin)
+  useEffect(() => {
+    return wsManager.onEvent(({ topic }) => {
+      if (topic !== 'users') return;
+      const current = userRef.current;
+      if (!current?.userId) return;
+      api.get(API_ENDPOINTS.USERS.BY_ID(current.userId))
+        .then(res => {
+          const fresh = res.data;
+          if (!fresh) return;
+          updateUser({
+            userId:   fresh.userId,
+            username: fresh.username,
+            email:    fresh.email,
+            roleName: fresh.roleName,
+            roleId:   fresh.roleId,
+            ownerId:  fresh.ownerId,
+          });
+        })
+        .catch(() => {}); // silencieux
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = {
     user,
