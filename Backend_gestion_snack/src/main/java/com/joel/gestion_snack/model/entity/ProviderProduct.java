@@ -47,7 +47,7 @@ public class ProviderProduct {
     private BigDecimal totalAmount;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", length = 20)
     private SupplyStatus status = SupplyStatus.PENDING;
 
     @Column(name = "validated_at")
