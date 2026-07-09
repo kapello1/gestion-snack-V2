@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -135,6 +136,11 @@ public class ProviderServiceImpl implements IProviderService {
                     return new EntityNotFoundException("Fourniture non trouvée");
                 });
 
+        // Mise à jour du statut du bon de commande
+        providerProduct.setStatus(SupplyStatus.VALIDATED);
+        providerProduct.setValidatedAt(LocalDateTime.now());
+        providerProduct = providerProductRepository.save(providerProduct);
+
         // Mise à jour du stock
         Product product = providerProduct.getProduct();
         product.setQuantityAvailable(product.getQuantityAvailable() + providerProduct.getQuantity());
@@ -142,7 +148,6 @@ public class ProviderServiceImpl implements IProviderService {
 
         log.info("Fourniture validée et stock mis à jour pour le produit: {}", product.getProductName());
         wsPublisher.publishSupplyEvent("SUPPLY_VALIDATED", providerProduct.getProvideId());
-        // Le stock du produit ayant changé, on notifie aussi le topic products
         wsPublisher.publishProductEvent("STOCK_UPDATED", product.getProductId());
         return mapperUtil.toProviderProductDTO(providerProduct);
     }

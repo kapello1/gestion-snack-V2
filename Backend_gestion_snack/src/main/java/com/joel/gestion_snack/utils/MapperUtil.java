@@ -2,6 +2,7 @@ package com.joel.gestion_snack.utils;
 
 import com.joel.gestion_snack.model.dto.*;
 import com.joel.gestion_snack.model.entity.*;
+import com.joel.gestion_snack.model.entity.SupplyStatus;
 import org.springframework.stereotype.Component;
 
 /**
@@ -360,12 +361,36 @@ public class MapperUtil {
             return null;
         ProviderProductDTO dto = new ProviderProductDTO();
         dto.setProvideId(providerProduct.getProvideId());
-        dto.setProviderId(providerProduct.getProvider().getProviderId());
-        dto.setProviderName(providerProduct.getProvider().getName());
-        dto.setProductId(providerProduct.getProduct().getProductId());
-        dto.setProductName(providerProduct.getProduct().getProductName());
+
+        // Provider
+        if (providerProduct.getProvider() != null) {
+            dto.setProviderId(providerProduct.getProvider().getProviderId());
+            dto.setProviderName(providerProduct.getProvider().getName());
+        }
+
+        // Produit - infos completes
+        Product product = providerProduct.getProduct();
+        if (product != null) {
+            dto.setProductId(product.getProductId());
+            dto.setProductName(product.getProductName());
+            dto.setProductType(product.getProductType() != null ? product.getProductType().name() : null);
+            dto.setProductDescription(product.getDescription());
+            dto.setImageUrl(product.getImageUrl());
+            dto.setUnitSalePrice(product.getUnitPrice());
+            dto.setPurchasePrice(product.getPurchasePrice());
+            dto.setCurrentStock(product.getQuantityAvailable());
+            dto.setAlertThreshold(product.getAlertThreshold());
+        }
+
+        // Bon de commande
         dto.setQuantity(providerProduct.getQuantity());
+        dto.setUnitPrice(providerProduct.getUnitPrice());
+        dto.setTotalAmount(providerProduct.getTotalAmount());
         dto.setSupplyDate(providerProduct.getSupplyDate());
+        dto.setStatus(providerProduct.getStatus() != null ? providerProduct.getStatus().name() : SupplyStatus.PENDING.name());
+        dto.setValidatedAt(providerProduct.getValidatedAt());
+
+        // Audit
         dto.setCreatedBy(providerProduct.getCreatedBy());
         dto.setCreatedAt(providerProduct.getCreatedAt());
         dto.setUpdatedBy(providerProduct.getUpdatedBy());
@@ -379,6 +404,9 @@ public class MapperUtil {
         ProviderProduct providerProduct = new ProviderProduct();
         providerProduct.setQuantity(dto.getQuantity());
         providerProduct.setSupplyDate(dto.getSupplyDate() != null ? dto.getSupplyDate() : java.time.LocalDate.now());
+        providerProduct.setUnitPrice(dto.getUnitPrice());
+        providerProduct.setTotalAmount(dto.getTotalAmount());
+        providerProduct.setStatus(SupplyStatus.PENDING);
         providerProduct.setCreatedBy(dto.getCreatedBy());
         return providerProduct;
     }

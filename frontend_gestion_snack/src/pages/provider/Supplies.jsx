@@ -1,17 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Layout from '../../components/layout/Layout';
-import { Package, Truck, Search, Calendar, CheckCircle, Clock, BarChart2 } from 'lucide-react';
+import {
+  Package, Truck, Search, Calendar, CheckCircle, Clock,
+  BarChart2, Tag, TrendingUp, Info, Image as ImageIcon
+} from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
 import { wsManager } from '../../lib/wsManager';
 
-const STATUS_LABELS = { PENDING: 'En attente', VALIDATED: 'Validé', CANCELLED: 'Annulé' };
+const STATUS_LABELS = { PENDING: 'En attente', VALIDATED: 'Valide' };
 const STATUS_COLORS = {
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  VALIDATED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  VALIDATED: 'bg-green-100 text-green-800 border-green-200',
+};
+
+const ProductImage = ({ src, alt }) => {
+  const [error, setError] = useState(false);
+  if (!src || error) {
+    return (
+      <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+        <ImageIcon className="h-5 w-5 text-gray-300" />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setError(true)}
+      className="w-14 h-14 rounded-lg object-cover flex-shrink-0 border border-gray-100"
+    />
+  );
 };
 
 const ProviderSuppliesPage = () => {
@@ -21,7 +42,7 @@ const ProviderSuppliesPage = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
-  const loadSupplies = async (showLoading = false) => {
+  const loadSupplies = useCallback(async (showLoading = false) => {
     if (!user) return;
     try {
       if (showLoading) setLoading(true);
@@ -32,22 +53,24 @@ const ProviderSuppliesPage = () => {
     } finally {
       if (showLoading) setLoading(false);
     }
-  };
+  }, [user]);
 
-  useEffect(() => { loadSupplies(true); }, [user]);
-  useEffect(() => wsManager.onEvent(() => loadSupplies(false)), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadSupplies(true); }, [loadSupplies]);
+  useEffect(() => wsManager.onEvent(() => loadSupplies(false)), [loadSupplies]);
 
   const filtered = supplies.filter(s => {
     const matchSearch = !search ||
-      s.product?.productName?.toLowerCase().includes(search.toLowerCase());
+      (s.productName || '').toLowerCase().includes(search.toLowerCase()) ||
+      (s.productType || '').toLowerCase().includes(search.toLowerCase());
+    const status = s.status || 'PENDING';
     const matchStatus = statusFilter === 'ALL' ||
-      (statusFilter === 'PENDING' ? (!s.status || s.status === 'PENDING') : s.status === statusFilter);
+      (statusFilter === 'PENDING' ? status === 'PENDING' : status === statusFilter);
     return matchSearch && matchStatus;
   });
 
   const totalValidated = supplies
     .filter(s => s.status === 'VALIDATED')
-    .reduce((acc, s) => acc + (s.totalAmount || s.quantity * (s.product?.unitPrice || 0)), 0);
+    .reduce((acc, s) => acc + (s.totalAmount || 0), 0);
 
   const pendingCount = supplies.filter(s => !s.status || s.status === 'PENDING').length;
 
@@ -75,24 +98,30 @@ const ProviderSuppliesPage = () => {
         {/* Statistiques */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg"><Package className="h-6 w-6 text-blue-600" /></div>
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Package className="h-6 w-6 text-blue-600" />
+            </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{supplies.length}</p>
               <p className="text-sm text-gray-500">Total livraisons</p>
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
-            <div className="p-2 bg-yellow-50 rounded-lg"><Clock className="h-6 w-6 text-yellow-600" /></div>
+            <div className="p-2 bg-yellow-50 rounded-lg">
+              <Clock className="h-6 w-6 text-yellow-600" />
+            </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
               <p className="text-sm text-gray-500">En attente</p>
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
-            <div className="p-2 bg-green-50 rounded-lg"><BarChart2 className="h-6 w-6 text-green-600" /></div>
+            <div className="p-2 bg-green-50 rounded-lg">
+              <BarChart2 className="h-6 w-6 text-green-600" />
+            </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{totalValidated.toFixed(2)} €</p>
-              <p className="text-sm text-gray-500">Montant validé</p>
+              <p className="text-sm text-gray-500">Montant valide</p>
             </div>
           </div>
         </div>
@@ -103,7 +132,7 @@ const ProviderSuppliesPage = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Rechercher un produit..."
+              placeholder="Rechercher un produit ou type..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="block w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
@@ -116,50 +145,119 @@ const ProviderSuppliesPage = () => {
           >
             <option value="ALL">Tous les statuts</option>
             <option value="PENDING">En attente</option>
-            <option value="VALIDATED">Validé</option>
+            <option value="VALIDATED">Valide</option>
           </select>
         </div>
 
         {/* Liste */}
         <div className="space-y-3">
           {filtered.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm py-16 text-center text-gray-400">
-              <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p>Aucun approvisionnement trouvé</p>
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm py-16 text-center">
+              <Package className="h-12 w-12 mx-auto mb-3 text-gray-200" />
+              <p className="text-gray-400">Aucun approvisionnement trouve</p>
             </div>
           ) : (
             filtered.map(s => {
               const status = s.status || 'PENDING';
-              const amount = s.totalAmount ?? (s.quantity * (s.product?.unitPrice || s.unitPrice || 0));
+              const margin = s.unitSalePrice && s.unitPrice
+                ? Number(s.unitSalePrice) - Number(s.unitPrice)
+                : null;
+
               return (
-                <div key={s.provideId} className={`bg-white rounded-xl border-l-4 shadow-sm p-5 ${status === 'VALIDATED' ? 'border-green-500' : status === 'CANCELLED' ? 'border-red-400' : 'border-yellow-400'}`}>
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-mono text-gray-400">#{s.provideId}</span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${STATUS_COLORS[status] || 'bg-gray-100 text-gray-700'}`}>
-                          {STATUS_LABELS[status] || status}
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {s.product?.productName || `Produit #${s.productId}`}
-                      </h3>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {s.supplyDate ? new Date(s.supplyDate).toLocaleDateString('fr-FR') : '-'}
-                        </span>
-                        <span>Qté: <strong className="text-gray-900">{s.quantity}</strong></span>
-                        {s.unitPrice && <span>PU: <strong className="text-gray-900">{s.unitPrice} €</strong></span>}
+                <div
+                  key={s.provideId}
+                  className={`bg-white rounded-xl shadow-sm border-l-4 p-5 transition-shadow hover:shadow-md ${status === 'VALIDATED' ? 'border-green-500' : 'border-yellow-400'}`}
+                >
+                  <div className="flex flex-col md:flex-row gap-4">
+                    {/* Image + infos produit */}
+                    <div className="flex gap-4 flex-1">
+                      <ProductImage src={s.imageUrl} alt={s.productName} />
+
+                      <div className="flex-1 min-w-0">
+                        {/* Badges */}
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-xs font-mono text-gray-400">#{s.provideId}</span>
+                          <span className={`px-2 py-0.5 rounded border text-xs font-bold uppercase ${STATUS_COLORS[status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                            {STATUS_LABELS[status] || status}
+                          </span>
+                          {s.productType && (
+                            <span className="px-2 py-0.5 rounded border text-xs bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
+                              <Tag className="h-3 w-3" />
+                              {s.productType}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Nom produit */}
+                        <h3 className="text-base font-bold text-gray-900 truncate">
+                          {s.productName || `Produit #${s.productId}`}
+                        </h3>
+
+                        {/* Description */}
+                        {s.productDescription && (
+                          <p className="text-sm text-gray-500 mt-0.5 line-clamp-1 flex items-start gap-1">
+                            <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-400" />
+                            {s.productDescription}
+                          </p>
+                        )}
+
+                        {/* Date + validation */}
+                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {s.supplyDate ? new Date(s.supplyDate).toLocaleDateString('fr-FR') : '-'}
+                          </span>
+                          {s.validatedAt && (
+                            <span className="flex items-center gap-1 text-green-600">
+                              <Clock className="h-3.5 w-3.5" />
+                              Valide le {new Date(s.validatedAt).toLocaleString('fr-FR')}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Stock actuel */}
+                        {s.currentStock != null && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Stock actuel: <strong className="text-gray-600">{s.currentStock}</strong>
+                            {s.alertThreshold != null && ` / seuil: ${s.alertThreshold}`}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-blue-600">{amount ? `${Number(amount).toFixed(2)} €` : 'N/A'}</p>
-                        <p className="text-xs text-gray-400">Montant total</p>
+
+                    {/* Colonne prix */}
+                    <div className="flex flex-col items-end gap-1 min-w-[160px] justify-center">
+                      <div className="text-sm text-gray-500">
+                        Qte: <span className="font-bold text-gray-900">{s.quantity}</span>
                       </div>
+                      <div className="text-sm text-gray-500">
+                        Prix achat: <span className="font-semibold text-gray-800">
+                          {s.unitPrice != null ? `${Number(s.unitPrice).toFixed(2)} €` : 'N/A'}
+                        </span>
+                      </div>
+                      {s.unitSalePrice != null && (
+                        <div className="text-sm text-gray-500">
+                          Prix vente: <span className="font-semibold text-gray-700">
+                            {Number(s.unitSalePrice).toFixed(2)} €
+                          </span>
+                        </div>
+                      )}
+                      {margin != null && (
+                        <div className={`text-xs flex items-center gap-1 ${margin > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          <TrendingUp className="h-3 w-3" />
+                          Marge: {margin > 0 ? '+' : ''}{margin.toFixed(2)} €/u
+                        </div>
+                      )}
+                      <div className="text-lg font-bold text-blue-600 mt-1">
+                        {s.totalAmount != null ? `${Number(s.totalAmount).toFixed(2)} €` : 'N/A'}
+                      </div>
+                      <div className="text-xs text-gray-400">Montant total</div>
+
                       {status === 'VALIDATED' && (
-                        <CheckCircle className="h-6 w-6 text-green-500 flex-shrink-0" />
+                        <div className="flex items-center gap-1 mt-2 text-green-600 text-sm">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>Valide</span>
+                        </div>
                       )}
                     </div>
                   </div>

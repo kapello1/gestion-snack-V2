@@ -101,6 +101,7 @@ export const API_ENDPOINTS = {
     SUPPLIES: '/providers/supplies',
     BY_PROVIDER: (providerId) => `/providers/${providerId}/supplies`,
     CREATE_SUPPLY: '/providers/supplies',
+    VALIDATE_SUPPLY: (id) => `/providers/supplies/${id}/validate`,
   },
   // Avis
   REVIEWS: {

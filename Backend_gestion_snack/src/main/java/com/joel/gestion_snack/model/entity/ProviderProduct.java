@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -38,6 +39,19 @@ public class ProviderProduct {
 
     @Column(name = "supply_date", nullable = false)
     private LocalDate supplyDate = LocalDate.now();
+
+    @Column(name = "unit_price", precision = 12, scale = 2)
+    private BigDecimal unitPrice;
+
+    @Column(name = "total_amount", precision = 12, scale = 2)
+    private BigDecimal totalAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private SupplyStatus status = SupplyStatus.PENDING;
+
+    @Column(name = "validated_at")
+    private LocalDateTime validatedAt;
 
     @Column(name = "created_by", length = 50)
     private String createdBy;
