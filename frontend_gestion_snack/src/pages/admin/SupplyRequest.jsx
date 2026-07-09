@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
-import { Truck, Package, Save, ArrowLeft, AlertTriangle, Info } from 'lucide-react';
+import { Truck, Package, Save, ArrowLeft, AlertTriangle, Info, TrendingDown } from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
@@ -21,10 +21,11 @@ const AdminSupplyRequest = () => {
     const [loading,   setLoading]   = useState(true);
 
     const [formData, setFormData] = useState({
-        providerId: '',
-        productId:  alertState.productId ? String(alertState.productId) : '',
-        quantity:   alertState.requestedQuantity ? String(alertState.requestedQuantity) : '',
-        supplyDate: new Date().toISOString().split('T')[0],
+        providerId:    '',
+        productId:     alertState.productId ? String(alertState.productId) : '',
+        quantity:      alertState.requestedQuantity ? String(alertState.requestedQuantity) : '',
+        unitCost:      '',   // prix d'achat fournisseur (inferieur au prix de vente)
+        supplyDate:    new Date().toISOString().split('T')[0],
     });
 
     const minQuantity = alertState.requestedQuantity || 1;
@@ -65,12 +66,15 @@ const AdminSupplyRequest = () => {
         }
 
         try {
+            const unitCost = formData.unitCost ? parseFloat(formData.unitCost) : null;
             const payload = {
-                providerId: parseInt(formData.providerId),
-                productId:  parseInt(formData.productId),
-                quantity:   qty,
-                supplyDate: formData.supplyDate,
-                createdBy:  user.username,
+                providerId:  parseInt(formData.providerId),
+                productId:   parseInt(formData.productId),
+                quantity:    qty,
+                unitPrice:   unitCost,
+                totalAmount: unitCost != null ? unitCost * qty : null,
+                supplyDate:  formData.supplyDate,
+                createdBy:   user.username,
             };
             await api.post('/providers/supplies', payload);
             toast.success('Bon de commande cree avec succes - le fournisseur va livrer les produits');
@@ -187,36 +191,77 @@ const AdminSupplyRequest = () => {
                             )}
                         </div>
 
-                        {/* Quantite + Date */}
+                        {/* Quantite */}
+                        <div>
+                            <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                                Quantite a commander *
+                                {fromAlert && (
+                                    <span className="ml-1 text-red-500 normal-case font-normal">(min. {minQuantity})</span>
+                                )}
+                            </label>
+                            <input
+                                type="number"
+                                min={fromAlert ? minQuantity : 1}
+                                value={formData.quantity}
+                                onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                                className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
+                                    ${fromAlert && parseInt(formData.quantity) < minQuantity
+                                        ? 'border-red-300 bg-red-50'
+                                        : 'border-gray-200'}`}
+                                required
+                                placeholder={fromAlert ? `Minimum ${minQuantity}` : 'Quantite'}
+                            />
+                            {fromAlert && formData.quantity && parseInt(formData.quantity) < minQuantity && (
+                                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                                    <Info className="h-3 w-3" />
+                                    Doit etre {'>'}= {minQuantity} (demande cuisinier)
+                                </p>
+                            )}
+                            {fromAlert && formData.quantity && parseInt(formData.quantity) >= minQuantity && (
+                                <p className="text-xs text-green-600 mt-1">
+                                    Quantite suffisante pour satisfaire la demande du cuisinier
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Prix d'achat fournisseur + Date */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
-                                    Quantite a commander *
-                                    {fromAlert && (
-                                        <span className="ml-1 text-red-500 normal-case font-normal">(min. {minQuantity})</span>
-                                    )}
+                                    Prix d'achat unitaire (€)
                                 </label>
                                 <input
                                     type="number"
-                                    min={fromAlert ? minQuantity : 1}
-                                    value={formData.quantity}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                                    min="0"
+                                    step="0.01"
+                                    value={formData.unitCost}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, unitCost: e.target.value }))}
+                                    placeholder="0.00"
                                     className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                                        ${fromAlert && parseInt(formData.quantity) < minQuantity
-                                            ? 'border-red-300 bg-red-50'
+                                        ${selectedProduct && formData.unitCost &&
+                                          parseFloat(formData.unitCost) >= Number(selectedProduct.unitPrice)
+                                            ? 'border-orange-300 bg-orange-50'
                                             : 'border-gray-200'}`}
-                                    required
-                                    placeholder={fromAlert ? `Minimum ${minQuantity}` : 'Quantite'}
                                 />
-                                {fromAlert && formData.quantity && parseInt(formData.quantity) < minQuantity && (
-                                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                                        <Info className="h-3 w-3" />
-                                        Doit etre {'>'}= {minQuantity} (demande cuisinier)
-                                    </p>
+                                {/* Avertissement si prix achat >= prix vente */}
+                                {selectedProduct && formData.unitCost && parseFloat(formData.unitCost) > 0 && (
+                                    parseFloat(formData.unitCost) >= Number(selectedProduct.unitPrice)
+                                        ? (
+                                            <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                                                <AlertTriangle className="h-3 w-3" />
+                                                Prix d'achat superieur ou egal au prix de vente ({Number(selectedProduct.unitPrice).toFixed(2)} €) - aucune marge !
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                                <Info className="h-3 w-3" />
+                                                Marge : +{(Number(selectedProduct.unitPrice) - parseFloat(formData.unitCost)).toFixed(2)} € / unite
+                                            </p>
+                                        )
                                 )}
-                                {fromAlert && formData.quantity && parseInt(formData.quantity) >= minQuantity && (
-                                    <p className="text-xs text-green-600 mt-1">
-                                        Quantite suffisante pour satisfaire la demande du cuisinier
+                                {selectedProduct && (
+                                    <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                                        <TrendingDown className="h-3 w-3" />
+                                        Prix de vente restaurant : {Number(selectedProduct.unitPrice).toFixed(2)} €
                                     </p>
                                 )}
                             </div>
@@ -236,15 +281,40 @@ const AdminSupplyRequest = () => {
 
                         {/* Recapitulatif */}
                         {selectedProduct && formData.quantity && parseInt(formData.quantity) > 0 && (
-                            <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                                <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-2">Recapitulatif</p>
+                            <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 space-y-2">
+                                <p className="text-xs font-bold text-blue-700 uppercase tracking-wider">Recapitulatif</p>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-blue-600">{parseInt(formData.quantity)} x {selectedProduct.productName}</span>
-                                    <span className="font-black text-blue-800">
-                                        {(parseInt(formData.quantity) * Number(selectedProduct.unitPrice)).toFixed(2)} €
-                                    </span>
+                                    <span className="text-blue-600">Produit</span>
+                                    <span className="font-semibold text-blue-800">{selectedProduct.productName}</span>
                                 </div>
-                                <p className="text-xs text-blue-500 mt-1">Estimation basee sur le prix unitaire actuel</p>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-blue-600">Quantite commandee</span>
+                                    <span className="font-semibold text-blue-800">{parseInt(formData.quantity)} unites</span>
+                                </div>
+                                {formData.unitCost && parseFloat(formData.unitCost) > 0 ? (
+                                    <>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-blue-600">Prix d'achat unitaire</span>
+                                            <span className="font-semibold text-blue-800">{parseFloat(formData.unitCost).toFixed(2)} €</span>
+                                        </div>
+                                        <div className="border-t border-blue-200 pt-2 flex justify-between">
+                                            <span className="font-bold text-blue-700">Cout total d'achat</span>
+                                            <span className="font-black text-blue-900 text-lg">
+                                                {(parseInt(formData.quantity) * parseFloat(formData.unitCost)).toFixed(2)} €
+                                            </span>
+                                        </div>
+                                        {parseFloat(formData.unitCost) < Number(selectedProduct.unitPrice) && (
+                                            <div className="flex justify-between text-xs text-green-600">
+                                                <span>Marge totale estimee</span>
+                                                <span className="font-bold">
+                                                    +{(parseInt(formData.quantity) * (Number(selectedProduct.unitPrice) - parseFloat(formData.unitCost))).toFixed(2)} €
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <p className="text-xs text-gray-400 italic">Saisissez le prix d'achat fournisseur pour calculer le cout total</p>
+                                )}
                             </div>
                         )}
 

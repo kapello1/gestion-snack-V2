@@ -1,53 +1,65 @@
 import { useState, useEffect } from 'react';
 import Layout from '../../components/layout/Layout';
-import { Search, Trash2, Edit, UserPlus, Mail, User, UserCheck, Truck, UserX } from 'lucide-react';
+import {
+  Search, Trash2, Edit, UserPlus, User, UserCheck, Truck, UserX,
+  X, Mail, Shield, Clock, Hash, Calendar, Lock,
+} from 'lucide-react';
 import api from '../../utils/api';
 import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
-import { ROLES } from '../../utils/constants';
 import { wsManager } from '../../lib/wsManager';
+
+const ROLE_COLORS = {
+  ADMIN:    'bg-red-100 text-red-800',
+  WAITER:   'bg-blue-100 text-blue-800',
+  COOK:     'bg-orange-100 text-orange-800',
+  CUSTOMER: 'bg-green-100 text-green-800',
+  PROVIDER: 'bg-purple-100 text-purple-800',
+};
+
+const fmtDate = (d) => d
+  ? new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  : '-';
+
+const InfoRow = ({ icon: Icon, label, value }) => (
+  <div className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+    <Icon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+    <span className="text-xs text-gray-500 w-28 flex-shrink-0">{label}</span>
+    <span className="text-sm font-semibold text-gray-800 truncate">{value || '-'}</span>
+  </div>
+);
 
 const UsersPage = () => {
   const navigate = useNavigate();
-  const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [users,          setUsers]          = useState([]);
+  const [filteredUsers,  setFilteredUsers]  = useState([]);
+  const [loading,        setLoading]        = useState(true);
+  const [searchTerm,     setSearchTerm]     = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
+  const [showEditModal,  setShowEditModal]  = useState(false);
+  const [editingUser,    setEditingUser]    = useState(null);
+  const [saving,         setSaving]         = useState(false);
 
-  const [editFormData, setEditFormData] = useState({
-    username: '',
-    email: '',
-    roleId: null,
-  });
-  const [rolesList, setRolesList] = useState([]);
+  const [editFormData, setEditFormData] = useState({ username: '', email: '', roleId: null });
+  const [rolesList,    setRolesList]    = useState([]);
 
   useEffect(() => {
     loadUsers(true);
     api.get(API_ENDPOINTS.ROLES.BASE)
       .then(res => setRolesList(res.data || []))
-      .catch(() => {});
+      .catch(() => toast.error('Impossible de charger la liste des roles'));
   }, []);
 
-  // Rafraîchissement instantané et silencieux sur tout événement WebSocket
-  useEffect(() => {
-    return wsManager.onEvent(() => loadUsers(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    filterUsers();
-  }, [searchTerm, users]);
+  useEffect(() => { return wsManager.onEvent(() => loadUsers(false)); }, []); // eslint-disable-line
+  useEffect(() => { filterUsers(); }, [searchTerm, users]); // eslint-disable-line
 
   const loadUsers = async (showLoading = false) => {
     try {
       if (showLoading) setLoading(true);
-      const response = await api.get(API_ENDPOINTS.USERS.BASE);
-      setUsers(response.data || []);
-    } catch (error) {
-      console.error('Erreur chargement utilisateurs:', error);
+      const res = await api.get(API_ENDPOINTS.USERS.BASE);
+      setUsers(res.data || []);
+    } catch {
       if (showLoading) toast.error('Erreur lors du chargement des utilisateurs');
     } finally {
       if (showLoading) setLoading(false);
@@ -55,71 +67,71 @@ const UsersPage = () => {
   };
 
   const filterUsers = () => {
-    if (!searchTerm) {
-      setFilteredUsers(users);
-      return;
-    }
-    const lowerTerm = searchTerm.toLowerCase();
-    const filtered = users.filter(user =>
-      user.username?.toLowerCase().includes(lowerTerm) ||
-      user.email?.toLowerCase().includes(lowerTerm) ||
-      user.roleName?.toLowerCase().includes(lowerTerm)
-    );
-    setFilteredUsers(filtered);
+    if (!searchTerm.trim()) { setFilteredUsers(users); return; }
+    const q = searchTerm.toLowerCase();
+    setFilteredUsers(users.filter(u =>
+      u.username?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q) ||
+      u.roleName?.toLowerCase().includes(q)
+    ));
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
+    if (!window.confirm('Supprimer cet utilisateur ?')) return;
     try {
       await api.delete(API_ENDPOINTS.USERS.BY_ID(id));
-      toast.success('Utilisateur supprimé');
-      loadUsers();
-    } catch (error) {
+      toast.success('Utilisateur supprime');
+      loadUsers(false);
+    } catch {
       toast.error('Erreur lors de la suppression');
     }
   };
 
-  const handleEditClick = (user) => {
-    setEditingUser(user);
+  const handleEditClick = (u) => {
+    setEditingUser(u);
     setEditFormData({
-      username: user.username,
-      email: user.email,
-      roleId: user.roleId,
+      username: u.username  || '',
+      email:    u.email     || '',
+      roleId:   u.roleId    ?? null,
     });
     setShowEditModal(true);
   };
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    if (!editFormData.username.trim()) { toast.error("Le nom d'utilisateur est obligatoire"); return; }
+    if (!editFormData.email.trim())    { toast.error("L'email est obligatoire"); return; }
+    if (!editFormData.roleId)          { toast.error('Veuillez selectionner un role'); return; }
+
+    setSaving(true);
     try {
       await api.put(API_ENDPOINTS.USERS.BY_ID(editingUser.userId), {
-        username: editFormData.username,
-        email: editFormData.email,
-        roleId: editFormData.roleId,
-        ownerId: editingUser.ownerId,
+        username: editFormData.username.trim(),
+        email:    editFormData.email.trim(),
+        roleId:   Number(editFormData.roleId),
+        ownerId:  editingUser.ownerId ?? null,
       });
-      toast.success('Utilisateur mis à jour');
+      toast.success('Utilisateur mis a jour');
       setShowEditModal(false);
-      loadUsers();
-    } catch (error) {
-      const msg = error.response?.data?.message || 'Erreur lors de la mise à jour';
-      toast.error(msg);
+      loadUsers(false);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Erreur lors de la mise a jour');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleToggleActive = async (user) => {
-    const isCurrentlyActive = user.isActive !== false;
-    const action = isCurrentlyActive ? 'désactiver' : 'réactiver';
-    if (!window.confirm(`Voulez-vous ${action} l'utilisateur "${user.username}" ?`)) return;
+  const handleToggleActive = async (u) => {
+    const isActive = u.isActive !== false;
+    const action   = isActive ? 'desactiver' : 'reactiver';
+    if (!window.confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} "${u.username}" ?`)) return;
     try {
-      const endpoint = isCurrentlyActive
-        ? API_ENDPOINTS.USERS.DEACTIVATE(user.userId)
-        : API_ENDPOINTS.USERS.ACTIVATE(user.userId);
-      await api.patch(endpoint);
-      toast.success(isCurrentlyActive ? 'Compte désactivé - connexion bloquée' : 'Compte réactivé');
-      loadUsers();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Erreur lors du changement de statut');
+      const ep = isActive ? API_ENDPOINTS.USERS.DEACTIVATE(u.userId) : API_ENDPOINTS.USERS.ACTIVATE(u.userId);
+      await api.patch(ep);
+      toast.success(isActive ? 'Compte desactive' : 'Compte reactive');
+      loadUsers(false);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Erreur lors du changement de statut');
     }
   };
 
@@ -133,7 +145,7 @@ const UsersPage = () => {
     return (
       <Layout>
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
         </div>
       </Layout>
     );
@@ -141,159 +153,266 @@ const UsersPage = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Gestion des Utilisateurs</h1>
-            <p className="text-gray-600 mt-2">Administrer les comptes d'accès</p>
+            <h1 className="text-2xl font-black text-gray-900">Utilisateurs</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Administration des comptes d'acces</p>
           </div>
-          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-            <UserPlus className="h-5 w-5" />
-            Créer un utilisateur
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold text-sm"
+          >
+            <UserPlus className="h-4 w-4" /> Creer un utilisateur
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Rechercher un utilisateur..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+        {/* Recherche */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Rechercher par nom, email, role..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
 
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utilisateur</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rôle</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
-                <tr key={user.userId} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
-                        <User className="h-6 w-6 text-gray-500" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.username}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${user.roleName === 'ADMIN' ? 'bg-red-100 text-red-800' :
-                        user.roleName === 'CUSTOMER' ? 'bg-green-100 text-green-800' :
-                          'bg-blue-100 text-blue-800'}`}>
-                      {user.roleName}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${user.isActive === false ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                      {user.isActive === false ? 'Désactivé' : 'Actif'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleToggleActive(user)}
-                      title={user.isActive === false ? 'Réactiver' : 'Désactiver'}
-                      className={`mr-3 ${user.isActive === false ? 'text-green-600 hover:text-green-800' : 'text-orange-500 hover:text-orange-700'}`}
-                    >
-                      {user.isActive === false ? <UserCheck className="h-5 w-5" /> : <UserX className="h-5 w-5" />}
-                    </button>
-                    <button onClick={() => handleEditClick(user)} className="text-indigo-600 hover:text-indigo-900 mr-3">
-                      <Edit className="h-5 w-5" />
-                    </button>
-                    <button onClick={() => handleDelete(user.userId)} className="text-red-600 hover:text-red-900">
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Modal Création Type */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h2 className="text-xl font-bold mb-4">Créer un nouvel utilisateur</h2>
-              <p className="text-gray-600 mb-6">Quel type d'utilisateur souhaitez-vous créer ?</p>
-              <div className="space-y-3">
-                <button onClick={() => handleCreateRedirect('EMPLOYEE')} className="w-full p-4 border rounded-lg hover:bg-blue-50 flex items-center gap-3 transition-colors">
-                  <div className="bg-blue-100 p-2 rounded-full"><UserCheck className="h-6 w-6 text-blue-600" /></div>
-                  <div className="text-left">
-                    <div className="font-bold text-gray-900">Employé</div>
-                    <div className="text-sm text-gray-500">Serveur, Cuisinier, Caissier, Admin</div>
-                  </div>
-                </button>
-                <button onClick={() => handleCreateRedirect('PROVIDER')} className="w-full p-4 border rounded-lg hover:bg-purple-50 flex items-center gap-3 transition-colors">
-                  <div className="bg-purple-100 p-2 rounded-full"><Truck className="h-6 w-6 text-purple-600" /></div>
-                  <div className="text-left">
-                    <div className="font-bold text-gray-900">Fournisseur</div>
-                    <div className="text-sm text-gray-500">Partenaire externe</div>
-                  </div>
-                </button>
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {['ADMIN', 'WAITER', 'COOK', 'CUSTOMER'].map(role => {
+            const count = users.filter(u => u.roleName === role).length;
+            return (
+              <div key={role} className="bg-white rounded-2xl border border-gray-100 p-4">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{role}</p>
+                <p className="text-3xl font-black text-gray-900 mt-1">{count}</p>
               </div>
-              <button onClick={() => setShowCreateModal(false)} className="mt-6 w-full py-2 text-gray-600 hover:bg-gray-100 rounded-md">Annuler</button>
+            );
+          })}
+        </div>
+
+        {/* Tableau */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  {['#ID', 'Utilisateur', 'Role', 'Statut', 'Derniere connexion', 'Actions'].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredUsers.map(u => (
+                  <tr key={u.userId} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 font-mono text-xs text-gray-400">#{u.userId}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <User className="h-4 w-4 text-gray-500" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{u.username}</p>
+                          <p className="text-xs text-gray-400">{u.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${ROLE_COLORS[u.roleName] || 'bg-gray-100 text-gray-600'}`}>
+                        {u.roleName}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold
+                        ${u.isActive === false ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                        {u.isActive === false ? 'Desactive' : 'Actif'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{fmtDate(u.lastLogin)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(u)}
+                          title={u.isActive === false ? 'Reactiver' : 'Desactiver'}
+                          className={`p-1.5 rounded-lg transition-colors
+                            ${u.isActive === false
+                              ? 'text-green-600 hover:bg-green-50'
+                              : 'text-orange-500 hover:bg-orange-50'}`}
+                        >
+                          {u.isActive === false ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEditClick(u)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                          title="Modifier"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(u.userId)}
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-3 border-t border-gray-50 text-xs text-gray-400">
+            {filteredUsers.length} utilisateur{filteredUsers.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+      </div>
+
+      {/* ── MODAL CREATION TYPE ── */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-black text-gray-900">Creer un utilisateur</h2>
+              <button type="button" onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-gray-100 rounded-xl">
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-5">Quel type d'utilisateur voulez-vous creer ?</p>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => handleCreateRedirect('EMPLOYEE')}
+                className="w-full p-4 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-300 flex items-center gap-3 transition-all text-left"
+              >
+                <div className="bg-blue-100 p-2.5 rounded-xl"><UserCheck className="h-5 w-5 text-blue-600" /></div>
+                <div>
+                  <p className="font-bold text-gray-900">Employe</p>
+                  <p className="text-xs text-gray-500">Serveur, Cuisinier, Admin...</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCreateRedirect('PROVIDER')}
+                className="w-full p-4 border border-gray-200 rounded-xl hover:bg-purple-50 hover:border-purple-300 flex items-center gap-3 transition-all text-left"
+              >
+                <div className="bg-purple-100 p-2.5 rounded-xl"><Truck className="h-5 w-5 text-purple-600" /></div>
+                <div>
+                  <p className="font-bold text-gray-900">Fournisseur</p>
+                  <p className="text-xs text-gray-500">Partenaire externe</p>
+                </div>
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Modal Édition */}
-        {showEditModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h2 className="text-xl font-bold mb-4">Modifier l'utilisateur</h2>
-              <form onSubmit={handleEditSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Nom d'utilisateur</label>
-                  <input type="text" value={editFormData.username} onChange={e => setEditFormData({ ...editFormData, username: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <input type="email" value={editFormData.email} onChange={e => setEditFormData({ ...editFormData, email: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Rôle</label>
+      {/* ── MODAL EDITION ── */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-black text-gray-900">Modifier l'utilisateur</h2>
+              <button type="button" onClick={() => setShowEditModal(false)} className="p-2 hover:bg-gray-100 rounded-xl">
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Informations actuelles (lecture seule) */}
+            <div className="bg-gray-50 rounded-xl p-4 mb-5 border border-gray-100">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Informations du compte</p>
+              <InfoRow icon={Hash}     label="ID utilisateur"    value={`#${editingUser.userId}`} />
+              <InfoRow icon={User}     label="Nom d'utilisateur" value={editingUser.username} />
+              <InfoRow icon={Mail}     label="Email"             value={editingUser.email} />
+              <InfoRow icon={Shield}   label="Role actuel"       value={editingUser.roleName} />
+              <InfoRow icon={Clock}    label="Derniere connexion" value={fmtDate(editingUser.lastLogin)} />
+              <InfoRow icon={Calendar} label="Cree le"           value={fmtDate(editingUser.createdAt)} />
+              <InfoRow icon={Lock}     label="Statut"            value={editingUser.isActive === false ? 'Desactive' : 'Actif'} />
+              {editingUser.pinUpToDate !== undefined && (
+                <InfoRow icon={Shield} label="PIN a jour"        value={editingUser.pinUpToDate ? 'Oui' : 'Non'} />
+              )}
+            </div>
+
+            {/* Champs modifiables */}
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Modifier les informations</p>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                  Nom d'utilisateur *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.username}
+                  onChange={e => setEditFormData(p => ({ ...p, username: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={editFormData.email}
+                  onChange={e => setEditFormData(p => ({ ...p, email: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                  Role *
+                </label>
+                {rolesList.length === 0 ? (
+                  <p className="text-xs text-red-500 py-2">Impossible de charger les roles - veuillez reessayer</p>
+                ) : (
                   <select
                     value={editFormData.roleId ?? ''}
-                    onChange={e => setEditFormData({ ...editFormData, roleId: parseInt(e.target.value) })}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    onChange={e => setEditFormData(p => ({ ...p, roleId: Number(e.target.value) }))}
+                    required
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {rolesList.length > 0
-                      ? rolesList.map(r => (
-                          <option key={r.roleId} value={r.roleId}>{r.roleName}</option>
-                        ))
-                      : Object.values(ROLES).map(name => (
-                          <option key={name} value={name}>{name}</option>
-                        ))
-                    }
+                    <option value="">Selectionner un role</option>
+                    {rolesList.map(r => (
+                      <option key={r.roleId} value={r.roleId}>{r.roleName}</option>
+                    ))}
                   </select>
-                </div>
-                <div className="flex justify-end gap-4 mt-6">
-                  <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Annuler</button>
-                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Enregistrer</button>
-                </div>
-              </form>
-            </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 text-sm"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || rolesList.length === 0}
+                  className="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 text-sm disabled:opacity-60"
+                >
+                  {saving ? 'Enregistrement...' : 'Mettre a jour'}
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </Layout>
   );
 };
