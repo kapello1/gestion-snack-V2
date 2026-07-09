@@ -48,7 +48,7 @@ const UsersPage = () => {
     loadUsers(true);
     api.get(API_ENDPOINTS.ROLES.BASE)
       .then(res => setRolesList(res.data || []))
-      .catch(() => toast.error('Impossible de charger la liste des roles'));
+      .catch(() => setRolesList([]));
   }, []);
 
   useEffect(() => { return wsManager.onEvent(() => loadUsers(false)); }, []); // eslint-disable-line
@@ -377,7 +377,20 @@ const UsersPage = () => {
                   Role *
                 </label>
                 {rolesList.length === 0 ? (
-                  <p className="text-xs text-red-500 py-2">Impossible de charger les roles - veuillez reessayer</p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-xs text-red-500">Erreur de chargement des roles.</p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        api.get(API_ENDPOINTS.ROLES.BASE)
+                          .then(res => setRolesList(res.data || []))
+                          .catch(() => toast.error('Toujours impossible de charger les roles'))
+                      }
+                      className="text-xs text-blue-600 underline font-semibold"
+                    >
+                      Recharger
+                    </button>
+                  </div>
                 ) : (
                   <select
                     value={editFormData.roleId ?? ''}
