@@ -110,6 +110,7 @@ public class ProductServiceImpl implements IProductService {
         
         product.setProductName(requestDTO.getProductName());
         product.setUnitPrice(requestDTO.getUnitPrice());
+        product.setPurchasePrice(requestDTO.getPurchasePrice());
         product.setQuantityAvailable(requestDTO.getQuantityAvailable());
         product.setAlertThreshold(requestDTO.getAlertThreshold());
         product.setProductType(requestDTO.getProductType());
