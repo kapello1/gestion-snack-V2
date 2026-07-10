@@ -55,7 +55,7 @@ public class EmployeeServiceImpl implements IEmployeeService {
     private EmployeeDTO toEmployeeDTOWithStatus(Employee employee) {
         EmployeeDTO dto = mapperUtil.toEmployeeDTO(employee);
         // Lookup par ownerId (robuste meme si l'email a change dans la table users)
-        userRepository.findByOwnerId(employee.getEmployeeId())
+        userRepository.findFirstByOwnerId(employee.getEmployeeId())
                 .ifPresentOrElse(
                         user -> dto.setIsActive(Boolean.TRUE.equals(user.getIsActive())),
                         () -> dto.setIsActive(true));
@@ -120,7 +120,7 @@ public class EmployeeServiceImpl implements IEmployeeService {
 
         // Synchroniser le role sur l'utilisateur lie
         final com.joel.gestion_snack.model.entity.Role syncedRole = role;
-        userRepository.findByOwnerId(employee.getEmployeeId()).ifPresent(u -> {
+        userRepository.findFirstByOwnerId(employee.getEmployeeId()).ifPresent(u -> {
             u.setRole(syncedRole);
             u.setUpdatedBy("ADMIN");
             userRepository.save(u);
@@ -149,7 +149,7 @@ public class EmployeeServiceImpl implements IEmployeeService {
                 .orElseThrow(() -> new EntityNotFoundException("Employé non trouvé avec l'ID: " + id));
 
         // Mettre à jour le User correspondant via ownerId (robuste meme si email diverge)
-        userRepository.findByOwnerId(employee.getEmployeeId()).ifPresent(user -> {
+        userRepository.findFirstByOwnerId(employee.getEmployeeId()).ifPresent(user -> {
             user.setIsActive(active);
             user.setUpdatedBy("ADMIN");
             userRepository.save(user);

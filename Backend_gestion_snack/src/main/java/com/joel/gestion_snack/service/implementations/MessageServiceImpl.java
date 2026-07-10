@@ -85,7 +85,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public MessageDTO savePersonalNotification(Long ownerId, String title, String message, String type) {
         // Cherche d'abord par ownerId (customerId ou employeeId), puis par userId direct
-        User user = userRepository.findByOwnerId(ownerId)
+        User user = userRepository.findFirstByOwnerId(ownerId)
                 .orElseGet(() -> userRepository.findById(ownerId).orElse(null));
 
         if (user == null) {
