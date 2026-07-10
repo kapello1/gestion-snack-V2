@@ -81,6 +81,14 @@ public class UserServiceImpl implements IUserService {
             throw new IllegalArgumentException("Nom d'utilisateur ou mot de passe incorrect");
         }
 
+        // Si email non configuré, connecter directement (pas de 2FA possible sans email)
+        if (!emailService.isConfigured()) {
+            log.warn("[AUTH] Email non configuré - connexion directe sans 2FA pour: {}", user.getUsername());
+            user.setLastLogin(LocalDateTime.now());
+            userRepository.save(user);
+            return buildSuccessResponse(user);
+        }
+
         // Générer et envoyer le code 2FA — la session n'est créée qu'après validation
         String twoFactorCode = String.format("%06d", new Random().nextInt(1_000_000));
         user.setTwoFactorCode(twoFactorCode);
@@ -90,8 +98,16 @@ public class UserServiceImpl implements IUserService {
 
         String firstName = resolveFirstName(user);
         boolean sent = emailService.send2FACodeEmail(user.getEmail(), twoFactorCode, firstName);
-        if (!sent) log.warn("Email 2FA non envoyé pour: {}", user.getUsername());
-        log.info("Code 2FA envoyé à {} pour: {}", user.getEmail(), user.getUsername());
+        if (!sent) {
+            // Email configuré mais envoi échoué — connecter directement pour éviter le blocage
+            log.error("[AUTH] Échec envoi email 2FA pour {} - connexion directe", user.getUsername());
+            user.setTwoFactorCode(null);
+            user.setTwoFactorCodeExpiry(null);
+            user.setLastLogin(LocalDateTime.now());
+            userRepository.save(user);
+            return buildSuccessResponse(user);
+        }
+        log.info("[AUTH] Code 2FA envoyé à {} pour: {}", user.getEmail(), user.getUsername());
 
         LoginResponseDTO pending = new LoginResponseDTO();
         pending.setSuccess(false);
@@ -176,6 +192,11 @@ public class UserServiceImpl implements IUserService {
     public void resend2FACode(Long userId) {
         log.info("Renvoi du code 2FA pour l'utilisateur ID: {}", userId);
 
+        if (!emailService.isConfigured()) {
+            log.warn("[AUTH] Renvoi 2FA impossible - email non configuré pour userId={}", userId);
+            throw new IllegalStateException("Service email non configuré - contactez l'administrateur");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
 
@@ -188,18 +209,20 @@ public class UserServiceImpl implements IUserService {
         String firstName = resolveFirstName(user);
         boolean sent = emailService.send2FACodeEmail(user.getEmail(), code, firstName);
         if (!sent) {
-            log.warn("Email 2FA (renvoi) non envoyé pour l'utilisateur ID: {}", userId);
+            log.warn("[AUTH] Échec renvoi email 2FA pour l'utilisateur ID: {}", userId);
+            throw new IllegalStateException("Impossible d'envoyer l'email - vérifiez votre adresse email");
         }
-        log.info("Nouveau code 2FA envoyé pour l'utilisateur ID: {}", userId);
+        log.info("[AUTH] Nouveau code 2FA envoyé pour l'utilisateur ID: {}", userId);
     }
 
     private String resolveFirstName(User user) {
         RoleType role = user.getRole() != null ? user.getRole().getRoleName() : null;
-        if (role == RoleType.CUSTOMER) {
-            return customerRepository.findById(user.getOwnerId())
+        Long ownerId = user.getOwnerId();
+        if (role == RoleType.CUSTOMER && ownerId != null) {
+            return customerRepository.findById(ownerId)
                     .map(c -> c.getFirstName()).orElse(user.getUsername());
-        } else if (role != null && role != RoleType.PROVIDER) {
-            return employeeRepository.findById(user.getOwnerId())
+        } else if (role != null && role != RoleType.ADMIN && role != RoleType.PROVIDER && ownerId != null) {
+            return employeeRepository.findById(ownerId)
                     .map(e -> e.getFirstName()).orElse(user.getUsername());
         }
         return user.getUsername();
