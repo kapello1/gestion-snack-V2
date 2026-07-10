@@ -54,10 +54,11 @@ public class EmployeeServiceImpl implements IEmployeeService {
 
     private EmployeeDTO toEmployeeDTOWithStatus(Employee employee) {
         EmployeeDTO dto = mapperUtil.toEmployeeDTO(employee);
-        userRepository.findByEmail(employee.getEmail())
+        // Lookup par ownerId (robuste meme si l'email a change dans la table users)
+        userRepository.findByOwnerId(employee.getEmployeeId())
                 .ifPresentOrElse(
                         user -> dto.setIsActive(Boolean.TRUE.equals(user.getIsActive())),
-                        () -> dto.setIsActive(true)); // pas de User trouvé → actif par défaut
+                        () -> dto.setIsActive(true));
         return dto;
     }
 
@@ -116,6 +117,15 @@ public class EmployeeServiceImpl implements IEmployeeService {
         employee.setUpdatedBy(requestDTO.getCreatedBy());
         employee = employeeRepository.save(employee);
         log.info("Employé mis à jour avec succès");
+
+        // Synchroniser le role sur l'utilisateur lie
+        final com.joel.gestion_snack.model.entity.Role syncedRole = role;
+        userRepository.findByOwnerId(employee.getEmployeeId()).ifPresent(u -> {
+            u.setRole(syncedRole);
+            u.setUpdatedBy("ADMIN");
+            userRepository.save(u);
+        });
+
         wsPublisher.publishUserEvent("USER_UPDATED", employee.getEmployeeId());
         return mapperUtil.toEmployeeDTO(employee);
     }
@@ -138,8 +148,8 @@ public class EmployeeServiceImpl implements IEmployeeService {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employé non trouvé avec l'ID: " + id));
 
-        // Mettre à jour le User correspondant (créé par le trigger)
-        userRepository.findByEmail(employee.getEmail()).ifPresent(user -> {
+        // Mettre à jour le User correspondant via ownerId (robuste meme si email diverge)
+        userRepository.findByOwnerId(employee.getEmployeeId()).ifPresent(user -> {
             user.setIsActive(active);
             user.setUpdatedBy("ADMIN");
             userRepository.save(user);

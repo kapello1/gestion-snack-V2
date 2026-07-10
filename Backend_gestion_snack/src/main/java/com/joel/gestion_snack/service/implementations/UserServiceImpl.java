@@ -348,30 +348,30 @@ public class UserServiceImpl implements IUserService {
         }
         user.setUpdatedBy(requestDTO.getCreatedBy() != null ? requestDTO.getCreatedBy() : "ADMIN");
 
-        // Synchroniser email + username sur l'entité liée (Employee / Customer)
-        if (user.getOwnerId() != null) {
-            RoleType roleType = user.getRole() != null ? user.getRole().getRoleName() : null;
+        // Sauvegarder l'utilisateur EN PREMIER pour que son rôle soit à jour
+        user = userRepository.save(user);
+        log.info("[UPDATE_USER] Succès - userId={}", user.getUserId());
+
+        // Synchroniser le ROLE uniquement sur l'entité liée (pas email/username — contraintes UNIQUE risquées)
+        if (user.getOwnerId() != null && user.getRole() != null) {
+            RoleType roleType = user.getRole().getRoleName();
+            final Role finalRole = user.getRole();
             if (roleType == RoleType.CUSTOMER) {
                 customerRepository.findById(user.getOwnerId()).ifPresent(c -> {
-                    c.setEmail(requestDTO.getEmail());
-                    c.setUsername(requestDTO.getUsername());
                     c.setUpdatedBy("ADMIN");
                     customerRepository.save(c);
-                    log.info("[UPDATE_USER] Email/username synchronises sur Customer ID={}", c.getCustomerId());
+                    log.info("[UPDATE_USER] Customer ID={} marque mis a jour", c.getCustomerId());
                 });
-            } else if (roleType != null && roleType != RoleType.ADMIN && roleType != RoleType.PROVIDER) {
+            } else if (roleType != RoleType.ADMIN && roleType != RoleType.PROVIDER) {
                 employeeRepository.findById(user.getOwnerId()).ifPresent(emp -> {
-                    emp.setEmail(requestDTO.getEmail());
-                    emp.setUsername(requestDTO.getUsername());
+                    emp.setRole(finalRole);
                     emp.setUpdatedBy("ADMIN");
                     employeeRepository.save(emp);
-                    log.info("[UPDATE_USER] Email/username synchronises sur Employee ID={}", emp.getEmployeeId());
+                    log.info("[UPDATE_USER] Role synchronise sur Employee ID={}", emp.getEmployeeId());
                 });
             }
         }
 
-        user = userRepository.save(user);
-        log.info("[UPDATE_USER] Succès - userId={}", user.getUserId());
         wsPublisher.publishUserEvent("USER_UPDATED", user.getUserId());
         return mapperUtil.toUserDTO(user);
     }
