@@ -1,0 +1,13 @@
+services:
+  backend:
+    build:
+      context: ./Backend_gestion_snack
+      dockerfile: Dockerfile
+    container_name: gestion-snack-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    # N'expose le port qu'en local (127.0.0.1) : seul Nginx (installé sur l'hôte)
+    # doit être joignable depuis Internet, jamais le backend directement.
+    ports:
+      - "127.0.0.1:8080:8080"
