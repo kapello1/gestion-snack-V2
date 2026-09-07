@@ -23,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -40,6 +41,8 @@ public class ReservationServiceImpl implements IReservationService {
     private static final LocalTime LUNCH_END    = LocalTime.of(14, 0);
     private static final LocalTime DINNER_START = LocalTime.of(18, 0);
     private static final LocalTime DINNER_END   = LocalTime.of(22, 0);
+    private static final ZoneId RESTAURANT_ZONE = ZoneId.of("Europe/Brussels");
+    private static final int BOOKING_BUFFER_MIN = 30;
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter DATE_FMT  = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -113,9 +116,15 @@ public class ReservationServiceImpl implements IReservationService {
 
         if (suitableTables.isEmpty()) return Collections.emptyList();
 
+        LocalDateTime now   = LocalDateTime.now(RESTAURANT_ZONE);
+        LocalDate     today = now.toLocalDate();
+        if (date.isBefore(today)) return Collections.emptyList();
+        LocalDateTime minStart = date.isEqual(today) ? now.plusMinutes(BOOKING_BUFFER_MIN) : null;
+
         List<AvailabilitySlotDTO> result = new ArrayList<>();
         for (LocalTime[] slot : buildSlotTimes()) {
             LocalDateTime slotStart = LocalDateTime.of(date, slot[0]);
+            if (minStart != null && slotStart.isBefore(minStart)) continue;
             LocalDateTime slotEnd   = LocalDateTime.of(date, slot[1]);
 
             List<Long> occupiedIds = reservationRepository.findOccupiedTableIdsDuringSlot(slotStart, slotEnd);
