@@ -1,6 +1,10 @@
 # Déploiement sur OVH - Guide complet
 
 Ce guide part du principe que tu as déjà :
+<<<<<<< HEAD
+=======
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 - Commandé un VPS OVH (VPS-1 recommandé : 2 vCore / 4 Go RAM / 40 Go NVMe) avec Ubuntu 24.04 LTS
 - Acheté un nom de domaine (chez OVH ou ailleurs)
 - Reçu (ou en attente) l'email OVH de confirmation
@@ -9,12 +13,21 @@ Tout ce qui suit va de la réception des identifiants jusqu'à l'application en 
 
 **Fichiers déjà prêts dans le repo** (vérifiés contre le code réel du projet) :
 
+<<<<<<< HEAD
 | Fichier | Rôle |
 |---|---|
 | [docker-compose.ovh.yml](docker-compose.ovh.yml) | Build + lance le backend Spring Boot en conteneur |
 | [.env.ovh.example](.env.ovh.example) | Modèle des variables d'environnement du backend |
 | [deploy/ovh/gestion-snack.nginx.conf](deploy/ovh/gestion-snack.nginx.conf) | Reverse proxy Nginx (API + WebSocket + frontend statique) |
 | [deploy/ovh/deploy.sh](deploy/ovh/deploy.sh) | Script de redéploiement en une commande |
+=======
+| Fichier                                                                   | Rôle                                                     |
+| ------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [docker-compose.ovh.yml](docker-compose.ovh.yml)                           | Build + lance le backend Spring Boot en conteneur         |
+| [.env.ovh.example](.env.ovh.example)                                       | Modèle des variables d'environnement du backend          |
+| [deploy/ovh/gestion-snack.nginx.conf](deploy/ovh/gestion-snack.nginx.conf) | Reverse proxy Nginx (API + WebSocket + frontend statique) |
+| [deploy/ovh/deploy.sh](deploy/ovh/deploy.sh)                               | Script de redéploiement en une commande                  |
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 
 Architecture cible : **un seul domaine**, Nginx sur l'hôte route `/api` et `/ws` vers le backend Docker (en local uniquement, port 8080 jamais exposé publiquement), et sert les fichiers statiques du frontend pour tout le reste. La base de données (Neon.tech), le stockage d'images (Cloudinary), l'email (Brevo), les paiements (Stripe) et l'IA (Groq/ElevenLabs) restent des services externes inchangés.
 
@@ -29,11 +42,19 @@ Architecture cible : **un seul domaine**, Nginx sur l'hôte route `/api` et `/ws
    ```bash
    ssh <TON_UTILISATEUR>@<IP_DU_VPS>
    ```
+<<<<<<< HEAD
+=======
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
    Tape `yes` si on te demande de confirmer l'empreinte du serveur, puis colle le mot de passe reçu par email (invisible en tapant, c'est normal).
 3. Passe en root pour la suite de l'installation (le reste de ce guide suppose un shell root - toutes les commandes systèmes qui suivent en ont besoin) :
    ```bash
    sudo -i
    ```
+<<<<<<< HEAD
+=======
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
    Si `sudo` te redemande un mot de passe, c'est celui de ton utilisateur (pas un autre). Si `sudo -i` ne fonctionne pas du tout (utilisateur pas dans le groupe sudo), reconnecte-toi et écris-moi le message d'erreur exact.
 4. Une fois en root (l'invite affiche `root@...:~#`), change le mot de passe root par sécurité :
    ```bash
@@ -68,6 +89,10 @@ ufw enable
 ```
 
 Vérifie les versions :
+<<<<<<< HEAD
+=======
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 ```bash
 docker --version
 docker compose version
@@ -81,6 +106,7 @@ nginx -v
 
 Dans le panel OVH (ou chez ton registrar si le domaine est ailleurs), zone DNS du domaine :
 
+<<<<<<< HEAD
 | Type | Nom | Cible |
 |---|---|---|
 | A | `@` | `<IP_DU_VPS>` |
@@ -90,6 +116,19 @@ La propagation prend de quelques minutes à quelques heures. Vérifie avant de c
 ```bash
 dig +short ton-domaine.com
 ```
+=======
+| Type | Nom     | Cible           |
+| ---- | ------- | --------------- |
+| A    | `@`   | `<IP_DU_VPS>` |
+| A    | `www` | `<IP_DU_VPS>` |
+
+La propagation prend de quelques minutes à quelques heures. Vérifie avant de continuer :
+
+```bash
+dig +short ton-domaine.com
+```
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 Doit renvoyer l'IP du VPS. Ne passe à l'étape Certbot que quand c'est bon (sinon Certbot échouera).
 
 ---
@@ -106,6 +145,7 @@ nano .env
 
 Renseigne chaque variable. Récupère les vraies valeurs depuis le dashboard Render actuel (Environment) pour ne rien deviner :
 
+<<<<<<< HEAD
 | Variable | Où la trouver |
 |---|---|
 | `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Dashboard Render, ou console.neon.tech |
@@ -116,6 +156,18 @@ Renseigne chaque variable. Récupère les vraies valeurs depuis le dashboard Ren
 | `STRIPE_SECRET_KEY` | Dashboard Render, ou dashboard.stripe.com |
 | `STRIPE_WEBHOOK_SECRET` | Voir étape 9 - à régénérer pour la nouvelle URL |
 | `BREVO_API_KEY`, `BREVO_FROM_EMAIL` | Dashboard Render, ou app.brevo.com |
+=======
+| Variable                                                       | Où la trouver                                                      |
+| -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Dashboard Render, ou console.neon.tech                              |
+| `ALLOWED_ORIGINS`, `FRONTEND_URL`                          | À définir sur`https://ton-domaine.com` (le nouveau domaine OVH) |
+| `CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET`                   | Dashboard Render, ou console Cloudinary                             |
+| `GROQ_API_KEY`                                               | Dashboard Render, ou console.groq.com                               |
+| `ELEVENLABS_API_KEY` (+ voice/model id)                      | Dashboard Render, ou elevenlabs.io                                  |
+| `STRIPE_SECRET_KEY`                                          | Dashboard Render, ou dashboard.stripe.com                           |
+| `STRIPE_WEBHOOK_SECRET`                                      | Voir étape 9 - à régénérer pour la nouvelle URL                |
+| `BREVO_API_KEY`, `BREVO_FROM_EMAIL`                        | Dashboard Render, ou app.brevo.com                                  |
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 
 Sauvegarde (`Ctrl+O`, `Entrée`, `Ctrl+X` dans nano).
 
@@ -129,11 +181,21 @@ docker compose -f docker-compose.ovh.yml up -d --build
 ```
 
 Le premier build prend quelques minutes (compilation Maven). Vérifie que ça tourne :
+<<<<<<< HEAD
+=======
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 ```bash
 docker compose -f docker-compose.ovh.yml ps
 curl http://127.0.0.1:8080/api-docs
 ```
+<<<<<<< HEAD
 La commande `curl` doit renvoyer du JSON (spec OpenAPI). Si erreur, regarde les logs :
+=======
+
+La commande `curl` doit renvoyer du JSON (spec OpenAPI). Si erreur, regarde les logs :
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 ```bash
 docker compose -f docker-compose.ovh.yml logs -f backend
 ```
@@ -149,13 +211,25 @@ nano .env
 ```
 
 Renseigne :
+<<<<<<< HEAD
+=======
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 ```
 VITE_API_BASE_URL=https://ton-domaine.com/api
 VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...   (ou pk_test_... pour tester d'abord)
 ```
+<<<<<<< HEAD
 Ne mets rien pour Groq/ElevenLabs (gérés côté backend uniquement).
 
 Build et publication :
+=======
+
+Ne mets rien pour Groq/ElevenLabs (gérés côté backend uniquement).
+
+Build et publication :
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 ```bash
 npm ci
 npm run build
@@ -171,14 +245,26 @@ rsync -a --delete dist/ /var/www/gestion-snack/frontend/
 cp /opt/gestion-snack/deploy/ovh/gestion-snack.nginx.conf /etc/nginx/sites-available/gestion-snack
 nano /etc/nginx/sites-available/gestion-snack
 ```
+<<<<<<< HEAD
 Remplace les deux occurrences de `votre-domaine.com` par ton vrai domaine, puis :
+=======
+
+Remplace les deux occurrences de `votre-domaine.com` par ton vrai domaine, puis :
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 ```bash
 ln -s /etc/nginx/sites-available/gestion-snack /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default   # évite un conflit avec la page par défaut de Nginx
 nginx -t
 systemctl reload nginx
 ```
+<<<<<<< HEAD
 `nginx -t` doit afficher `syntax is ok` / `test is successful`. Teste déjà en HTTP :
+=======
+
+`nginx -t` doit afficher `syntax is ok` / `test is successful`. Teste déjà en HTTP :
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 ```bash
 curl -I http://ton-domaine.com
 ```
@@ -190,6 +276,10 @@ curl -I http://ton-domaine.com
 ```bash
 certbot --nginx -d ton-domaine.com -d www.ton-domaine.com
 ```
+<<<<<<< HEAD
+=======
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 Réponds à l'email de contact et accepte les CGU. Certbot édite automatiquement la config Nginx pour ajouter le bloc HTTPS (443) et la redirection HTTP → HTTPS. Le renouvellement automatique est déjà planifié (`systemctl status certbot.timer` pour vérifier).
 
 ---
@@ -221,16 +311,25 @@ Réponds à l'email de contact et accepte les CGU. Certbot édite automatiquemen
 ## Étape 11 - Redéployer après une modification
 
 Depuis ton PC, pousse tes changements sur GitHub, puis sur le VPS :
+<<<<<<< HEAD
+=======
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 ```bash
 cd /opt/gestion-snack
 ./deploy/ovh/deploy.sh
 ```
+<<<<<<< HEAD
+=======
+
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 Ce script fait `git pull`, reconstruit le conteneur backend, rebuild le frontend et recharge Nginx.
 
 ---
 
 ## Dépannage rapide
 
+<<<<<<< HEAD
 | Symptôme | Cause probable | Solution |
 |---|---|---|
 | 502 Bad Gateway | Le conteneur backend est down/en train de démarrer | `docker compose -f docker-compose.ovh.yml logs -f backend` |
@@ -239,16 +338,37 @@ Ce script fait `git pull`, reconstruit le conteneur backend, rebuild le frontend
 | WebSocket ne se connecte jamais (pas de temps réel) | Headers `Upgrade`/`Connection` absents côté proxy | Vérifie que le bloc `location /ws` du fichier Nginx est bien présent et actif |
 | Certbot échoue ("Could not verify domain") | DNS pas encore propagé, ou port 80 fermé | `dig +short ton-domaine.com` doit renvoyer l'IP du VPS ; `ufw status` doit montrer 80/443 ouverts |
 | Page blanche sur `/` après navigation directe vers une sous-route | `try_files` mal configuré | Vérifie la ligne `try_files $uri /index.html;` dans le fichier Nginx |
+=======
+| Symptôme                                                           | Cause probable                                                               | Solution                                                                                              |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 502 Bad Gateway                                                     | Le conteneur backend est down/en train de démarrer                          | `docker compose -f docker-compose.ovh.yml logs -f backend`                                          |
+| `npm run build` échoue                                           | Node trop ancien pour Vite 7                                                 | `node -v` doit être ≥ 20.19 ou ≥ 22.12 - réinstalle via NodeSource (étape 2)                   |
+| Erreur CORS dans la console navigateur                              | `ALLOWED_ORIGINS` ne correspond pas exactement au domaine (schéma + host) | Vérifie`https://ton-domaine.com` sans slash final dans `.env`, redémarre le backend             |
+| WebSocket ne se connecte jamais (pas de temps réel)                | Headers`Upgrade`/`Connection` absents côté proxy                       | Vérifie que le bloc`location /ws` du fichier Nginx est bien présent et actif                      |
+| Certbot échoue ("Could not verify domain")                         | DNS pas encore propagé, ou port 80 fermé                                   | `dig +short ton-domaine.com` doit renvoyer l'IP du VPS ; `ufw status` doit montrer 80/443 ouverts |
+| Page blanche sur`/` après navigation directe vers une sous-route | `try_files` mal configuré                                                 | Vérifie la ligne`try_files $uri /index.html;` dans le fichier Nginx                                |
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 
 ---
 
 ## Résumé des variables d'environnement
 
 ### Backend (`/opt/gestion-snack/.env`)
+<<<<<<< HEAD
 Voir [.env.ovh.example](.env.ovh.example) - toutes les variables listées y sont nécessaires sauf `ELEVENLABS_*` (optionnel, TTS chatbot) et `STRIPE_*` (optionnel si pas de paiement en ligne).
 
 ### Frontend (`/opt/gestion-snack/frontend_gestion_snack/.env`)
 | Variable | Requis | Valeur |
 |---|---|---|
 | `VITE_API_BASE_URL` | Oui | `https://ton-domaine.com/api` |
+=======
+
+Voir [.env.ovh.example](.env.ovh.example) - toutes les variables listées y sont nécessaires sauf `ELEVENLABS_*` (optionnel, TTS chatbot) et `STRIPE_*` (optionnel si pas de paiement en ligne).
+
+### Frontend (`/opt/gestion-snack/frontend_gestion_snack/.env`)
+
+| Variable                        | Requis            | Valeur                             |
+| ------------------------------- | ----------------- | ---------------------------------- |
+| `VITE_API_BASE_URL`           | Oui               | `https://ton-domaine.com/api`    |
+>>>>>>> 57d25fb1ac3fbfce3f5a6cb61b5a2fdc2399c2e1
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Si paiement carte | `pk_live_...` ou `pk_test_...` |
