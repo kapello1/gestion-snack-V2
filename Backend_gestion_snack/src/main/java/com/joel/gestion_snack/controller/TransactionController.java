@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.OrderDTO;
 import com.joel.gestion_snack.model.dto.TransactionDTO;
 import com.joel.gestion_snack.model.entity.OrderStatus;
@@ -32,6 +33,7 @@ public class TransactionController {
 
     @GetMapping
     @Operation(summary = "Récupérer toutes les transactions triées par date décroissante")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<TransactionDTO>> getAllTransactions() {
         List<TransactionDTO> dtos = transactionRepository.findAllByOrderByTransactionDateDesc()
                 .stream()
@@ -42,6 +44,7 @@ public class TransactionController {
 
     @PostMapping("/{id}/refund")
     @Operation(summary = "Rembourser une transaction (Stripe ou espèces)")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> refundTransaction(
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, String> body) {

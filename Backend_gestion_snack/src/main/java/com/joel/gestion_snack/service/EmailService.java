@@ -1,9 +1,11 @@
 package com.joel.gestion_snack.service;
 
+import com.joel.gestion_snack.model.entity.RoleType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.HtmlUtils;
 
 import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
@@ -212,6 +214,71 @@ public class EmailService {
                 + "<p style='color:#9ca3af;font-size:12px'>Snack - cet email est automatique, merci de ne pas y répondre.</p>"
                 + "</div>";
         return sendHtml(toEmail, "Confirmation de votre réservation - Snack", body);
+    }
+
+    /**
+     * Email d'accueil d'un nouvel employé : lui indique ses identifiants de connexion par défaut
+     * (nom d'utilisateur ou email + mot de passe par défaut) et l'invite à changer son mot de passe.
+     */
+    public boolean sendEmployeeWelcomeEmail(String toEmail, String firstName, String username,
+                                            RoleType role, String defaultPassword) {
+        if (!isConfigured()) {
+            log.warn("Brevo non configuré - email d'accueil non envoyé à {}", toEmail);
+            return false;
+        }
+        return sendHtml(toEmail, "Bienvenue dans l'équipe - vos identifiants de connexion - Snack",
+                buildEmployeeWelcomeBody(firstName, username, toEmail, role, defaultPassword));
+    }
+
+    String buildEmployeeWelcomeBody(String firstName, String username, String email,
+                                    RoleType role, String defaultPassword) {
+        String loginLink = frontendUrl + "/login";
+        return "<div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:32px'>"
+                + "<h1 style='color:#2563eb'>Snack</h1>"
+                + "<h2 style='color:#1f2937'>Bienvenue dans l'équipe, " + HtmlUtils.htmlEscape(firstName) + " !</h2>"
+                + "<p style='color:#4b5563;font-size:16px'>Votre compte <strong>" + roleLabel(role)
+                + "</strong> vient d'être créé par l'administrateur. Voici vos identifiants de connexion par défaut :</p>"
+                + "<div style='background:#f3f4f6;border:2px solid #dbeafe;border-radius:12px;padding:20px 24px;margin:24px 0'>"
+                + "<p style='margin:0 0 12px;color:#6b7280;font-size:13px;text-transform:uppercase;letter-spacing:1px'>"
+                + "Identifiant</p>"
+                + "<p style='margin:0 0 4px;color:#111827;font-size:18px;font-weight:bold'>"
+                + HtmlUtils.htmlEscape(username) + "</p>"
+                + "<p style='margin:0 0 18px;color:#6b7280;font-size:14px'>ou votre adresse email : "
+                + HtmlUtils.htmlEscape(email) + "</p>"
+                + "<p style='margin:0 0 12px;color:#6b7280;font-size:13px;text-transform:uppercase;letter-spacing:1px'>"
+                + "Mot de passe par défaut</p>"
+                + "<p style='margin:0;color:#1d4ed8;font-size:26px;font-weight:900;letter-spacing:6px'>"
+                + HtmlUtils.htmlEscape(defaultPassword) + "</p>"
+                + "</div>"
+                + "<div style='text-align:center;margin:32px 0'>"
+                + "<a href='" + loginLink + "' style='display:inline-block;padding:14px 32px;background:#2563eb;"
+                + "color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px'>"
+                + "Me connecter</a></div>"
+                + "<div style='background:#fffbeb;border-left:4px solid #f59e0b;border-radius:6px;padding:14px 18px;margin:24px 0'>"
+                + "<p style='color:#92400e;font-size:14px;margin:0;font-weight:600'>Pensez à modifier votre mot de passe</p>"
+                + "<p style='color:#92400e;font-size:13px;margin:6px 0 0;line-height:1.5'>"
+                + "Ce mot de passe est commun à tous les nouveaux comptes. Une fois connecté, ouvrez le menu de votre "
+                + "profil puis « Mon profil » pour le remplacer par un mot de passe personnel.</p>"
+                + "</div>"
+                + "<p style='color:#6b7280;font-size:14px'>À chaque connexion, un code de vérification à 6 chiffres sera "
+                + "envoyé à cette adresse email.</p>"
+                + "<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0'>"
+                + "<p style='color:#9ca3af;font-size:12px'>Snack - cet email est automatique, merci de ne pas y répondre.</p>"
+                + "</div>";
+    }
+
+    private static String roleLabel(RoleType role) {
+        if (role == null) {
+            return "employé";
+        }
+        return switch (role) {
+            case ADMIN -> "Administrateur";
+            case CASHIER -> "Caissier";
+            case WAITER -> "Serveur";
+            case COOK -> "Cuisinier";
+            case PROVIDER -> "Fournisseur";
+            case CUSTOMER -> "Client";
+        };
     }
 
     private String build2FABody(String firstName, String code) {

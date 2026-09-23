@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.EmployeeDTO;
 import com.joel.gestion_snack.model.dto.EmployeeRequestDTO;
 import com.joel.gestion_snack.service.interfaces.IEmployeeService;
@@ -28,6 +29,7 @@ public class EmployeeControllerImpl {
     
     @GetMapping
     @Operation(summary = "Récupérer tous les employés")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<EmployeeDTO>> getAllEmployees() {
         log.info("Requête GET pour récupérer tous les employés");
         return ResponseEntity.ok(employeeService.getAllEmployees());
@@ -35,6 +37,7 @@ public class EmployeeControllerImpl {
     
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer un employé par son ID")
+    @PreAuthorize("hasRole('ADMIN') or @authz.isEmployee(authentication, #id)")
     public ResponseEntity<EmployeeDTO> getEmployeeById(@PathVariable Long id) {
         log.info("Requête GET pour récupérer l'employé avec l'ID: {}", id);
         return ResponseEntity.ok(employeeService.getEmployeeById(id));
@@ -42,6 +45,7 @@ public class EmployeeControllerImpl {
     
     @PostMapping
     @Operation(summary = "Créer un nouvel employé")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<EmployeeDTO> createEmployee(@Valid @RequestBody EmployeeRequestDTO requestDTO) {
         log.info("Requête POST pour créer un nouvel employé");
         EmployeeDTO employee = employeeService.createEmployee(requestDTO);
@@ -50,6 +54,7 @@ public class EmployeeControllerImpl {
     
     @PutMapping("/{id}")
     @Operation(summary = "Mettre à jour un employé")
+    @PreAuthorize("hasRole('ADMIN') or @authz.isEmployee(authentication, #id)")
     public ResponseEntity<EmployeeDTO> updateEmployee(@PathVariable Long id, 
                                                        @Valid @RequestBody EmployeeRequestDTO requestDTO) {
         log.info("Requête PUT pour mettre à jour l'employé avec l'ID: {}", id);
@@ -58,6 +63,7 @@ public class EmployeeControllerImpl {
     
     @DeleteMapping("/{id}")
     @Operation(summary = "Supprimer un employé")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteEmployee(@PathVariable Long id) {
         log.info("Requête DELETE pour supprimer l'employé avec l'ID: {}", id);
         employeeService.deleteEmployee(id);
@@ -66,6 +72,7 @@ public class EmployeeControllerImpl {
 
     @PatchMapping("/{id}/deactivate")
     @Operation(summary = "Désactiver un employé (soft delete - bloque la connexion)")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<EmployeeDTO> deactivateEmployee(@PathVariable Long id) {
         log.info("Requête PATCH pour désactiver l'employé avec l'ID: {}", id);
         return ResponseEntity.ok(employeeService.toggleActiveStatus(id, false));
@@ -73,6 +80,7 @@ public class EmployeeControllerImpl {
 
     @PatchMapping("/{id}/activate")
     @Operation(summary = "Réactiver un employé")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<EmployeeDTO> activateEmployee(@PathVariable Long id) {
         log.info("Requête PATCH pour activer l'employé avec l'ID: {}", id);
         return ResponseEntity.ok(employeeService.toggleActiveStatus(id, true));

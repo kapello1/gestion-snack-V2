@@ -11,6 +11,7 @@ import com.joel.gestion_snack.repository.*;
 import com.joel.gestion_snack.service.interfaces.IOrderService;
 import com.joel.gestion_snack.utils.MapperUtil;
 import com.stripe.exception.StripeException;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,6 +43,10 @@ public class OrderServiceImpl implements IOrderService {
     private final MapperUtil mapperUtil;
     private final WebSocketEventPublisher wsPublisher;
     private final StripeService stripeService;
+    private final EntityManager entityManager;
+
+    /** Plus petit montant remboursable : Stripe refuse tout montant inférieur à 1 centime. */
+    private static final BigDecimal MIN_REFUND_AMOUNT = new BigDecimal("0.01");
 
     @Override
     @Transactional(readOnly = true)
@@ -154,8 +160,11 @@ public class OrderServiceImpl implements IOrderService {
                     product.getProductName(), itemRequest.getQuantity());
         }
 
-        // Le total sera recalculé automatiquement par le trigger de la base de données
-        order = orderRepository.findById(order.getOrderId()).orElse(order);
+        // Le total est recalculé par le trigger de la base de données. On écrit d'abord les lignes, puis on
+        // recharge la commande depuis la base : un simple findById renverrait l'objet déjà en mémoire, dont le
+        // total est resté à 0, et la transaction de paiement (donc le CA) serait enregistrée à 0,00 €.
+        orderRepository.flush();
+        entityManager.refresh(order);
 
         // Paiement Stripe déjà confirmé : créer la transaction COMPLETED et màj le CA
         if (requestDTO.getStripePaymentIntentId() != null
@@ -415,9 +424,10 @@ public class OrderServiceImpl implements IOrderService {
      *
      * <p><b>Ordre des opérations (intentionnel et important) :</b></p>
      * <ol>
-     *   <li>Vérifications métier (commande existe, paiement COMPLETED, non déjà remboursée)</li>
+     *   <li>Vérifications métier (commande ACTIVE, paiement COMPLETED, non déjà remboursée, montant non nul)</li>
      *   <li>Appel à l'API Stripe — si Stripe échoue, on s'arrête ici, la BDD reste intacte</li>
      *   <li>Mise à jour de la transaction en REFUNDED en BDD</li>
+     *   <li>Annulation de la commande (stock restitué, table libérée)</li>
      *   <li>Correction du chiffre d'affaires ({@link #reverseRevenue})</li>
      *   <li>Publication d'un événement WebSocket pour les interfaces en temps réel</li>
      * </ol>
@@ -435,6 +445,12 @@ public class OrderServiceImpl implements IOrderService {
     @Override
     public OrderDTO refundOrder(Long orderId, String refundedBy) {
         Order order = findOrderOrThrow(orderId);
+
+        // Même règle métier que le remboursement espèces : impossible une fois la préparation commencée.
+        if (order.getStatus() != OrderStatus.ACTIVE) {
+            throw new IllegalStateException(
+                    "Le remboursement n'est possible que pour les commandes en attente de préparation (statut: ACTIVE)");
+        }
 
         // On cherche uniquement une transaction COMPLETED : une transaction PENDING ou FAILED
         // ne correspond pas à un paiement réel, donc elle n'est pas remboursable.
@@ -455,11 +471,25 @@ public class OrderServiceImpl implements IOrderService {
             throw new IllegalStateException("La commande " + orderId + " a déjà été remboursée");
         }
 
+        // Montant enregistré à l'encaissement : c'est aussi celui qui a été ajouté au chiffre d'affaires.
+        BigDecimal creditedAmount = transaction.getAmount() != null ? transaction.getAmount() : BigDecimal.ZERO;
+
+        // Les paiements Stripe créés avant la correction de createOrder ont été enregistrés à 0,00 € (le total de
+        // la commande n'était pas encore relu depuis la base) : on retombe alors sur le total réel de la commande.
+        BigDecimal refundAmount = creditedAmount.compareTo(MIN_REFUND_AMOUNT) >= 0
+                ? creditedAmount
+                : order.getTotalAmount();
+        if (refundAmount == null || refundAmount.compareTo(MIN_REFUND_AMOUNT) < 0) {
+            throw new IllegalStateException(
+                    "Montant à rembourser nul pour la commande " + orderId + " : vérifiez le total de la commande");
+        }
+
         // Stripe attend le montant en centimes entiers (pas de décimales).
         // Ex. : 15,50 € → 1550 centimes.
-        long amountInCents = transaction.getAmount()
-                .multiply(java.math.BigDecimal.valueOf(100))
-                .longValue();
+        long amountInCents = refundAmount
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(0, RoundingMode.HALF_UP)
+                .longValueExact();
 
         // RÈGLE D'OR : Stripe est appelé AVANT toute modification en BDD.
         // Si Stripe échoue (délai dépassé, fonds insuffisants, etc.), on lance une exception
@@ -472,13 +502,19 @@ public class OrderServiceImpl implements IOrderService {
         }
 
         // Stripe a confirmé le remboursement → on met à jour la BDD.
+        transaction.setAmount(refundAmount);
         transaction.setStatus(TransactionStatusType.REFUNDED);
         transaction.setUpdatedBy(refundedBy != null ? refundedBy : "SYSTEM");
         transactionRepository.save(transaction);
 
-        reverseRevenue(order);
+        // Comme pour le remboursement espèces : la commande est annulée (le trigger de la base restitue le stock)
+        // et la table libérée. Sans cela la cuisine continuerait à préparer une commande remboursée.
+        cancelOrderAfterRefund(order, refundedBy);
 
-        log.info("Commande {} remboursée avec succès via Stripe", orderId);
+        // On retire du CA ce qui y avait réellement été ajouté (0 pour un ancien paiement à 0,00 €).
+        reverseRevenue(order, creditedAmount);
+
+        log.info("Commande {} remboursée avec succès via Stripe ({} €)", orderId, refundAmount);
         wsPublisher.publishOrderEvent("ORDER_REFUNDED", orderId);
         return toOrderDTOWithItems(order);
     }
@@ -494,10 +530,17 @@ public class OrderServiceImpl implements IOrderService {
      * le remboursement Stripe déjà effectué. L'erreur est seulement loggée.</p>
      */
     private void reverseRevenue(Order order) {
+        reverseRevenue(order, order.getTotalAmount());
+    }
+
+    /**
+     * Variante qui retire un montant précis du chiffre d'affaires : celui qui y avait été ajouté à l'encaissement.
+     */
+    private void reverseRevenue(Order order, BigDecimal amountToRemove) {
         try {
             LocalDate date = order.getOrderDate() != null ? order.getOrderDate() : LocalDate.now();
             revenueRepository.findByDate(date).ifPresent(revenue -> {
-                BigDecimal newAmount = revenue.getAmount().subtract(order.getTotalAmount());
+                BigDecimal newAmount = revenue.getAmount().subtract(amountToRemove);
                 // Plancher à 0 pour éviter un CA négatif si les données sont incohérentes.
                 revenue.setAmount(newAmount.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : newAmount);
                 int newCount = Math.max(0, revenue.getOrderCount() - 1);
@@ -506,10 +549,25 @@ public class OrderServiceImpl implements IOrderService {
                 revenue.setUpdatedAt(java.time.LocalDateTime.now());
                 revenueRepository.save(revenue);
                 log.info("Chiffre d'affaires corrigé après remboursement commande {}: -{} €",
-                        order.getOrderId(), order.getTotalAmount());
+                        order.getOrderId(), amountToRemove);
             });
         } catch (Exception e) {
             log.error("Erreur lors de la correction du chiffre d'affaires après remboursement", e);
+        }
+    }
+
+    /**
+     * Annule une commande remboursée : statut CANCELLED (un trigger de la base restitue alors le stock),
+     * libération de la table et notification temps réel. Commun aux remboursements Stripe et espèces.
+     */
+    private void cancelOrderAfterRefund(Order order, String refundedBy) {
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setUpdatedBy(refundedBy != null ? refundedBy : "ADMIN");
+        orderRepository.save(order);
+
+        if (order.getTable() != null) {
+            freeTableIfNeeded(order);
+            wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", order.getTable().getTableId());
         }
     }
 
@@ -626,14 +684,7 @@ public class OrderServiceImpl implements IOrderService {
         transaction.setUpdatedBy(refundedBy != null ? refundedBy : "ADMIN");
         transactionRepository.save(transaction);
 
-        order.setStatus(OrderStatus.CANCELLED);
-        order.setUpdatedBy(refundedBy != null ? refundedBy : "ADMIN");
-        orderRepository.save(order);
-
-        if (order.getTable() != null) {
-            freeTableIfNeeded(order);
-            wsPublisher.publishTableEvent("TABLE_STATUS_UPDATED", order.getTable().getTableId());
-        }
+        cancelOrderAfterRefund(order, refundedBy);
 
         reverseRevenue(order);
 

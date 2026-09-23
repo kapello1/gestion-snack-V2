@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.MessageDTO;
 import com.joel.gestion_snack.service.MessageService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,23 +17,27 @@ public class MessageController {
     private MessageService messageService;
 
     @GetMapping("/user/{userId}")
+    @PreAuthorize("hasRole('ADMIN') or @authz.isUser(authentication, #userId)")
     public ResponseEntity<List<MessageDTO>> getMessagesByUser(@PathVariable Long userId) {
         return ResponseEntity.ok(messageService.getMessagesByUser(userId));
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or @authz.isUser(authentication, #messageDTO.userId)")
     public ResponseEntity<MessageDTO> saveMessage(@RequestBody MessageDTO messageDTO) {
         return ResponseEntity.ok(messageService.saveMessage(messageDTO));
     }
 
     /** Récupère toutes les notifications (personnelles + broadcasts) pour un utilisateur */
     @GetMapping("/notifications/{userId}")
+    @PreAuthorize("hasRole('ADMIN') or @authz.isUser(authentication, #userId)")
     public ResponseEntity<List<MessageDTO>> getNotificationsForUser(@PathVariable Long userId) {
         return ResponseEntity.ok(messageService.getNotificationsForUser(userId));
     }
 
     /** Envoie une notification personnelle à un utilisateur identifié par son ownerId ou userId */
     @PostMapping("/personal/{ownerId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<MessageDTO> savePersonalNotification(
             @PathVariable Long ownerId,
             @RequestBody MessageDTO dto) {
@@ -46,6 +51,7 @@ public class MessageController {
 
     /** Envoie une notification broadcast à tous les utilisateurs */
     @PostMapping("/broadcast")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MessageDTO> saveBroadcastNotification(@RequestBody MessageDTO dto) {
         return ResponseEntity.ok(
                 messageService.saveBroadcastNotification(
@@ -55,6 +61,7 @@ public class MessageController {
 
     /** Marque une notification comme lue */
     @PatchMapping("/{id}/read")
+    @PreAuthorize("hasRole('ADMIN') or @authz.canReadMessage(authentication, #id)")
     public ResponseEntity<Void> markAsRead(@PathVariable Long id) {
         messageService.markAsRead(id);
         return ResponseEntity.noContent().build();
@@ -62,6 +69,7 @@ public class MessageController {
 
     /** Supprime un message (chatbot ou notification personnelle) par son ID */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or @authz.ownsMessage(authentication, #id)")
     public ResponseEntity<Void> deleteMessage(@PathVariable Long id) {
         messageService.deleteMessage(id);
         return ResponseEntity.noContent().build();

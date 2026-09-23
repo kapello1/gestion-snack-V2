@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.service.AiAssistantService;
 import com.joel.gestion_snack.service.AiProxyService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class AiProxyController {
 
     @PostMapping("/chat")
     @SuppressWarnings("unchecked")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> chat(@RequestBody Map<String, Object> body) {
         try {
             List<Map<String, String>> messages = (List<Map<String, String>>) body.get("messages");
@@ -34,6 +36,7 @@ public class AiProxyController {
 
     @PostMapping("/assistant")
     @SuppressWarnings("unchecked")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> assistant(@RequestBody Map<String, Object> body) {
         try {
             List<Map<String, Object>> messages = (List<Map<String, Object>>) body.get("messages");
@@ -49,6 +52,7 @@ public class AiProxyController {
     }
 
     @PostMapping("/tts")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> tts(@RequestBody Map<String, String> body) {
         try {
             String text = body.get("text");

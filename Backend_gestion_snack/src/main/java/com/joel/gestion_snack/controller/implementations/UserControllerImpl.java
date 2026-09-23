@@ -1,5 +1,9 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import com.joel.gestion_snack.model.entity.RoleType;
+import com.joel.gestion_snack.security.AuthUser;
+import com.joel.gestion_snack.security.SecurityUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.UserDTO;
 import com.joel.gestion_snack.model.dto.UserRequestDTO;
 import com.joel.gestion_snack.model.dto.UserUpdateRequestDTO;
@@ -30,6 +34,7 @@ public class UserControllerImpl {
     
     @GetMapping
     @Operation(summary = "Récupérer tous les utilisateurs", description = "Récupère la liste de tous les utilisateurs du système")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserDTO>> getAllUsers() {
         log.info("Requête GET pour récupérer tous les utilisateurs");
         List<UserDTO> users = userService.getAllUsers();
@@ -38,6 +43,7 @@ public class UserControllerImpl {
     
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer un utilisateur par son ID")
+    @PreAuthorize("hasRole('ADMIN') or @authz.isUser(authentication, #id)")
     public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
         log.info("Requête GET pour récupérer l'utilisateur avec l'ID: {}", id);
         UserDTO user = userService.getUserById(id);
@@ -46,6 +52,7 @@ public class UserControllerImpl {
     
     @PostMapping
     @Operation(summary = "Créer un nouvel utilisateur", description = "Crée un nouvel utilisateur dans le système")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserRequestDTO requestDTO) {
         log.info("Requête POST pour créer un nouvel utilisateur: {}", requestDTO.getUsername());
         UserDTO user = userService.createUser(requestDTO);
@@ -54,6 +61,7 @@ public class UserControllerImpl {
     
     @PutMapping("/{id}")
     @Operation(summary = "Mettre à jour un utilisateur", description = "Met à jour les informations d'un utilisateur existant")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDTO> updateUser(@PathVariable Long id,
                                               @Valid @RequestBody UserUpdateRequestDTO requestDTO) {
         log.info("Requête PUT pour mettre à jour l'utilisateur avec l'ID: {}", id);
@@ -63,6 +71,7 @@ public class UserControllerImpl {
     
     @DeleteMapping("/{id}")
     @Operation(summary = "Supprimer un utilisateur", description = "Supprime un utilisateur du système")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         log.info("Requête DELETE pour supprimer l'utilisateur avec l'ID: {}", id);
         userService.deleteUser(id);
@@ -71,6 +80,7 @@ public class UserControllerImpl {
     
     @PostMapping("/{id}/change-password")
     @Operation(summary = "Changer le mot de passe d'un utilisateur", description = "Change le mot de passe d'un utilisateur")
+    @PreAuthorize("hasRole('ADMIN') or @authz.isUser(authentication, #id)")
     public ResponseEntity<UserDTO> changePassword(@PathVariable Long id, 
                                                    @RequestBody Map<String, String> passwordRequest) {
         log.info("Requête POST pour changer le mot de passe de l'utilisateur avec l'ID: {}", id);
@@ -78,12 +88,23 @@ public class UserControllerImpl {
         if (newPassword == null || newPassword.isEmpty()) {
             throw new IllegalArgumentException("Le nouveau mot de passe est obligatoire");
         }
-        UserDTO user = userService.changePassword(id, newPassword);
-        return ResponseEntity.ok(user);
+        // Un administrateur peut réinitialiser le mot de passe d'un AUTRE compte sans l'ancien ;
+        // chacun, y compris l'administrateur pour son propre compte, doit fournir son mot de passe actuel.
+        AuthUser me = SecurityUtils.currentUser();
+        boolean adminResettingSomeoneElse = me != null && me.getRole() == RoleType.ADMIN && !id.equals(me.getUserId());
+        if (adminResettingSomeoneElse) {
+            return ResponseEntity.ok(userService.changePassword(id, newPassword));
+        }
+        String currentPassword = passwordRequest.get("currentPassword");
+        if (currentPassword == null || currentPassword.isEmpty()) {
+            throw new IllegalArgumentException("Le mot de passe actuel est obligatoire");
+        }
+        return ResponseEntity.ok(userService.changeOwnPassword(id, currentPassword, newPassword));
     }
     
     @GetMapping("/username/{username}")
     @Operation(summary = "Récupérer un utilisateur par son nom d'utilisateur")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDTO> getUserByUsername(@PathVariable String username) {
         log.info("Requête GET pour récupérer l'utilisateur avec le username: {}", username);
         UserDTO user = userService.getUserByUsername(username);
@@ -92,6 +113,7 @@ public class UserControllerImpl {
     
     @GetMapping("/role/{roleId}")
     @Operation(summary = "Récupérer les utilisateurs par rôle")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable Long roleId) {
         log.info("Requête GET pour récupérer les utilisateurs avec le rôle ID: {}", roleId);
         List<UserDTO> users = userService.getUsersByRole(roleId);
@@ -100,6 +122,7 @@ public class UserControllerImpl {
 
     @PatchMapping("/{id}/deactivate")
     @Operation(summary = "Désactiver un utilisateur (soft delete)")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDTO> deactivateUser(@PathVariable Long id) {
         log.info("Requête PATCH pour désactiver l'utilisateur avec l'ID: {}", id);
         return ResponseEntity.ok(userService.deactivateUser(id));
@@ -107,6 +130,7 @@ public class UserControllerImpl {
 
     @PatchMapping("/{id}/activate")
     @Operation(summary = "Réactiver un utilisateur")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDTO> activateUser(@PathVariable Long id) {
         log.info("Requête PATCH pour activer l'utilisateur avec l'ID: {}", id);
         return ResponseEntity.ok(userService.activateUser(id));

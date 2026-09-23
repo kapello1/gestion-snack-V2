@@ -1,9 +1,11 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.controller.interfaces.IProductController;
 import com.joel.gestion_snack.model.dto.ProductDTO;
 import com.joel.gestion_snack.model.dto.ProductRequestDTO;
 import com.joel.gestion_snack.model.entity.ProductType;
+import com.joel.gestion_snack.security.SecurityUtils;
 import com.joel.gestion_snack.service.CloudinaryService;
 import com.joel.gestion_snack.service.interfaces.IProductService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,20 +36,22 @@ public class ProductControllerImpl implements IProductController {
     @Operation(summary = "Récupérer tous les produits")
     public ResponseEntity<List<ProductDTO>> getAllProducts() {
         log.info("Requête GET pour récupérer tous les produits");
-        return ResponseEntity.ok(productService.getAllProducts());
+        return ResponseEntity.ok(withoutCostForNonAdmin(productService.getAllProducts()));
     }
 
     @Override
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer un produit par son ID")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ProductDTO> getProductById(@PathVariable Long id) {
         log.info("Requête GET pour récupérer le produit avec l'ID: {}", id);
-        return ResponseEntity.ok(productService.getProductById(id));
+        return ResponseEntity.ok(withoutCostForNonAdmin(productService.getProductById(id)));
     }
 
     @Override
     @PostMapping
     @Operation(summary = "Créer un nouveau produit")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductDTO> createProduct(@Valid @RequestBody ProductRequestDTO requestDTO) {
         log.info("Requête POST pour créer un nouveau produit: {}", requestDTO.getProductName());
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(requestDTO));
@@ -56,6 +60,7 @@ public class ProductControllerImpl implements IProductController {
     @Override
     @PutMapping("/{id}")
     @Operation(summary = "Mettre à jour un produit")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductDTO> updateProduct(@PathVariable Long id,
                                                     @Valid @RequestBody ProductRequestDTO requestDTO) {
         log.info("Requête PUT pour mettre à jour le produit avec l'ID: {}", id);
@@ -65,6 +70,7 @@ public class ProductControllerImpl implements IProductController {
     @Override
     @DeleteMapping("/{id}")
     @Operation(summary = "Supprimer un produit")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         log.info("Requête DELETE pour supprimer le produit avec l'ID: {}", id);
         productService.deleteProduct(id);
@@ -74,21 +80,24 @@ public class ProductControllerImpl implements IProductController {
     @Override
     @GetMapping("/type/{productType}")
     @Operation(summary = "Récupérer les produits par type")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ProductDTO>> getProductsByType(@PathVariable ProductType productType) {
         log.info("Requête GET pour récupérer les produits de type: {}", productType);
-        return ResponseEntity.ok(productService.getProductsByType(productType));
+        return ResponseEntity.ok(withoutCostForNonAdmin(productService.getProductsByType(productType)));
     }
 
     @Override
     @GetMapping("/low-stock")
     @Operation(summary = "Récupérer les produits avec stock faible")
+    @PreAuthorize("hasAnyRole('ADMIN','COOK')")
     public ResponseEntity<List<ProductDTO>> getProductsWithLowStock() {
         log.info("Requête GET pour récupérer les produits avec stock faible");
-        return ResponseEntity.ok(productService.getProductsWithLowStock());
+        return ResponseEntity.ok(withoutCostForNonAdmin(productService.getProductsWithLowStock()));
     }
 
     @PostMapping(value = "/{id}/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Uploader l'image d'un produit vers Cloudinary")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductDTO> uploadProductImage(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file) {
@@ -122,5 +131,21 @@ public class ProductControllerImpl implements IProductController {
             log.error("Erreur upload image Cloudinary pour produit {}", id, e);
             throw new RuntimeException("Erreur lors de l'upload de l'image : " + e.getMessage());
         }
+    }
+
+    /**
+     * Le prix d'achat est une donnée de gestion : il n'est renvoyé qu'à l'administrateur.
+     * La liste des produits étant publique (vitrine), il serait sinon lisible par n'importe qui.
+     */
+    private static List<ProductDTO> withoutCostForNonAdmin(List<ProductDTO> products) {
+        products.forEach(ProductControllerImpl::withoutCostForNonAdmin);
+        return products;
+    }
+
+    private static ProductDTO withoutCostForNonAdmin(ProductDTO product) {
+        if (!SecurityUtils.isAdmin()) {
+            product.setPurchasePrice(null);
+        }
+        return product;
     }
 }

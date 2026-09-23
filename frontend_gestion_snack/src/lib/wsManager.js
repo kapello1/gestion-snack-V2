@@ -1,5 +1,6 @@
 import { Client } from '@stomp/stompjs';
 import queryClient from './queryClient';
+import { getToken } from '../utils/authToken';
 
 /**
  * Construit l'URL WebSocket à partir de VITE_API_BASE_URL.
@@ -37,6 +38,17 @@ export const wsManager = {
       reconnectDelay: 5000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
+
+      // Le navigateur ne permet pas d'ajouter un en-tête au handshake WebSocket : le JWT est donc envoyé
+      // dans la trame STOMP CONNECT, relue à chaque (re)connexion. Sans jeton valide, on ne se connecte pas.
+      beforeConnect(stompClient) {
+        const token = getToken();
+        if (!token) {
+          stompClient.deactivate();
+          return;
+        }
+        stompClient.connectHeaders = { Authorization: `Bearer ${token}` };
+      },
 
       onConnect() {
         client.subscribe('/topic/orders', () => {
@@ -92,7 +104,13 @@ export const wsManager = {
       },
 
       onStompError(frame) {
-        console.warn('[WS] STOMP error:', frame.headers?.message);
+        const message = frame.headers?.message || '';
+        console.warn('[WS] STOMP error:', message);
+        // Jeton refusé (expiré, révoqué) : inutile de retenter en boucle, l'API renverra vers /login
+        if (/jeton|authentification/i.test(message) && client) {
+          client.reconnectDelay = 0;
+          client.deactivate();
+        }
       },
 
       onDisconnect() {

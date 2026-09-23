@@ -243,7 +243,7 @@ const Login = () => {
               {/* Identifiant */}
               <div>
                 <label className="block text-xs font-bold mb-1.5" style={{ color: '#4f46e5' }}>
-                  Nom d'utilisateur
+                  Nom d'utilisateur ou email
                 </label>
                 <div className="input-border">
                   <div className="input-inner">

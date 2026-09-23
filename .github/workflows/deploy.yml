@@ -1,0 +1,103 @@
+# =============================================================
+#  Déploiement Continu (CD) - Gestion Snack -> VPS OVH
+#
+#  Se déclenche automatiquement quand la CI est VERTE sur main
+#  (uniquement après un push, jamais sur une pull request), ou à la
+#  main depuis l'onglet Actions (bouton "Run workflow").
+#
+#  Le workflow se connecte en SSH au VPS et y lance
+#  ./deploy/ovh/deploy.sh : git pull, docker compose up --build,
+#  build du frontend, publication et rechargement de Nginx.
+#  Il vérifie ensuite que le backend répond sur /api/health.
+#
+#  Secrets à créer (Settings > Environments > production) :
+#    OVH_HOST         adresse IP ou nom du VPS
+#    OVH_USER         utilisateur SSH utilisé pour déployer
+#    OVH_SSH_KEY      clé privée dédiée au déploiement (ed25519)
+#    OVH_KNOWN_HOSTS  sortie de : ssh-keyscan -p 22 <OVH_HOST>
+#    OVH_PORT         (optionnel) port SSH, 22 par défaut
+#  Mise en place complète : DEPLOIEMENT_CONTINU.md.
+# =============================================================
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [ "CI" ]
+    types: [ completed ]
+    branches: [ main ]
+  workflow_dispatch:
+
+# Un seul déploiement à la fois : le suivant attend la fin du précédent.
+concurrency:
+  group: deploy-ovh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Déploiement sur le VPS OVH
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push'))
+
+    steps:
+      - name: Vérifier la configuration des secrets
+        env:
+          OVH_HOST: ${{ secrets.OVH_HOST }}
+          OVH_USER: ${{ secrets.OVH_USER }}
+          OVH_SSH_KEY: ${{ secrets.OVH_SSH_KEY }}
+          OVH_KNOWN_HOSTS: ${{ secrets.OVH_KNOWN_HOSTS }}
+        run: |
+          missing=""
+          for name in OVH_HOST OVH_USER OVH_SSH_KEY OVH_KNOWN_HOSTS; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Secrets manquants :$missing (voir DEPLOIEMENT_CONTINU.md)"
+            exit 1
+          fi
+
+      - name: Préparer la connexion SSH
+        env:
+          OVH_SSH_KEY: ${{ secrets.OVH_SSH_KEY }}
+          OVH_KNOWN_HOSTS: ${{ secrets.OVH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$OVH_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$OVH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Déployer sur le VPS
+        env:
+          OVH_HOST: ${{ secrets.OVH_HOST }}
+          OVH_USER: ${{ secrets.OVH_USER }}
+          OVH_PORT: ${{ secrets.OVH_PORT }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "${OVH_PORT:-22}" \
+              -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+              "$OVH_USER@$OVH_HOST" 'cd /opt/gestion-snack && ./deploy/ovh/deploy.sh'
+
+      - name: Vérifier que le backend répond
+        env:
+          OVH_HOST: ${{ secrets.OVH_HOST }}
+          OVH_USER: ${{ secrets.OVH_USER }}
+          OVH_PORT: ${{ secrets.OVH_PORT }}
+        run: |
+          # Le conteneur Spring Boot peut mettre une à deux minutes à démarrer.
+          ssh -i ~/.ssh/id_deploy -p "${OVH_PORT:-22}" \
+              -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+              "$OVH_USER@$OVH_HOST" \
+              'curl -fsS --retry 20 --retry-delay 6 --retry-connrefused --retry-all-errors http://127.0.0.1:8080/api/health'
+
+      - name: Nettoyer la clé SSH
+        if: always()
+        run: rm -f ~/.ssh/id_deploy ~/.ssh/known_hosts

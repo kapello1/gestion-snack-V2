@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.entity.AuditLog;
 import com.joel.gestion_snack.repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ public class AuditLogController {
     private final AuditLogRepository auditLogRepository;
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AuditLog>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "100") int size) {
@@ -29,16 +31,19 @@ public class AuditLogController {
     }
 
     @GetMapping("/table/{tableName}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AuditLog>> getByTable(@PathVariable String tableName) {
         return ResponseEntity.ok(auditLogRepository.findByTableName(tableName));
     }
 
     @GetMapping("/action/{actionType}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AuditLog>> getByAction(@PathVariable String actionType) {
         return ResponseEntity.ok(auditLogRepository.findByActionType(actionType));
     }
 
     @GetMapping("/user/{username}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AuditLog>> getByUser(@PathVariable String username) {
         return ResponseEntity.ok(auditLogRepository.findByPerformedBy(username));
     }

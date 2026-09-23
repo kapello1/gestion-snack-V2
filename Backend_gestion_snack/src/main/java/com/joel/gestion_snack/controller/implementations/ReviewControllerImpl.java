@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.ReviewDTO;
 import com.joel.gestion_snack.model.dto.ReviewRequestDTO;
 import com.joel.gestion_snack.service.interfaces.IReviewService;
@@ -28,6 +29,7 @@ public class ReviewControllerImpl {
     
     @GetMapping
     @Operation(summary = "Récupérer tous les avis")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ReviewDTO>> getAllReviews() {
         log.info("Requête GET pour récupérer tous les avis");
         return ResponseEntity.ok(reviewService.getAllReviews());
@@ -35,6 +37,7 @@ public class ReviewControllerImpl {
     
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer un avis par son ID")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ReviewDTO> getReviewById(@PathVariable Long id) {
         log.info("Requête GET pour récupérer l'avis avec l'ID: {}", id);
         return ResponseEntity.ok(reviewService.getReviewById(id));
@@ -42,6 +45,7 @@ public class ReviewControllerImpl {
     
     @PostMapping
     @Operation(summary = "Créer un nouvel avis")
+    @PreAuthorize("hasRole('ADMIN') or @authz.isCustomer(authentication, #requestDTO.customerId)")
     public ResponseEntity<ReviewDTO> createReview(@Valid @RequestBody ReviewRequestDTO requestDTO) {
         log.info("Requête POST pour créer un nouvel avis");
         ReviewDTO review = reviewService.createReview(requestDTO);
@@ -50,6 +54,7 @@ public class ReviewControllerImpl {
     
     @PutMapping("/{id}")
     @Operation(summary = "Mettre à jour un avis")
+    @PreAuthorize("hasRole('ADMIN') or @authz.ownsReview(authentication, #id)")
     public ResponseEntity<ReviewDTO> updateReview(@PathVariable Long id, 
                                                     @Valid @RequestBody ReviewRequestDTO requestDTO) {
         log.info("Requête PUT pour mettre à jour l'avis avec l'ID: {}", id);
@@ -58,6 +63,7 @@ public class ReviewControllerImpl {
     
     @DeleteMapping("/{id}")
     @Operation(summary = "Supprimer un avis")
+    @PreAuthorize("hasRole('ADMIN') or @authz.ownsReview(authentication, #id)")
     public ResponseEntity<Void> deleteReview(@PathVariable Long id) {
         log.info("Requête DELETE pour supprimer l'avis avec l'ID: {}", id);
         reviewService.deleteReview(id);
@@ -66,6 +72,7 @@ public class ReviewControllerImpl {
     
     @GetMapping("/customer/{customerId}")
     @Operation(summary = "Récupérer les avis d'un client")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER') or @authz.isCustomer(authentication, #customerId)")
     public ResponseEntity<List<ReviewDTO>> getReviewsByCustomer(@PathVariable Long customerId) {
         log.info("Requête GET pour récupérer les avis du client avec l'ID: {}", customerId);
         return ResponseEntity.ok(reviewService.getReviewsByCustomer(customerId));

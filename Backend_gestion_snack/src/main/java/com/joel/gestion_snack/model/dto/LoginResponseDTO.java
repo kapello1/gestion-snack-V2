@@ -21,5 +21,8 @@ public class LoginResponseDTO {
     private Boolean success;
     private Boolean requiresTwoFactor;
     private Long twoFactorUserId;
+    /** JWT à envoyer dans l'en-tête {@code Authorization: Bearer <token>} (uniquement si success = true). */
+    private String token;
+    /** Durée de validité du jeton, en secondes. */
+    private Long expiresIn;
 }
-

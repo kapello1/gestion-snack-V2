@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.AvailabilitySlotDTO;
 import com.joel.gestion_snack.model.dto.DiningTableDTO;
 import com.joel.gestion_snack.model.dto.ReservationDTO;
@@ -34,6 +35,7 @@ public class ReservationControllerImpl {
     
     @GetMapping
     @Operation(summary = "Récupérer toutes les réservations")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<List<ReservationDTO>> getAllReservations() {
         log.info("Requête GET pour récupérer toutes les réservations");
         return ResponseEntity.ok(reservationService.getAllReservations());
@@ -41,6 +43,7 @@ public class ReservationControllerImpl {
     
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer une réservation par son ID")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER') or @authz.ownsReservation(authentication, #id)")
     public ResponseEntity<ReservationDTO> getReservationById(@PathVariable Long id) {
         log.info("Requête GET pour récupérer la réservation avec l'ID: {}", id);
         return ResponseEntity.ok(reservationService.getReservationById(id));
@@ -48,6 +51,7 @@ public class ReservationControllerImpl {
     
     @PostMapping
     @Operation(summary = "Créer une nouvelle réservation")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER') or @authz.isCustomer(authentication, #requestDTO.customerId)")
     public ResponseEntity<ReservationDTO> createReservation(@Valid @RequestBody ReservationRequestDTO requestDTO) {
         log.info("Requête POST pour créer une nouvelle réservation");
         ReservationDTO reservation = reservationService.createReservation(requestDTO);
@@ -56,6 +60,7 @@ public class ReservationControllerImpl {
     
     @PutMapping("/{id}")
     @Operation(summary = "Mettre à jour une réservation")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<ReservationDTO> updateReservation(@PathVariable Long id, 
                                                               @Valid @RequestBody ReservationRequestDTO requestDTO) {
         log.info("Requête PUT pour mettre à jour la réservation avec l'ID: {}", id);
@@ -64,6 +69,7 @@ public class ReservationControllerImpl {
     
     @DeleteMapping("/{id}")
     @Operation(summary = "Supprimer une réservation")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteReservation(@PathVariable Long id) {
         log.info("Requête DELETE pour supprimer la réservation avec l'ID: {}", id);
         reservationService.deleteReservation(id);
@@ -72,6 +78,7 @@ public class ReservationControllerImpl {
     
     @GetMapping("/status/{status}")
     @Operation(summary = "Récupérer les réservations par statut")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<List<ReservationDTO>> getReservationsByStatus(@PathVariable ReservationStatus status) {
         log.info("Requête GET pour récupérer les réservations avec le statut: {}", status);
         return ResponseEntity.ok(reservationService.getReservationsByStatus(status));
@@ -79,6 +86,7 @@ public class ReservationControllerImpl {
     
     @GetMapping("/date/{date}")
     @Operation(summary = "Récupérer les réservations par date")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<List<ReservationDTO>> getReservationsByDate(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         log.info("Requête GET pour récupérer les réservations de la date: {}", date);
@@ -87,6 +95,7 @@ public class ReservationControllerImpl {
     
     @GetMapping("/customer/{customerId}")
     @Operation(summary = "Récupérer les réservations d'un client")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER') or @authz.isCustomer(authentication, #customerId)")
     public ResponseEntity<List<ReservationDTO>> getReservationsByCustomer(@PathVariable Long customerId) {
         log.info("Requête GET pour récupérer les réservations du client avec l'ID: {}", customerId);
         return ResponseEntity.ok(reservationService.getReservationsByCustomer(customerId));
@@ -94,18 +103,21 @@ public class ReservationControllerImpl {
     
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Annuler une réservation")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER') or @authz.ownsReservation(authentication, #id)")
     public ResponseEntity<ReservationDTO> cancelReservation(@PathVariable Long id) {
         log.info("Requête POST pour annuler la réservation avec l'ID: {}", id);
         return ResponseEntity.ok(reservationService.cancelReservation(id));
     }
 
     @PostMapping("/{id}/complete")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<ReservationDTO> completeReservation(@PathVariable Long id) {
         return ResponseEntity.ok(reservationService.completeReservation(id));
     }
 
     @GetMapping("/available-tables")
     @Operation(summary = "Tables disponibles pour un créneau donné")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<DiningTableDTO>> getAvailableTables(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam String time,
@@ -116,6 +128,7 @@ public class ReservationControllerImpl {
 
     @GetMapping("/availability")
     @Operation(summary = "Obtenir les créneaux disponibles pour une date et un nombre de personnes")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<AvailabilitySlotDTO>> getAvailability(
             @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(defaultValue = "1") int guests) {

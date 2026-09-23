@@ -41,31 +41,20 @@
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                            PRODUCTION                               │
-│                                                                     │
-│  ┌──────────────┐   HTTPS/WSS   ┌──────────────────────────────┐  │
-│  │    Vercel    │ ─────────────► │     Render (Spring Boot)     │  │
-│  │  (React 19)  │               │   Java 17 · Port 8080        │  │
-│  │  Vite build  │               │   WebSocket /ws              │  │
-│  └──────────────┘               └──────────────┬───────────────┘  │
-│                                                │ JDBC/SSL          │
-│                                                ▼                   │
-│                               ┌──────────────────────────────┐    │
-│                               │  Neon.tech (PostgreSQL 16)   │    │
-│                               │  Région : EU Central (FRA)   │    │
-│                               │  Serverless · Connexion pool │    │
-│                               └──────────────────────────────┘    │
-│                                                                     │
-│                  ┌───────────────────────────────┐                 │
-│                  │  Services externes             │                 │
-│                  │  · Groq API (GPT OSS 120B)    │                 │
-│                  │  · Stripe (paiements en ligne) │                 │
-│                  │  · ElevenLabs (TTS chatbot)   │                 │
-│                  │  · Cloudinary (images)        │                 │
-│                  └───────────────────────────────┘                 │
-└─────────────────────────────────────────────────────────────────────┘
+Navigateur ──HTTPS / WSS──► Nginx (VPS OVH, HTTPS Let's Encrypt)
+                              ├─ /       fichiers statiques du frontend (React 19, Vite)
+                              ├─ /api/   ──► Spring Boot 3.5 (conteneur Docker, 127.0.0.1:8080)
+                              └─ /ws     ──► WebSocket STOMP (même backend)
+                                               │  Spring Security + JWT (HS256)
+                                               │  JDBC / SSL
+                                               ▼
+                                     PostgreSQL 16 (Neon.tech)
+
+Services externes : Groq (IA) · Stripe (paiements) · ElevenLabs (voix) · Cloudinary (images) · Brevo (e-mails)
 ```
+
+Le port 8080 du backend n'est jamais exposé sur Internet : seul Nginx est joignable. Chaque appel de l'API (hors connexion, inscription,
+catalogue public, webhook Stripe et `/api/health`) et chaque connexion WebSocket exigent un jeton JWT valide.
 
 ### Couche backend — Spring Boot
 
@@ -128,11 +117,11 @@ frontend_gestion_snack/src/
 | ORM           | Spring Data JPA / Hibernate              | —         |
 | WebSocket     | Spring WebSocket (STOMP)                 | —         |
 | Base données  | PostgreSQL (Neon.tech)                   | 16.x      |
-| Sécurité      | Spring Security Crypto (BCrypt)          | —         |
-| Chiffrement   | JWT (authentification stateless)         | —         |
+| Sécurité      | Spring Security + JWT (HS256), BCrypt, `@PreAuthorize` | — |
+| Tests         | JUnit 5 + Mockito                        | —         |
 | Doc API       | SpringDoc OpenAPI (Swagger UI)           | 2.8.9     |
 | Images        | Cloudinary CDN                           | —         |
-| Hébergement   | Vercel (frontend) + Render (backend)     | —         |
+| Hébergement   | VPS OVH (Docker + Nginx + HTTPS)         | —         |
 
 ---
 
@@ -226,10 +215,10 @@ Client / Serveur
 - **PostgreSQL 14+** — base de données locale
 
 ### Déploiement
-- Compte [Vercel](https://vercel.com) (gratuit)
-- Compte [Render](https://render.com) (plan Free)
-- Compte [Neon.tech](https://neon.tech) (plan Free)
-- Dépôt GitHub (requis par Render et Vercel)
+- Un VPS OVH (Ubuntu 24.04) et un nom de domaine
+- Un compte [Neon.tech](https://neon.tech) pour la base PostgreSQL
+- Un dépôt GitHub (GitHub Actions pour la CI/CD)
+- Des comptes Stripe, Groq, Brevo et Cloudinary (voir les variables d'environnement)
 
 ---
 
@@ -288,63 +277,18 @@ Application disponible sur `http://localhost:5173`
 
 ## Déploiement en production
 
-### 1. Base de données — Neon.tech
+Le déploiement complet, pas à pas (VPS OVH, Docker, Nginx, HTTPS), est décrit dans **[DEPLOIEMENT_OVH.md](DEPLOIEMENT_OVH.md)**.
+La mise en place du déploiement automatique (GitHub Actions) est décrite dans **[DEPLOIEMENT_CONTINU.md](DEPLOIEMENT_CONTINU.md)**.
 
-1. Se connecter à [console.neon.tech](https://console.neon.tech)
-2. Ouvrir l'**SQL Editor**
-3. Exécuter le contenu de `snack_db_postgres.sql`
+### En résumé
 
-| Paramètre  | Valeur                                                              |
-|------------|---------------------------------------------------------------------|
-| Host       | `ep-ancient-star-alrwjzz0-pooler.c-3.eu-central-1.aws.neon.tech`  |
-| Database   | `neondb`                                                            |
-| User       | `neondb_owner`                                                      |
-| SSL mode   | `require`                                                           |
-| Région     | EU Central (Frankfurt)                                              |
+1. **Base de données** : créer la base PostgreSQL chez Neon.tech et exécuter `snack_db_postgres.sql` dans son SQL Editor.
+2. **Backend** : `docker compose -f docker-compose.ovh.yml up -d --build`, avec les variables dans `.env` (modèle : `.env.ovh.example`).
+3. **Frontend** : `npm ci && npm run build`, puis publication du dossier `dist/` par Nginx.
+4. **Redéploiement** : `./deploy/ovh/deploy.sh`, ou automatiquement par GitHub Actions après une CI verte sur `main`.
 
----
-
-### 2. Backend — Render
-
-| Paramètre          | Valeur                                              |
-|--------------------|-----------------------------------------------------|
-| Root Directory     | `Backend_gestion_snack`                             |
-| Runtime            | `Java`                                              |
-| Build Command      | `mvn clean package -DskipTests`                     |
-| Start Command      | `java -jar target/gestion_snack-0.0.1-SNAPSHOT.jar` |
-
-Variables d'environnement Render :
-
-| Variable              | Description                                          |
-|-----------------------|------------------------------------------------------|
-| `JAVA_VERSION`        | `17`                                                 |
-| `DATABASE_URL`        | URL JDBC Neon.tech complète                          |
-| `DATABASE_USERNAME`   | `neondb_owner`                                       |
-| `DATABASE_PASSWORD`   | Mot de passe Neon.tech                               |
-| `ALLOWED_ORIGINS`     | URL Vercel (CORS)                                    |
-| `GROQ_API_KEY`        | Clé API Groq                                         |
-| `STRIPE_SECRET_KEY`   | Clé secrète Stripe                                   |
-| `STRIPE_WEBHOOK_SECRET` | Secret webhook Stripe                              |
-| `ELEVENLABS_API_KEY`  | Clé ElevenLabs (optionnel — TTS chatbot)             |
-| `CLOUDINARY_URL`      | URL Cloudinary (optionnel — images produits)         |
-
----
-
-### 3. Frontend — Vercel
-
-| Paramètre            | Valeur                   |
-|----------------------|--------------------------|
-| Framework Preset     | `Vite`                   |
-| Root Directory       | `frontend_gestion_snack` |
-| Build Command        | `npm run build`          |
-| Output Directory     | `dist`                   |
-
-Variables d'environnement Vercel :
-
-| Variable             | Description                    |
-|----------------------|--------------------------------|
-| `VITE_API_BASE_URL`  | URL backend Render + `/api`    |
-| `VITE_GROQ_API_KEY`  | Clé API Groq (chatbot client)  |
+> `JWT_SECRET` doit être défini avant le premier démarrage (`openssl rand -hex 32`) et ne plus changer ensuite : sans lui, une clé temporaire
+> est créée à chaque démarrage et tous les utilisateurs sont déconnectés à chaque déploiement.
 
 ---
 
@@ -352,25 +296,30 @@ Variables d'environnement Vercel :
 
 ### Backend
 
-| Variable              | Requis | Description                          |
-|-----------------------|--------|--------------------------------------|
-| `DATABASE_URL`        | ✅     | URL JDBC PostgreSQL (Neon.tech)      |
-| `DATABASE_USERNAME`   | ✅     | Utilisateur PostgreSQL               |
-| `DATABASE_PASSWORD`   | ✅     | Mot de passe PostgreSQL              |
-| `ALLOWED_ORIGINS`     | ✅     | URL(s) frontend autorisées (CORS)    |
-| `JAVA_VERSION`        | ✅     | `17`                                 |
-| `GROQ_API_KEY`        | ✅     | Chatbot IA (Groq API)                |
-| `STRIPE_SECRET_KEY`   | ⚠️     | Paiements en ligne                   |
-| `STRIPE_WEBHOOK_SECRET` | ⚠️   | Vérification webhooks Stripe         |
-| `ELEVENLABS_API_KEY`  | ❌     | Synthèse vocale chatbot              |
-| `CLOUDINARY_URL`      | ❌     | Stockage images produits             |
+| Variable                 | Requis | Description                                                       |
+|--------------------------|--------|-------------------------------------------------------------------|
+| `JWT_SECRET`             | ✅     | Clé de signature des jetons JWT (`openssl rand -hex 32`)          |
+| `JWT_EXPIRATION_MINUTES` | ❌     | Durée d'une session en minutes (480 = 8 h par défaut)             |
+| `DATABASE_URL`           | ✅     | URL JDBC PostgreSQL                                               |
+| `DATABASE_USERNAME`      | ✅     | Utilisateur PostgreSQL                                            |
+| `DATABASE_PASSWORD`      | ✅     | Mot de passe PostgreSQL                                           |
+| `ALLOWED_ORIGINS`        | ✅     | Origine(s) du frontend autorisée(s) : CORS et WebSocket           |
+| `FRONTEND_URL`           | ✅     | URL publique, utilisée dans les liens des e-mails                 |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | ✅ | Stockage des images produits |
+| `BREVO_API_KEY`, `BREVO_FROM_EMAIL` | ⚠️ | E-mails (codes de vérification, mot de passe oublié, accueil du personnel) |
+| `STRIPE_SECRET_KEY`      | ⚠️     | Paiements en ligne                                                |
+| `STRIPE_WEBHOOK_SECRET`  | ⚠️     | Vérification de la signature des webhooks Stripe                  |
+| `GROQ_API_KEY`           | ⚠️     | Chatbot IA                                                        |
+| `ELEVENLABS_API_KEY`     | ❌     | Voix du chatbot (optionnel)                                       |
 
 ### Frontend
 
-| Variable             | Requis | Description                  |
-|----------------------|--------|------------------------------|
-| `VITE_API_BASE_URL`  | ✅     | URL de base de l'API backend |
-| `VITE_GROQ_API_KEY`  | ✅     | Clé Groq (chatbot)           |
+| Variable                      | Requis | Description                                          |
+|-------------------------------|--------|------------------------------------------------------|
+| `VITE_API_BASE_URL`           | ✅     | URL de base de l'API backend (se termine par `/api`) |
+| `VITE_STRIPE_PUBLISHABLE_KEY` | ⚠️     | Clé publique Stripe (paiement par carte)             |
+
+Les clés Groq et ElevenLabs ne sont jamais exposées au navigateur : elles restent côté backend.
 
 ---
 
@@ -380,7 +329,8 @@ Variables d'environnement Vercel :
 gestion-snack/
 ├── Backend_gestion_snack/              # API Spring Boot (Java 17)
 │   └── src/main/java/com/joel/gestion_snack/
-│       ├── config/                     # CORS, WebSocket, Cloudinary, Swagger
+│       ├── config/                     # WebSocket, Cloudinary, Swagger, gestion des erreurs
+│       ├── security/                   # Spring Security, JWT, règles d'accès (rôle + propriété des données)
 │       ├── controller/
 │       │   ├── implementations/        # REST Controllers par ressource
 │       │   ├── StripeController.java   # Paiements & webhooks Stripe
@@ -419,8 +369,13 @@ gestion-snack/
 │   ├── generate_cahier_analyse.py      # Générateur du cahier d'analyse (docx)
 │   └── Cahier_danalyse_Gestion_Snack_V3_Final.docx
 │
+├── deploy/ovh/                         # Config Nginx, script de déploiement, réparation SQL
+├── .github/workflows/                  # CI (ci.yml) et déploiement continu (deploy.yml)
+├── docker-compose.ovh.yml              # Backend en conteneur sur le VPS
+├── DEPLOIEMENT_OVH.md                  # Guide de déploiement complet
+├── DEPLOIEMENT_CONTINU.md              # Déploiement automatique (GitHub Actions)
 ├── snack_db_postgres.sql               # Script de création de la base
-├── render.yaml                         # Configuration Render
+├── render.yaml                         # Ancienne configuration Render (hébergement précédent)
 └── README.md
 ```
 
@@ -430,9 +385,12 @@ gestion-snack/
 
 Documentation complète via **Swagger UI** : `http://localhost:8080/swagger-ui.html`
 
+Tous les endpoints, sauf la connexion, l'inscription, le catalogue public (`GET /api/products`), le webhook Stripe et `/api/health`, exigent
+l'en-tête `Authorization: Bearer <jeton>` (jeton renvoyé par `POST /api/auth/login`). Sans jeton valide : `401`. Rôle insuffisant : `403`.
+
 | Ressource            | Endpoint de base              | Actions principales                              |
 |----------------------|-------------------------------|--------------------------------------------------|
-| Authentification     | `/api/auth`                   | POST login, vérification 2FA                    |
+| Authentification     | `/api/auth`                   | POST login (renvoie le jeton JWT), vérification 2FA |
 | Utilisateurs         | `/api/users`                  | GET, POST, PUT, activate/deactivate              |
 | Clients              | `/api/customers`              | GET, POST, PUT, `search?name=`, `quick-register` |
 | Produits             | `/api/products`               | GET, POST, PUT, DELETE, by-type                  |
@@ -462,7 +420,9 @@ Documentation complète via **Swagger UI** : `http://localhost:8080/swagger-ui.h
 | Client      | `CUSTOMER`  | Menu, checkout Stripe, réservations, avis, chatbot                    |
 | Fournisseur | `PROVIDER`  | Commandes d'approvisionnement, produits fournis                       |
 
-> Mot de passe par défaut des comptes créés via trigger PostgreSQL : `1234`
+> Mot de passe par défaut des comptes créés via trigger PostgreSQL : `1234`, modifiable depuis « Mon profil ». Le personnel reçoit un e-mail d'accueil avec ses identifiants.
+>
+> Les droits sont contrôlés **côté serveur** (`@PreAuthorize` sur chaque endpoint, plus la propriété des données : un client ne lit que ses propres commandes).
 
 ---
 

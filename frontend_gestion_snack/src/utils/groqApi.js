@@ -1,4 +1,5 @@
 import { generateSystemPrompt } from './chatbotContext';
+import { authHeaders } from './authToken';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -14,7 +15,7 @@ export const sendChatMessage = async (messages, products = [], voiceMode = false
   try {
     const response = await fetch(`${API_BASE}/ai/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ messages: formattedMessages, voiceMode })
     });
     if (!response.ok) {
@@ -38,7 +39,7 @@ export const sendAssistantMessage = async (messages, customerId = null, voiceMod
   try {
     const response = await fetch(`${API_BASE}/ai/assistant`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ messages: formattedMessages, customerId, voiceMode })
     });
     if (!response.ok) {

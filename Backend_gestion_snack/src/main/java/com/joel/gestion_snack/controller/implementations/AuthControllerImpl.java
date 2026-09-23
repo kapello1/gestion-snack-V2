@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.LoginRequestDTO;
 import com.joel.gestion_snack.model.dto.LoginResponseDTO;
 import com.joel.gestion_snack.model.dto.TwoFactorVerifyDTO;
@@ -100,6 +101,7 @@ public class AuthControllerImpl {
 
     @PostMapping("/test-email")
     @Operation(summary = "Envoyer un email de test pour vérifier la configuration SMTP")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> testEmail(@RequestBody Map<String, String> body) {
         String to = body.get("to");
         if (to == null || to.isBlank()) {

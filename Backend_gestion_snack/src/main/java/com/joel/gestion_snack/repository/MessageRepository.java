@@ -9,6 +9,10 @@ import java.util.List;
 
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
+    boolean existsByIdMessageAndUser_UserId(Long idMessage, Long userId);
+
+    boolean existsByIdMessageAndIsBroadcastTrue(Long idMessage);
+
     List<Message> findByUserUserIdOrderBySentAtAsc(Long userId);
     List<Message> findByUserUserIdOrderBySentAtDesc(Long userId);
     List<Message> findByIsBroadcastTrueOrderBySentAtDesc();

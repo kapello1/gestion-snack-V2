@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.DiningTableDTO;
 import com.joel.gestion_snack.model.dto.DiningTableRequestDTO;
 import com.joel.gestion_snack.model.entity.TableStatusType;
@@ -29,6 +30,7 @@ public class DiningTableControllerImpl {
     
     @GetMapping
     @Operation(summary = "Récupérer toutes les tables")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<DiningTableDTO>> getAllTables() {
         log.info("Requête GET pour récupérer toutes les tables");
         return ResponseEntity.ok(diningTableService.getAllTables());
@@ -36,6 +38,7 @@ public class DiningTableControllerImpl {
     
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer une table par son ID")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DiningTableDTO> getTableById(@PathVariable Long id) {
         log.info("Requête GET pour récupérer la table avec l'ID: {}", id);
         return ResponseEntity.ok(diningTableService.getTableById(id));
@@ -43,6 +46,7 @@ public class DiningTableControllerImpl {
     
     @PostMapping
     @Operation(summary = "Créer une nouvelle table")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DiningTableDTO> createTable(@Valid @RequestBody DiningTableRequestDTO requestDTO) {
         log.info("Requête POST pour créer une nouvelle table");
         DiningTableDTO table = diningTableService.createTable(requestDTO);
@@ -51,6 +55,7 @@ public class DiningTableControllerImpl {
     
     @PutMapping("/{id}")
     @Operation(summary = "Mettre à jour une table")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DiningTableDTO> updateTable(@PathVariable Long id, 
                                                        @Valid @RequestBody DiningTableRequestDTO requestDTO) {
         log.info("Requête PUT pour mettre à jour la table avec l'ID: {}", id);
@@ -59,6 +64,7 @@ public class DiningTableControllerImpl {
     
     @DeleteMapping("/{id}")
     @Operation(summary = "Supprimer une table")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteTable(@PathVariable Long id) {
         log.info("Requête DELETE pour supprimer la table avec l'ID: {}", id);
         diningTableService.deleteTable(id);
@@ -67,6 +73,7 @@ public class DiningTableControllerImpl {
     
     @GetMapping("/status/{status}")
     @Operation(summary = "Récupérer les tables par statut")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<DiningTableDTO>> getTablesByStatus(@PathVariable TableStatusType status) {
         log.info("Requête GET pour récupérer les tables avec le statut: {}", status);
         return ResponseEntity.ok(diningTableService.getTablesByStatus(status));
@@ -74,6 +81,7 @@ public class DiningTableControllerImpl {
     
     @PutMapping("/{id}/status")
     @Operation(summary = "Changer le statut d'une table")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER','CUSTOMER')")
     public ResponseEntity<DiningTableDTO> updateTableStatus(@PathVariable Long id,
                                                              @RequestParam TableStatusType status) {
         log.info("Requête PUT pour changer le statut de la table {} vers {}", id, status);
@@ -82,6 +90,7 @@ public class DiningTableControllerImpl {
 
     @PostMapping("/{id}/release")
     @Operation(summary = "Libérer une table (vérifie l'état des commandes et clôture les réservations)")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<DiningTableDTO> releaseTable(@PathVariable Long id) {
         log.info("Requête POST pour libérer la table avec l'ID: {}", id);
         return ResponseEntity.ok(diningTableService.releaseTable(id));

@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState } from 'react';
 import { X, Mic, MicOff, Volume2, VolumeX, PhoneOff } from 'lucide-react';
 import { sendAssistantMessage } from '../utils/groqApi';
+import { authHeaders } from '../utils/authToken';
 import { useLanguage } from '../context/LanguageContext';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
@@ -294,7 +295,7 @@ const LiveVoiceChat = ({ onClose, onMessagePair, products = [], chatHistory = []
     try {
       const res = await fetch(`${API_BASE}/ai/tts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ text }),
         signal: ctrl.signal,
       });

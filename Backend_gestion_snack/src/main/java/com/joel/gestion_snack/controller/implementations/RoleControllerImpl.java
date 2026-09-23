@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.RoleDTO;
 import com.joel.gestion_snack.model.entity.Role;
 import com.joel.gestion_snack.repository.RoleRepository;
@@ -25,6 +26,7 @@ public class RoleControllerImpl {
 
     @GetMapping
     @Operation(summary = "Recuperer tous les roles")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<RoleDTO>> getAllRoles() {
         log.info("Requete GET pour recuperer tous les roles");
         List<RoleDTO> roles = roleRepository.findAll()
@@ -36,6 +38,7 @@ public class RoleControllerImpl {
 
     @GetMapping("/{id}")
     @Operation(summary = "Recuperer un role par son ID")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<RoleDTO> getRoleById(@PathVariable Long id) {
         log.info("Requete GET pour recuperer le role avec l'ID: {}", id);
         Role role = roleRepository.findById(id)

@@ -15,6 +15,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findByStatus(ReservationStatus status);
     List<Reservation> findByDatetimeFromBetween(LocalDateTime from, LocalDateTime to);
     List<Reservation> findByCustomer_CustomerId(Long customerId);
+
+    boolean existsByReservationIdAndCustomer_CustomerId(Long reservationId, Long customerId);
     List<Reservation> findByTable_TableId(Long tableId);
 
     /** IDs des tables déjà occupées (BOOKED) pendant l'intervalle [slotStart, slotEnd[ */

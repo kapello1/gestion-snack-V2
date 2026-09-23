@@ -1,9 +1,12 @@
 package com.joel.gestion_snack.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,22 +16,32 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class SwaggerConfig {
-    
+
+    private static final String BEARER_SCHEME = "bearerAuth";
+
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
                         .title("API de Gestion de Snack")
                         .version("1.0.0")
-                        .description("API complète pour la gestion d'un snack avec PostgreSQL")
+                        .description("API complète pour la gestion d'un snack avec PostgreSQL. "
+                                + "Authentification par JWT : obtenir un jeton via POST /api/auth/login "
+                                + "puis cliquer sur « Authorize » et coller le jeton.")
                         .contact(new Contact()
                                 .name("Support")
                                 .email("support@snack.com"))
                         .license(new License()
                                 .name("Apache 2.0")
-                                .url("https://www.apache.org/licenses/LICENSE-2.0.html")));
+                                .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
+                .components(new Components().addSecuritySchemes(BEARER_SCHEME,
+                        new SecurityScheme()
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("JWT")))
+                .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));
     }
-    
+
     @Bean
     public GroupedOpenApi publicApi() {
         return GroupedOpenApi.builder()
@@ -38,4 +51,3 @@ public class SwaggerConfig {
                 .build();
     }
 }
-

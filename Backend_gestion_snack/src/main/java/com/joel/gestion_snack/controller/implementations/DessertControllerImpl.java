@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.DessertDTO;
 import com.joel.gestion_snack.service.implementations.DessertServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,36 +24,42 @@ public class DessertControllerImpl {
 
     @GetMapping
     @Operation(summary = "Récupérer tous les desserts")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<DessertDTO>> getAllDesserts() {
         return ResponseEntity.ok(dessertService.getAllDesserts());
     }
 
     @GetMapping("/available")
     @Operation(summary = "Récupérer les desserts disponibles")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<DessertDTO>> getAvailableDesserts() {
         return ResponseEntity.ok(dessertService.getAvailableDesserts());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer un dessert par ID")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DessertDTO> getDessertById(@PathVariable Long id) {
         return ResponseEntity.ok(dessertService.getDessertById(id));
     }
 
     @PostMapping
     @Operation(summary = "Créer un dessert")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DessertDTO> createDessert(@RequestBody DessertDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(dessertService.createDessert(dto));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Modifier un dessert")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DessertDTO> updateDessert(@PathVariable Long id, @RequestBody DessertDTO dto) {
         return ResponseEntity.ok(dessertService.updateDessert(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Supprimer un dessert")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteDessert(@PathVariable Long id) {
         dessertService.deleteDessert(id);
         return ResponseEntity.noContent().build();

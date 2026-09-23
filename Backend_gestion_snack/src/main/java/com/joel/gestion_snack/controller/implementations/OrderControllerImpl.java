@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.OrderDTO;
 import com.joel.gestion_snack.model.dto.OrderPaymentRequestDTO;
 import com.joel.gestion_snack.model.dto.OrderRequestDTO;
@@ -33,6 +34,7 @@ public class OrderControllerImpl {
 
     @GetMapping
     @Operation(summary = "Récupérer toutes les commandes")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER','COOK')")
     public ResponseEntity<List<OrderDTO>> getAllOrders() {
         log.info("Requête GET pour récupérer toutes les commandes");
         return ResponseEntity.ok(orderService.getAllOrders());
@@ -40,6 +42,7 @@ public class OrderControllerImpl {
 
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer une commande par son ID")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER','COOK') or @authz.ownsOrder(authentication, #id)")
     public ResponseEntity<OrderDTO> getOrderById(@PathVariable Long id) {
         log.info("Requête GET pour récupérer la commande avec l'ID: {}", id);
         return ResponseEntity.ok(orderService.getOrderById(id));
@@ -47,6 +50,7 @@ public class OrderControllerImpl {
 
     @PostMapping
     @Operation(summary = "Créer une nouvelle commande")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER') or @authz.isCustomer(authentication, #requestDTO.customerId)")
     public ResponseEntity<OrderDTO> createOrder(@Valid @RequestBody OrderRequestDTO requestDTO) {
         log.info("Requête POST pour créer une nouvelle commande");
         OrderDTO order = orderService.createOrder(requestDTO);
@@ -55,6 +59,7 @@ public class OrderControllerImpl {
 
     @PutMapping("/{id}")
     @Operation(summary = "Mettre à jour une commande")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<OrderDTO> updateOrder(@PathVariable Long id,
             @Valid @RequestBody OrderRequestDTO requestDTO) {
         log.info("Requête PUT pour mettre à jour la commande avec l'ID: {}", id);
@@ -63,6 +68,7 @@ public class OrderControllerImpl {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Supprimer une commande")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteOrder(@PathVariable Long id) {
         log.info("Requête DELETE pour supprimer la commande avec l'ID: {}", id);
         orderService.deleteOrder(id);
@@ -71,6 +77,7 @@ public class OrderControllerImpl {
 
     @GetMapping("/status/{status}")
     @Operation(summary = "Récupérer les commandes par statut")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER','COOK')")
     public ResponseEntity<List<OrderDTO>> getOrdersByStatus(@PathVariable OrderStatus status) {
         log.info("Requête GET pour récupérer les commandes avec le statut: {}", status);
         return ResponseEntity.ok(orderService.getOrdersByStatus(status));
@@ -78,6 +85,7 @@ public class OrderControllerImpl {
 
     @GetMapping("/type/{orderType}")
     @Operation(summary = "Récupérer les commandes par type")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER','COOK')")
     public ResponseEntity<List<OrderDTO>> getOrdersByType(@PathVariable OrderType orderType) {
         log.info("Requête GET pour récupérer les commandes de type: {}", orderType);
         return ResponseEntity.ok(orderService.getOrdersByType(orderType));
@@ -85,6 +93,7 @@ public class OrderControllerImpl {
 
     @GetMapping("/date/{date}")
     @Operation(summary = "Récupérer les commandes par date")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER','COOK')")
     public ResponseEntity<List<OrderDTO>> getOrdersByDate(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         log.info("Requête GET pour récupérer les commandes de la date: {}", date);
@@ -93,6 +102,7 @@ public class OrderControllerImpl {
 
     @GetMapping("/customer/{customerId}")
     @Operation(summary = "Récupérer les commandes d'un client")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER') or @authz.isCustomer(authentication, #customerId)")
     public ResponseEntity<List<OrderDTO>> getOrdersByCustomer(@PathVariable Long customerId) {
         log.info("Requête GET pour récupérer les commandes du client avec l'ID: {}", customerId);
         return ResponseEntity.ok(orderService.getOrdersByCustomer(customerId));
@@ -100,6 +110,7 @@ public class OrderControllerImpl {
 
     @GetMapping("/status/{status}/date/{date}")
     @Operation(summary = "Récupérer les commandes par statut et date")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER','COOK')")
     public ResponseEntity<List<OrderDTO>> getOrdersByStatusAndDate(
             @PathVariable OrderStatus status,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -109,6 +120,7 @@ public class OrderControllerImpl {
 
     @GetMapping("/customer/{customerId}/date/{date}")
     @Operation(summary = "Récupérer les commandes d'un client par date")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER') or @authz.isCustomer(authentication, #customerId)")
     public ResponseEntity<List<OrderDTO>> getOrdersByCustomerAndDate(
             @PathVariable Long customerId,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -118,6 +130,7 @@ public class OrderControllerImpl {
 
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Annuler une commande")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER') or @authz.ownsOrder(authentication, #id)")
     public ResponseEntity<OrderDTO> cancelOrder(@PathVariable Long id) {
         log.info("Requête POST pour annuler la commande avec l'ID: {}", id);
         return ResponseEntity.ok(orderService.cancelOrder(id));
@@ -125,6 +138,7 @@ public class OrderControllerImpl {
 
     @PostMapping("/{id}/close")
     @Operation(summary = "Fermer une commande (prête en cuisine)")
+    @PreAuthorize("hasAnyRole('ADMIN','COOK')")
     public ResponseEntity<OrderDTO> closeOrder(@PathVariable Long id) {
         log.info("Requête POST pour fermer la commande avec l'ID: {}", id);
         return ResponseEntity.ok(orderService.closeOrder(id));
@@ -132,6 +146,7 @@ public class OrderControllerImpl {
 
     @PostMapping("/{id}/serve")
     @Operation(summary = "Marquer une commande comme servie")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<OrderDTO> serveOrder(@PathVariable Long id) {
         log.info("Requête POST pour marquer la commande comme servie avec l'ID: {}", id);
         return ResponseEntity.ok(orderService.serveOrder(id));
@@ -139,6 +154,7 @@ public class OrderControllerImpl {
 
     @PostMapping("/{id}/pay")
     @Operation(summary = "Enregistrer le paiement d'une commande")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER') or @authz.ownsOrder(authentication, #id)")
     public ResponseEntity<OrderDTO> payOrder(@PathVariable Long id,
             @Valid @RequestBody OrderPaymentRequestDTO requestDTO) {
         log.info("Requête POST pour payer la commande avec l'ID: {}", id);
@@ -147,6 +163,7 @@ public class OrderControllerImpl {
 
     @PostMapping("/{id}/start")
     @Operation(summary = "Démarrer la préparation d'une commande (ACTIVE → IN_PREPARATION)")
+    @PreAuthorize("hasAnyRole('ADMIN','COOK')")
     public ResponseEntity<OrderDTO> startOrder(@PathVariable Long id) {
         log.info("Requête POST pour démarrer la préparation de la commande ID: {}", id);
         return ResponseEntity.ok(orderService.startOrder(id));
@@ -154,6 +171,7 @@ public class OrderControllerImpl {
 
     @PutMapping("/{id}/status")
     @Operation(summary = "Changer le statut d'une commande (endpoint générique)")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER','COOK')")
     public ResponseEntity<OrderDTO> updateOrderStatus(
             @PathVariable Long id,
             @RequestParam OrderStatus status) {

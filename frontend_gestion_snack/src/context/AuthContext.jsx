@@ -4,6 +4,7 @@ import api from '../utils/api';
 import { API_ENDPOINTS } from '../config/api';
 import { toast } from 'react-toastify';
 import { wsManager } from '../lib/wsManager';
+import { getToken, storeToken, clearToken } from '../utils/authToken';
 
 const AuthContext = createContext(null);
 
@@ -53,7 +54,9 @@ export const AuthProvider = ({ children }) => {
   // Charger l'utilisateur depuis le localStorage au démarrage
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
+    // getToken() renvoie null pour un jeton absent, expiré ou pour l'ancien marqueur factice
+    // 'authenticated' : l'utilisateur est alors simplement renvoyé vers la page de connexion.
+    const storedToken = getToken();
 
     if (storedUser && storedToken) {
       try {
@@ -64,8 +67,11 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error('Erreur lors du parsing de l\'utilisateur:', error);
         localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        clearToken();
       }
+    } else if (storedUser) {
+      localStorage.removeItem('user');
+      clearToken();
     }
     setLoading(false);
   }, []);
@@ -117,7 +123,7 @@ export const AuthProvider = ({ children }) => {
       ownerId: data.ownerId,
     };
     localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('token', 'authenticated');
+    storeToken(data.token, data.expiresIn);
     setUser(userData);
     wsManager.connect(userData.userId);
     toast.success('Connexion réussie !');
@@ -129,7 +135,7 @@ export const AuthProvider = ({ children }) => {
    */
   const logout = () => {
     localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    clearToken();
     clearTimeout(window.logoutTimer);
     wsManager.disconnect(); // Ferme proprement la connexion WebSocket
     setUser(null);

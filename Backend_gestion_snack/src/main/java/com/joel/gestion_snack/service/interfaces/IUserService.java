@@ -60,6 +60,14 @@ public interface IUserService {
      * @return DTO de l'utilisateur mis à jour
      */
     UserDTO changePassword(Long id, String newPassword);
+
+    /**
+     * Changement de mot de passe par l'utilisateur lui-même : l'ancien mot de passe est vérifié côté serveur
+     * (aucun code 2FA n'est déclenché, contrairement à un appel à /auth/login).
+     *
+     * @throws IllegalArgumentException si le mot de passe actuel est incorrect
+     */
+    UserDTO changeOwnPassword(Long id, String currentPassword, String newPassword);
     
     /**
      * Récupère un utilisateur par son nom d'utilisateur

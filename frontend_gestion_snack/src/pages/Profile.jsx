@@ -155,27 +155,18 @@ const Profile = () => {
     setPasswordLoading(true);
 
     try {
-      // Vérifier le mot de passe actuel en tentant une connexion
-      const loginResponse = await api.post(API_ENDPOINTS.AUTH.LOGIN, {
-        username: user.username,
-        password: passwordData.currentPassword,
+      // Le serveur vérifie lui-même le mot de passe actuel (erreur 400 « Mot de passe actuel incorrect » sinon)
+      await api.post(API_ENDPOINTS.USERS.CHANGE_PASSWORD(user.userId), {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
       });
 
-      if (loginResponse.data && loginResponse.data.success) {
-        // Mettre à jour le mot de passe
-        await api.post(API_ENDPOINTS.USERS.CHANGE_PASSWORD(user.userId), {
-          newPassword: passwordData.newPassword,
-        });
-
-        toast.success('Mot de passe mis à jour avec succès');
-        setPasswordData({
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: '',
-        });
-      } else {
-        toast.error('Mot de passe actuel incorrect');
-      }
+      toast.success('Mot de passe mis à jour avec succès');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
     } catch (error) {
       const message = error.response?.data?.message || 'Erreur lors de la mise à jour du mot de passe';
       toast.error(message);

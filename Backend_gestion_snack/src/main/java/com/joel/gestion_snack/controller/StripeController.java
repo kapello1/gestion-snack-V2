@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.OrderDTO;
 import com.joel.gestion_snack.model.dto.OrderRequestDTO;
 import com.joel.gestion_snack.model.dto.PaymentIntentRequestDTO;
@@ -61,6 +62,7 @@ public class StripeController {
      * ne soumette un montant de 0 centime.</p>
      */
     @PostMapping("/create-payment-intent")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER','CUSTOMER')")
     public ResponseEntity<?> createPaymentIntent(@RequestBody PaymentIntentRequestDTO request) {
         if (!stripeService.isConfigured()) {
             log.error("Stripe non configuré - STRIPE_SECRET_KEY absent ou invalide");
@@ -97,6 +99,7 @@ public class StripeController {
      * ou l'endpoint {@code /refund} est nécessaire.</p>
      */
     @PostMapping("/confirm-order")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER') or @authz.isCustomer(authentication, #request.customerId)")
     public ResponseEntity<?> confirmAndCreateOrder(@RequestBody OrderRequestDTO request) {
         String piId = request.getStripePaymentIntentId();
         if (piId == null || piId.isBlank()) {
@@ -136,6 +139,7 @@ public class StripeController {
      * </ul>
      */
     @PostMapping("/refund")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> refundOrder(@RequestBody RefundRequestDTO request) {
         if (request.getOrderId() == null) {
             return ResponseEntity.badRequest()

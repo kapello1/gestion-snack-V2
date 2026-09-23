@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.controller.interfaces.ICustomerController;
 import com.joel.gestion_snack.model.dto.CustomerDTO;
 import com.joel.gestion_snack.model.dto.CustomerRequestDTO;
@@ -32,6 +33,7 @@ public class CustomerControllerImpl implements ICustomerController {
     @Override
     @GetMapping
     @Operation(summary = "Récupérer tous les clients")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER')")
     public ResponseEntity<List<CustomerDTO>> getAllCustomers() {
         log.info("Requête GET pour récupérer tous les clients");
         List<CustomerDTO> customers = customerService.getAllCustomers();
@@ -41,6 +43,7 @@ public class CustomerControllerImpl implements ICustomerController {
     @Override
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer un client par son ID")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER') or @authz.isCustomer(authentication, #id)")
     public ResponseEntity<CustomerDTO> getCustomerById(@PathVariable Long id) {
         log.info("Requête GET pour récupérer le client avec l'ID: {}", id);
         CustomerDTO customer = customerService.getCustomerById(id);
@@ -59,6 +62,7 @@ public class CustomerControllerImpl implements ICustomerController {
     @Override
     @PutMapping("/{id}")
     @Operation(summary = "Mettre à jour un client")
+    @PreAuthorize("hasRole('ADMIN') or @authz.isCustomer(authentication, #id)")
     public ResponseEntity<CustomerDTO> updateCustomer(@PathVariable Long id, 
                                                        @Valid @RequestBody CustomerRequestDTO requestDTO) {
         log.info("Requête PUT pour mettre à jour le client avec l'ID: {}", id);
@@ -69,6 +73,7 @@ public class CustomerControllerImpl implements ICustomerController {
     @Override
     @DeleteMapping("/{id}")
     @Operation(summary = "Supprimer un client")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteCustomer(@PathVariable Long id) {
         log.info("Requête DELETE pour supprimer le client avec l'ID: {}", id);
         customerService.deleteCustomer(id);
@@ -78,6 +83,7 @@ public class CustomerControllerImpl implements ICustomerController {
     @Override
     @GetMapping("/email/{email}")
     @Operation(summary = "Récupérer un client par son email")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<CustomerDTO> getCustomerByEmail(@PathVariable String email) {
         log.info("Requête GET pour récupérer le client avec l'email: {}", email);
         CustomerDTO customer = customerService.getCustomerByEmail(email);
@@ -87,6 +93,7 @@ public class CustomerControllerImpl implements ICustomerController {
     @Override
     @GetMapping("/username/{username}")
     @Operation(summary = "Récupérer un client par son nom d'utilisateur")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<CustomerDTO> getCustomerByUsername(@PathVariable String username) {
         log.info("Requête GET pour récupérer le client avec le username: {}", username);
         CustomerDTO customer = customerService.getCustomerByUsername(username);
@@ -116,6 +123,7 @@ public class CustomerControllerImpl implements ICustomerController {
 
     @GetMapping("/search")
     @Operation(summary = "Rechercher des clients par prénom ou nom")
+    @PreAuthorize("hasAnyRole('ADMIN','CASHIER','WAITER')")
     public ResponseEntity<List<CustomerDTO>> searchCustomers(@RequestParam String name) {
         log.info("Recherche de clients par nom: {}", name);
         return ResponseEntity.ok(customerService.searchByName(name));
@@ -123,6 +131,7 @@ public class CustomerControllerImpl implements ICustomerController {
 
     @PostMapping("/quick-register")
     @Operation(summary = "Inscription rapide d'un client par le serveur")
+    @PreAuthorize("hasAnyRole('ADMIN','WAITER')")
     public ResponseEntity<CustomerDTO> quickRegister(@RequestBody Map<String, String> body) {
         String firstName = body.get("firstName");
         String lastName  = body.get("lastName");

@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class RevenueController {
 
     @GetMapping("/total")
     @Operation(summary = "Récupérer le chiffre d'affaires total (Somme de toutes les commandes)")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getTotalRevenue() {
         log.info("Requête GET pour récupérer le chiffre d'affaires total (toutes les commandes)");
 
@@ -47,6 +49,7 @@ public class RevenueController {
 
     @GetMapping("/today")
     @Operation(summary = "Récupérer le chiffre d'affaires du jour")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getTodayRevenue() {
         log.info("Requête GET pour récupérer le chiffre d'affaires du jour");
 

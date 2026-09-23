@@ -1,5 +1,6 @@
 package com.joel.gestion_snack.controller.implementations;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.joel.gestion_snack.model.dto.StockAlertDTO;
 import com.joel.gestion_snack.service.interfaces.IStockAlertService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +29,7 @@ public class StockAlertControllerImpl {
     
     @GetMapping
     @Operation(summary = "Récupérer toutes les alertes de stock")
+    @PreAuthorize("hasAnyRole('ADMIN','COOK')")
     public ResponseEntity<List<StockAlertDTO>> getAllAlerts() {
         log.info("Requête GET pour récupérer toutes les alertes de stock");
         return ResponseEntity.ok(stockAlertService.getAllAlerts());
@@ -35,6 +37,7 @@ public class StockAlertControllerImpl {
     
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer une alerte par son ID")
+    @PreAuthorize("hasAnyRole('ADMIN','COOK')")
     public ResponseEntity<StockAlertDTO> getAlertById(@PathVariable Long id) {
         log.info("Requête GET pour récupérer l'alerte avec l'ID: {}", id);
         return ResponseEntity.ok(stockAlertService.getAlertById(id));
@@ -42,6 +45,7 @@ public class StockAlertControllerImpl {
     
     @GetMapping("/unresolved")
     @Operation(summary = "Récupérer les alertes non résolues")
+    @PreAuthorize("hasAnyRole('ADMIN','COOK')")
     public ResponseEntity<List<StockAlertDTO>> getUnresolvedAlerts() {
         log.info("Requête GET pour récupérer les alertes non résolues");
         return ResponseEntity.ok(stockAlertService.getUnresolvedAlerts());
@@ -49,6 +53,7 @@ public class StockAlertControllerImpl {
     
     @PostMapping("/{id}/resolve")
     @Operation(summary = "Résoudre une alerte")
+    @PreAuthorize("hasAnyRole('ADMIN','COOK')")
     public ResponseEntity<StockAlertDTO> resolveAlert(@PathVariable Long id) {
         log.info("Requête POST pour résoudre l'alerte avec l'ID: {}", id);
         return ResponseEntity.ok(stockAlertService.resolveAlert(id));
@@ -56,6 +61,7 @@ public class StockAlertControllerImpl {
     
     @GetMapping("/product/{productId}")
     @Operation(summary = "Récupérer les alertes d'un produit")
+    @PreAuthorize("hasAnyRole('ADMIN','COOK')")
     public ResponseEntity<List<StockAlertDTO>> getAlertsByProduct(@PathVariable Long productId) {
         log.info("Requête GET pour récupérer les alertes du produit avec l'ID: {}", productId);
         return ResponseEntity.ok(stockAlertService.getAlertsByProduct(productId));
@@ -63,6 +69,7 @@ public class StockAlertControllerImpl {
 
     @PostMapping
     @Operation(summary = "Créer une alerte manuelle (cuisinier)")
+    @PreAuthorize("hasAnyRole('ADMIN','COOK')")
     public ResponseEntity<?> createManualAlert(@RequestBody Map<String, Object> body) {
         Long productId         = body.get("productId") != null ? Long.valueOf(body.get("productId").toString()) : null;
         Integer requestedQty   = body.get("requestedQuantity") != null ? Integer.valueOf(body.get("requestedQuantity").toString()) : null;

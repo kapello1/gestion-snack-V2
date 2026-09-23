@@ -16,6 +16,8 @@ import com.joel.gestion_snack.repository.ReviewRepository;
 import com.joel.gestion_snack.repository.RoleRepository;
 import com.joel.gestion_snack.repository.UserRepository;
 import com.joel.gestion_snack.config.WebSocketEventPublisher;
+import com.joel.gestion_snack.security.JwtService;
+import com.joel.gestion_snack.security.UserSessionService;
 import com.joel.gestion_snack.service.EmailService;
 import com.joel.gestion_snack.service.interfaces.IUserService;
 import com.joel.gestion_snack.utils.MapperUtil;
@@ -30,9 +32,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Random;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -57,14 +60,33 @@ public class UserServiceImpl implements IUserService {
     private final EntityManager entityManager;
     private final EmailService emailService;
     private final WebSocketEventPublisher wsPublisher;
+    private final JwtService jwtService;
+    private final UserSessionService userSessionService;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    /**
+     * Identifiant de connexion : nom d'utilisateur, ou adresse email. Si la saisie contient « @ », l'email
+     * est testé en premier : un compte dont le nom d'utilisateur imiterait l'email d'un autre ne peut ainsi
+     * pas détourner la connexion de son propriétaire.
+     */
+    private Optional<User> findByLoginIdentifier(String identifier) {
+        String id = identifier == null ? "" : identifier.trim();
+        if (id.contains("@")) {
+            Optional<User> byEmail = userRepository.findFirstByEmailIgnoreCase(id);
+            if (byEmail.isPresent()) {
+                return byEmail;
+            }
+        }
+        return userRepository.findByUsername(id);
+    }
 
     @Override
     @Transactional
     public LoginResponseDTO authenticate(LoginRequestDTO loginRequest) {
         log.info("Tentative d'authentification pour l'utilisateur: {}", loginRequest.getUsername());
 
-        User user = userRepository.findByUsername(loginRequest.getUsername())
+        User user = findByLoginIdentifier(loginRequest.getUsername())
                 .orElseThrow(() -> {
                     log.error("Utilisateur non trouvé: {}", loginRequest.getUsername());
                     return new EntityNotFoundException("Nom d'utilisateur ou mot de passe incorrect");
@@ -90,7 +112,7 @@ public class UserServiceImpl implements IUserService {
         }
 
         // Générer et envoyer le code 2FA — la session n'est créée qu'après validation
-        String twoFactorCode = String.format("%06d", new Random().nextInt(1_000_000));
+        String twoFactorCode = String.format("%06d", secureRandom.nextInt(1_000_000));
         user.setTwoFactorCode(twoFactorCode);
         user.setTwoFactorCodeExpiry(LocalDateTime.now().plusMinutes(10));
         user.setTwoFactorAttempts(0);
@@ -127,6 +149,9 @@ public class UserServiceImpl implements IUserService {
         response.setOwnerId(user.getOwnerId());
         response.setSuccess(true);
         response.setMessage("Authentification réussie");
+        JwtService.IssuedToken token = jwtService.issue(user);
+        response.setToken(token.value());
+        response.setExpiresIn(token.expiresInSeconds());
         return response;
     }
 
@@ -200,7 +225,7 @@ public class UserServiceImpl implements IUserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé"));
 
-        String code = String.format("%06d", new Random().nextInt(1_000_000));
+        String code = String.format("%06d", secureRandom.nextInt(1_000_000));
         user.setTwoFactorCode(code);
         user.setTwoFactorCodeExpiry(LocalDateTime.now().plusMinutes(10));
         user.setTwoFactorAttempts(0);
@@ -373,6 +398,7 @@ public class UserServiceImpl implements IUserService {
 
         // Sauvegarder l'utilisateur EN PREMIER pour que son rôle soit à jour
         user = userRepository.save(user);
+        userSessionService.evict(user.getUserId());
         log.info("[UPDATE_USER] Succès - userId={}", user.getUserId());
 
         // Synchroniser le ROLE uniquement sur l'entité liée (pas email/username — contraintes UNIQUE risquées)
@@ -438,6 +464,17 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    public UserDTO changeOwnPassword(Long id, String currentPassword, String newPassword) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé avec l'ID: " + id));
+        if (!verifyPassword(currentPassword, user.getPassword())) {
+            log.warn("Changement de mot de passe refusé (mot de passe actuel incorrect) pour l'utilisateur {}", id);
+            throw new IllegalArgumentException("Mot de passe actuel incorrect");
+        }
+        return changePassword(id, newPassword);
+    }
+
+    @Override
     public UserDTO changePassword(Long id, String newPassword) {
         log.info("Changement de mot de passe pour l'utilisateur avec l'ID: {}", id);
         User user = userRepository.findById(id)
@@ -489,7 +526,7 @@ public class UserServiceImpl implements IUserService {
             return;
         }
         // Code 6 chiffres valable 15 minutes
-        String code = String.format("%06d", new Random().nextInt(1_000_000));
+        String code = String.format("%06d", secureRandom.nextInt(1_000_000));
         user.setResetPasswordToken(code);
         user.setResetPasswordTokenExpiry(LocalDateTime.now().plusMinutes(15));
         userRepository.save(user);
@@ -555,6 +592,7 @@ public class UserServiceImpl implements IUserService {
         user.setIsActive(false);
         user.setUpdatedBy("ADMIN");
         user = userRepository.save(user);
+        userSessionService.evict(user.getUserId());
         log.info("Utilisateur désactivé avec succès: {}", id);
         wsPublisher.publishUserEvent("USER_DEACTIVATED", user.getUserId());
         return mapperUtil.toUserDTO(user);
@@ -568,6 +606,7 @@ public class UserServiceImpl implements IUserService {
         user.setIsActive(true);
         user.setUpdatedBy("ADMIN");
         user = userRepository.save(user);
+        userSessionService.evict(user.getUserId());
         log.info("Utilisateur activé avec succès: {}", id);
         wsPublisher.publishUserEvent("USER_ACTIVATED", user.getUserId());
         return mapperUtil.toUserDTO(user);
