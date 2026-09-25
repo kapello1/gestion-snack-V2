@@ -323,7 +323,7 @@ const ProductsPage = () => {
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Catalogue Produits</h1>
-            <p className="text-gray-500 mt-1 font-medium">Gérez votre stock et vos offres avec précision</p>
+            <p className="text-gray-500 mt-1 font-medium">Gérez votre stock et toutes vos offres avec précision</p>
           </div>
           <button
             onClick={handleAdd}
