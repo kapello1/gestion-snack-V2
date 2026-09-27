@@ -50,7 +50,7 @@ const OrdersPage = () => {
           o.status === ORDER_STATUS.SERVED ||
           (o.orderType === ORDER_TYPE.TAKEAWAY && o.status === ORDER_STATUS.CLOSED)
         );
-        return !fullyDone && [ORDER_STATUS.ACTIVE, ORDER_STATUS.CLOSED, ORDER_STATUS.SERVED].includes(o.status);
+        return !fullyDone && [ORDER_STATUS.ACTIVE, ORDER_STATUS.IN_PREPARATION,ORDER_STATUS.CLOSED, ORDER_STATUS.SERVED].includes(o.status);
       }
       if (activeTab === 'finished') {
         return o.paymentCompleted === true && (
