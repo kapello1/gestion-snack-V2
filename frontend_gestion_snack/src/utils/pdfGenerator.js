@@ -1,12 +1,16 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { LABELS } from './constants';
+import { DEFAULT_RESTAURANT } from '../context/RestaurantContext';
 
-export const generateOrderPDF = (order) => {
+export const generateOrderPDF = (order, restaurantInfo) => {
     try {
         const doc = new jsPDF();
         const isInvoice = order.documentType === 'INVOICE';
         const title = isInvoice ? 'FACTURE' : 'TICKET DE COMMANDE';
+
+        // Use provided restaurant info or default
+        const restaurant = restaurantInfo || DEFAULT_RESTAURANT;
 
         // --- Header ---
         doc.setFontSize(22);
@@ -16,9 +20,9 @@ export const generateOrderPDF = (order) => {
         // Company Info
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text('SNACK MANAGEMENT SYSTEM', 105, 26, { align: 'center' });
-        doc.text('123 Rue de la Gourmandise, 75000 Paris', 105, 30, { align: 'center' });
-        doc.text('Tel: 01 23 45 67 89', 105, 34, { align: 'center' });
+        doc.text(restaurant.name, 105, 26, { align: 'center' });
+        doc.text(restaurant.address, 105, 30, { align: 'center' });
+        doc.text(restaurant.phone, 105, 34, { align: 'center' });
 
         doc.line(20, 38, 190, 38); // Separator
 

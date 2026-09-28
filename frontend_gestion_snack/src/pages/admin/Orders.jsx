@@ -9,9 +9,11 @@ import { toast } from 'react-toastify';
 import { LABELS, ORDER_STATUS } from '../../utils/constants';
 import OrderStatusBar from '../../components/OrderStatusBar';
 import { wsManager } from '../../lib/wsManager';
+import { useRestaurant } from '../../context/RestaurantContext';
 
 const OrdersPage = () => {
   const queryClient = useQueryClient();
+  const { info: restaurantInfo } = useRestaurant();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -227,7 +229,7 @@ const OrdersPage = () => {
                     <td className="px-8 py-6 text-right">
                       <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <button
-                          onClick={() => generateOrderPDF(order)}
+                          onClick={() => generateOrderPDF(order, restaurantInfo)}
                           className="p-3 bg-white text-gray-600 hover:text-blue-600 rounded-xl shadow-sm border border-gray-100 hover:border-blue-100 transition-all"
                           title="Imprimer le ticket"
                         >

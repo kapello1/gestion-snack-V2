@@ -11,9 +11,11 @@ import { useAuth } from '../../context/AuthContext';
 import { generateOrderPDF } from '../../utils/pdfGenerator';
 import OrderStatusBar from '../../components/OrderStatusBar';
 import { wsManager } from '../../lib/wsManager';
+import { useRestaurant } from '../../context/RestaurantContext';
 
 const OrdersPage = () => {
   const { user } = useAuth();
+  const { info: restaurantInfo } = useRestaurant();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -217,7 +219,7 @@ const OrdersPage = () => {
                          )}
 
                          <button
-                            onClick={() => generateOrderPDF(order)}
+                            onClick={() => generateOrderPDF(order, restaurantInfo)}
                             className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black rounded-2xl transition-all flex items-center gap-2 active:scale-95"
                          >
                             <Printer className="h-5 w-5" />

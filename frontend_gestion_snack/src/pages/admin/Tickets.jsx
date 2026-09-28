@@ -6,8 +6,10 @@ import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { generateOrderPDF } from '../../utils/pdfGenerator';
 import { wsManager } from '../../lib/wsManager';
+import { useRestaurant } from '../../context/RestaurantContext';
 
 const TicketsPage = () => {
+    const { info: restaurantInfo } = useRestaurant();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +36,7 @@ const TicketsPage = () => {
     };
 
     const handlePrint = (order) => {
-        generateOrderPDF(order);
+        generateOrderPDF(order, restaurantInfo);
     };
 
     const handleDeleteTicket = async (orderId) => {

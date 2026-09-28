@@ -8,6 +8,7 @@ import { API_ENDPOINTS } from '../../config/api';
 import { toast } from 'react-toastify';
 import { LABELS, ORDER_STATUS } from '../../utils/constants';
 import { wsManager } from '../../lib/wsManager';
+import { useRestaurant } from '../../context/RestaurantContext';
 
 const STATUS_TABS = [
   { key: 'ALL',    label: 'Toutes',     active: 'bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105' },
@@ -29,6 +30,7 @@ const groupByDate = (orders) => {
 
 const WaiterOrdersPage = () => {
   const queryClient = useQueryClient();
+  const { info: restaurantInfo } = useRestaurant();
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -210,7 +212,7 @@ const WaiterOrdersPage = () => {
                           {LABELS.ORDER_STATUS[order.status] || order.status}
                         </span>
                         <button
-                          onClick={() => generateOrderPDF(order)}
+                          onClick={() => generateOrderPDF(order, restaurantInfo)}
                           className="p-2 bg-white rounded-xl shadow-sm hover:text-blue-600 transition-colors"
                         >
                           <Printer className="h-4 w-4" />
